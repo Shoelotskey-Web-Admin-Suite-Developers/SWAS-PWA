@@ -1,5 +1,26 @@
+@font-face {
+  font-family: 'Inter Regular';
+  src: url('/fonts/Inter_18pt-Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Inter Bold';
+  src: url('/fonts/Inter_18pt-Bold.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Roboto Regular';
+  src: url('/fonts/Roboto-Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Roboto Bold';
+  src: url('/fonts/Roboto-Bold.ttf') format('truetype');
+}
+
+
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: 'Inter Regular', 'Inter Bold', 'Roboto Regular','Roboto Bold';
   line-height: 1.5;
   font-weight: 400;
 
@@ -31,6 +52,7 @@ body {
 }
 
 h1 {
+  font-family: 'Inter Bold';
   font-size: 3.2em;
   line-height: 1.1;
 }
