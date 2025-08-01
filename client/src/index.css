@@ -9,29 +9,34 @@
 }
 
 @font-face {
-  font-family: 'Roboto Regular';
-  src: url('/fonts/Roboto-Regular.ttf') format('truetype');
+  font-family: 'Inter Extra Bold';
+  src: url('/fonts/Inter_18pt-ExtraBold.ttf') format('truetype');
 }
-
-@font-face {
-  font-family: 'Roboto Bold';
-  src: url('/fonts/Roboto-Bold.ttf') format('truetype');
-}
-
 
 :root {
-  font-family: 'Inter Regular', 'Inter Bold', 'Roboto Regular','Roboto Bold';
-  line-height: 1.5;
-  font-weight: 400;
+  font-family: 'Inter Regular', 'Inter Bold', 'Inter Extra Bold';
 
   color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
+  color: #1E1E1E;
   background-color: #F0F0F0;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  --font-size-xs: 0.75rem;     /* 12px */
+  --font-size-sm: 0.875rem;    /* 14px */
+  --font-size-base: 1rem;      /* 16px */
+  --font-size-md: 1.125rem;    /* 18px */
+  --font-size-lg: 1.25rem;     /* 20px, h2 */
+  --font-size-xl: 1.5rem;     /* 24px, h1 */
+  --font-size-2xl: 2.5rem;   /* ~40px - special header 1 */
+  --font-size-3xl: 3rem;     /* ~48px - special header 2*/
+
+  --btn-font-md: .75rem;      /* 16px */
+  --btn-font-lg: 1.25rem;  /* 20px */
+  --btn-font-xl: 1.5rem; /* 24px */
 }
 
 a {
@@ -51,19 +56,165 @@ body {
   min-height: 100vh;
 }
 
+/* PREDEFINED GLOBAL FONT SIZES - SWAS PWA */
+
+      /* --HEADERS  */
 h1 {
+  font-size: var(--font-size-xl);
   font-family: 'Inter Bold';
-  font-size: 3.2em;
-  line-height: 1.1;
 }
+
+.h1-sp1 {
+  font-size: var(--font-size-2xl);
+  font-family: 'Inter Bold';
+}
+
+.h1-sp2 {
+  font-size: var(--font-size-3xl);
+  font-family: 'Inter Bold';
+}
+
+h2 {
+  font-size: var(--font-size-lg);
+  font-family: 'Inter Bold';
+}
+
+h3 {
+  font-size: var(--font-size-md);
+  font-family: 'Inter Bold';
+}
+
+h4 {
+  font-size: var(--font-size-base);
+  font-family: 'Inter Regular';
+}
+
+.bold {
+  font-family: 'Inter Regular';
+}
+
+.bold {
+  font-family: 'Inter Bold';
+}
+
+.extra-bold {
+  font-family: 'Inter Extra bold';
+}
+
+h5 {
+  font-size: var(--font-size-sm);
+  font-family: 'Inter Bold';
+}
+
+h6 {
+  font-size: var(--font-size-xs);
+  font-family: 'Inter Bold';
+}
+
+    /* --TABLE */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm); /* or whatever size fits */
+}
+
+thead {
+  background-color: transparent;
+  border-bottom: 1px solid #C7C7C7;
+}
+
+tbody{
+  background-color: #F0F0F0;
+  border-bottom: 1px solid #C7C7C7;
+}
+
+th, /* th and th padding and alignment */
+td {
+  text-align: center;
+  padding: 0.75rem 1rem; /* Subject to change (needs further calibration) */
+}
+
+th { /* th size */
+  font-family: 'Inter Bold';
+  font-size: var(--font-size-md);
+}
+
+td { /* td size */
+  font-family: 'Inter Regular';
+  font-size: var(--font-size-base);
+}
+
+tbody tr:hover { /* Subject to change (needs further calibration) */
+  background-color: #f9f9f9;
+}
+
+.tbody-transparent { /* For Database View Use */
+  background-color: transparent;
+}
+
+
+/* --TEXT AND INPUT  */
+
+p {
+  font-size: var(--font-size-base);
+  font-family: 'Inter Regular';
+}
+
+small {
+  font-size: var(--font-size-xs);
+}
+
+label {
+  font-size: var(--font-size-sm);
+}
+
+a {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+}
+
+input,
+textarea,
+select {
+  font-size: var(--font-size-base);
+  font-family: inherit;
+}
+
+.button-md { /* default button */
+  font-family: Inter Extra Bold;
+  font-size: var(--btn-font-md);
+}
+
+.button-lg { /* buttons used for modals */
+  font-family: Inter Extra Bold;
+  font-size: var(--btn-font-lg);
+}
+
+.button-xl { /* buttons used for SRM(POS part) */
+  font-size: var(--btn-font-xl);
+}
+
+    /* --Optional font items:  */
+
+blockquote {
+  font-size: var(--font-size-md);
+  font-style: italic;
+}
+
+code,
+pre,
+kbd,
+samp {
+  font-size: var(--font-size-sm);
+}
+
+/* Predefined Global Font Sizes Ends Here */
 
 button {
   border-radius: 8px;
   border: 1px solid transparent;
   padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
   background-color: #1a1a1a;
   cursor: pointer;
   transition: border-color 0.25s;
