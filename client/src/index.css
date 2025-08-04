@@ -16,7 +16,6 @@
 :root {
   font-family: 'Inter Regular', 'Inter Bold', 'Inter Extra Bold';
 
-  color-scheme: light dark;
   color: #1E1E1E;
   background-color: #F0F0F0;
 
@@ -25,27 +24,18 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  --font-size-xs: 0.75rem;     /* 12px */
-  --font-size-sm: 0.875rem;    /* 14px */
-  --font-size-base: 1rem;      /* 16px */
-  --font-size-md: 1.125rem;    /* 18px */
+  --font-size-xs: 0.75rem;     /* 12px, h6 */
+  --font-size-sm: 0.875rem;    /* 14px, h5 */
+  --font-size-base: 1rem;      /* 16px, h4 */
+  --font-size-md: 1.125rem;    /* 18px, h3 */
   --font-size-lg: 1.25rem;     /* 20px, h2 */
-  --font-size-xl: 1.5rem;     /* 24px, h1 */
+  --font-size-xl: 1.5rem;      /* 24px, h1 */
   --font-size-2xl: 2.5rem;   /* ~40px - special header 1 */
   --font-size-3xl: 3rem;     /* ~48px - special header 2*/
 
   --btn-font-md: .75rem;      /* 16px */
   --btn-font-lg: 1.25rem;  /* 20px */
   --btn-font-xl: 1.5rem; /* 24px */
-}
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
 }
 
 body {
@@ -56,10 +46,10 @@ body {
   min-height: 100vh;
 }
 
-/* PREDEFINED GLOBAL FONT SIZES - SWAS PWA */
+/* PREDEFINED GLOBAL FONT SETTINGS - SWAS PWA */
 
       /* --HEADERS  */
-h1 {
+h1 {  /* Headers */
   font-size: var(--font-size-xl);
   font-family: 'Inter Bold';
 }
@@ -74,20 +64,69 @@ h1 {
   font-family: 'Inter Bold';
 }
 
-h2 {
+h2 {  /* Navbar Branch Name */
   font-size: var(--font-size-lg);
   font-family: 'Inter Bold';
 }
 
-h3 {
+h3 {  /* Navbar Tabs */
   font-size: var(--font-size-md);
   font-family: 'Inter Bold';
 }
 
-h4 {
+h4 {  /* Table Header */
   font-size: var(--font-size-base);
   font-family: 'Inter Regular';
 }
+
+h5 {
+  font-size: var(--font-size-sm);
+  font-family: 'Inter Bold';
+}
+
+h6 {
+  font-size: var(--font-size-xs);
+  font-family: 'Inter Bold';
+}
+
+    /* --TEXT AND INPUT  */
+
+p {
+  font-size: var(--font-size-base);
+  font-family: 'Inter Regular';
+}
+
+small {
+  font-size: var(--font-size-xs);
+  font-family: 'Inter Regular';
+}
+
+label {
+  font-size: var(--font-size-sm);
+  font-family: 'Inter Regular';
+}
+
+a {
+  font-size: var(--font-size-base);
+  font-family: 'Inter Regular';
+  color: #646cff;
+  text-decoration: inherit;
+}
+
+a:hover {
+    color: #535bf2;
+}
+
+
+input,
+textarea,
+select {
+  font-size: var(--font-size-base);
+  font-family: 'Inter Regular';
+}
+
+    /* --Optional font items:  */
+
 
 .bold {
   font-family: 'Inter Regular';
@@ -101,17 +140,19 @@ h4 {
   font-family: 'Inter Extra bold';
 }
 
-h5 {
+blockquote {
+  font-size: var(--font-size-md);
+  font-style: italic;
+}
+
+code,
+pre,
+kbd,
+samp {
   font-size: var(--font-size-sm);
-  font-family: 'Inter Bold';
 }
 
-h6 {
-  font-size: var(--font-size-xs);
-  font-family: 'Inter Bold';
-}
-
-    /* --TABLE */
+/* --TABLE */
 
 table {
   width: 100%;
@@ -153,33 +194,7 @@ tbody tr:hover { /* Subject to change (needs further calibration) */
   background-color: transparent;
 }
 
-
-/* --TEXT AND INPUT  */
-
-p {
-  font-size: var(--font-size-base);
-  font-family: 'Inter Regular';
-}
-
-small {
-  font-size: var(--font-size-xs);
-}
-
-label {
-  font-size: var(--font-size-sm);
-}
-
-a {
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-medium);
-}
-
-input,
-textarea,
-select {
-  font-size: var(--font-size-base);
-  font-family: inherit;
-}
+/* --BUTTON */
 
 .button-md { /* default button */
   font-family: Inter Extra Bold;
@@ -194,22 +209,6 @@ select {
 .button-xl { /* buttons used for SRM(POS part) */
   font-size: var(--btn-font-xl);
 }
-
-    /* --Optional font items:  */
-
-blockquote {
-  font-size: var(--font-size-md);
-  font-style: italic;
-}
-
-code,
-pre,
-kbd,
-samp {
-  font-size: var(--font-size-sm);
-}
-
-/* Predefined Global Font Sizes Ends Here */
 
 button {
   border-radius: 8px;
@@ -227,15 +226,17 @@ button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+/* 1. PC/Desktop (default UP TOP no need to define) */
+
+/* 2. Tablet */
+@media (max-width: 1023px) {
+  html {
+    font-size: 16px;
+}
+}
+/* 3. Mobile */
+@media (max-width: 639px) {
+  html {
+    font-size: 14px;
+}
 }
