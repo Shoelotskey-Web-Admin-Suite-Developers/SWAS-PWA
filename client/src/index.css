@@ -50,6 +50,10 @@ body {
   min-height: 100vh;
 }
 
+html {
+  font-size: 14px;
+}
+
 /* PREDEFINED GLOBAL FONT SETTINGS - SWAS PWA */
 
       /* --HEADERS  */
@@ -113,12 +117,12 @@ label {
 a {
   font-size: var(--font-size-base);
   font-family: 'Inter Regular';
-  color: #646cff;
+  color: #1E1E1E;
   text-decoration: inherit;
 }
 
 a:hover {
-    color: #535bf2;
+    color: #CE1616;
 }
 
 
@@ -235,13 +239,13 @@ button:focus-visible {
 /* 2. Tablet */
 @media (max-width: 1023px) {
   html {
-    font-size: 16px;
+    font-size: 14px;
 }
 }
 /* 3. Mobile */
 @media (max-width: 639px) {
   html {
-    font-size: 14px;
+    font-size: 12px;
 }
 }
 

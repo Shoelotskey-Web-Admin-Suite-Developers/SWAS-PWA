@@ -1,45 +1,48 @@
 import '@/App.css'
-import { useState } from 'react'
+import '@/index.css'
+import swasLogo from '@/assets/images/SWAS-Logo-Small.png'
+import NotifIcon from '@/components/icons/NotifIcon';
+
+
 
 function App() {
-  const [count, setCount] = useState(0)
 
   return (
     <>
       <div className='navBar'>
-        <h1>Sample Navbar text</h1>
+        <div className='navBar-contents'>
+          <div className='navBar-contents-p1'>
+            <img src={swasLogo} alt="SWAS Logo" />
+            <div className='nav-BranchName'><h2>Branch Name</h2></div>
+            <a href=""><h2 className='regular'>Log Out</h2></a>
+          </div>
+          <div className='navBar-contents-p2'>
+            <ul>
+              <li><a href=""><h3>Service Request</h3></a></li>
+              <li><a href=""><h3>Operations</h3></a></li>
+              <li><a href=""><h3>Database View</h3></a></li>
+              <li><a href=""><h3>Analytics</h3></a></li>
+              <li><a href=""><h3>User Management</h3></a></li>
+              <li><a href=""><NotifIcon /></a>
+                </li>
+            </ul>
+          </div>
+          <div className='navBar-contents-p2-mobile'>
+            asdasdasd
+          </div>
+        </div>
+          <svg width="100%" height="7">
+            <line x1="0" y1="5" x2="100%" y2="5" stroke="#797979" strokeWidth="3" strokeDasharray="13 8" />
+          </svg>
       </div>
+
       <div className='mainContent'>
-        {/* <h1>This is the main content</h1> */}
+        {/* This is the main content */}
       </div>
 
-      <h1>This is h1- Customer Information</h1>
-      <h2>This is h2</h2>
-      <h3>This is h3</h3>
-      <h4>This is h4</h4>
-      <h5>This is h5</h5>
-      <h6>This is h6</h6>
-      <p>Edit <code>src/App.tsx</code> and save to test HMR</p>
-      
-      <div className="card">
-        <label>Label</label>
-        <input/>
-      </div>
-
-      <div className="card">
-        <label>Label</label>
-        <select>
-          <option value="">option1</option>
-        </select>
-      </div>
-
-      <div className="card">
-        <button className="button-md" onClick={() => setCount((count) => count + 1)}>
-          Edit
-        </button>
-      </div>
     </>
   )
 }
+
 
 export default App
