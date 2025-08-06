@@ -2,10 +2,21 @@ import '@/App.css'
 import '@/index.css'
 import swasLogo from '@/assets/images/SWAS-Logo-Small.png'
 import NotifIcon from '@/components/icons/NotifIcon';
-
-
+import { useDropdownHandlers } from "@/hooks/useDropdownHandlers";
+import { useState, useRef } from 'react';
 
 function App() {
+  const [opDropdown, setopDropdown ] = useState(false);
+  const [dbDropdown, setdbDropdown] = useState(false);
+  const [userDropdown, setuserDropdown] = useState(false);
+
+  const opDropdownHandlers = useDropdownHandlers(setopDropdown);
+  const dbDropdownHandlers = useDropdownHandlers(setdbDropdown);
+  const userDropdownHandlers = useDropdownHandlers(setuserDropdown);
+
+  const [isOpen, setIsOpen] = useState(false);
+  const toggleMenu = () => setIsOpen(prev => !prev);
+
 
   return (
     <>
@@ -19,16 +30,232 @@ function App() {
           <div className='navBar-contents-p2'>
             <ul>
               <li><a href=""><h3>Service Request</h3></a></li>
-              <li><a href=""><h3>Operations</h3></a></li>
-              <li><a href=""><h3>Database View</h3></a></li>
+
+              {/* Operations dropdown */}
+              <li className={`dropdown ${opDropdown ? "dropdown-open" : ""}`}>
+                <div {...opDropdownHandlers}>
+                  <h3>Operations</h3>
+                  {opDropdown && (
+                    <div className="dropdown-menu">
+                      <div className='dropdown-items'>
+                        <div className='dropdown-item'>
+                          <a href="">Operations</a>
+                        </div>
+                        <div className='dropdown-item'>
+                          <a href="">Payment</a>
+                        </div>
+                      </div>
+                    </div>
+                )}
+                </div>
+              </li>
+
+              {/* Database View dropdown */}
+              <li className={`dropdown ${dbDropdown ? "dropdown-open" : ""}`}>
+                <div {...dbDropdownHandlers}>
+                  <h3>Database View</h3>
+                  {dbDropdown && (
+                    <div className="dropdown-menu">
+                      <div className='dropdown-items'>
+                        <div className='dropdown-item'>
+                          <a href="">Central View</a>
+                        </div>
+                        <div className='dropdown-item'>
+                          <a href="">Customer Information</a>
+                        </div>
+                        <div className='dropdown-item'>
+                          <a href="">Branches</a>
+                        </div>
+                      </div>
+                    </div>
+                )}
+                </div>
+              </li>
+
               <li><a href=""><h3>Analytics</h3></a></li>
-              <li><a href=""><h3>User Management</h3></a></li>
+
+              <li className={`dropdown ${userDropdown ? "dropdown-open" : ""}`}>
+                <div {...userDropdownHandlers}>
+                  <h3>User Management</h3>
+                  {userDropdown && (
+                    <div className="dropdown-menu">
+                      <div className='dropdown-items'>
+                        <div className='dropdown-item'>
+                          <a href="">Appointments</a>
+                        </div>
+                        <div className='dropdown-item'>
+                          <a href="">Announcements</a>
+                        </div>
+                      </div>
+                    </div>
+                )}
+                </div>
+              </li>
               <li><a href=""><NotifIcon /></a>
                 </li>
             </ul>
           </div>
+
+
+
+          {/* ===== BREAKPOINT TABLET ===== */}
+
+          <div className='navBar-contents-p2-tablet'>
+            <div>
+              <ul>
+                <li><a href=""><h3>Service Request</h3></a></li>
+
+                {/* Operations dropdown */}
+                <li className={`dropdown ${opDropdown ? "dropdown-open" : ""}`}>
+                  <div {...opDropdownHandlers}>
+                    <h3>Operations</h3>
+                    {opDropdown && (
+                      <div className="dropdown-menu">
+                        <div className='dropdown-items'>
+                          <div className='dropdown-item'>
+                            <a href="">Operations</a>
+                          </div>
+                          <div className='dropdown-item'>
+                            <a href="">Payment</a>
+                          </div>
+                        </div>
+                      </div>
+                  )}
+                  </div>
+                </li>
+
+                <li><a href=""><NotifIcon /></a>
+                </li>
+
+                <li>
+                  <div className={`burger-icon ${isOpen ? 'open' : ''}`} onClick={toggleMenu}>
+                    <div className="line"></div>
+                    <div className="line"></div>
+                    <div className="line"></div>
+                  </div>
+
+                  {isOpen && (
+                    <div className="burger-dropdown">
+                      <ul>
+                        {/* Database View dropdown */}
+                        <li className={`dropdown ${dbDropdown ? "dropdown-open" : ""}`}>
+                          <div onClick={() => setdbDropdown(prev => !prev)}>
+                            <h3>Database View</h3>
+                            {dbDropdown && (
+                              <div className='dropdown-tablet'>
+                                <a href="">Central View</a>
+                                <a href="">Customer Information</a>
+                                <a href="">Branches</a>
+                              </div>
+                          )}
+                          </div>
+                        </li>
+                        <li>
+                          <a href="#">
+                            <h3>Analytics</h3>
+                            </a>
+                        </li>
+                        {/* User Management dropdown */}
+                        <li className={`dropdown ${userDropdown ? "dropdown-open" : ""}`}>
+                          <div onClick={() => setuserDropdown(prev => !prev)}>
+                            <h3>User Management</h3>
+                            {userDropdown && (
+                              <div className='dropdown-tablet'>
+                                <a href="">Appointments</a>
+                                <a href="">Announcements</a>
+                              </div>
+                          )}
+                          </div>
+                        </li>
+                      </ul>
+                    </div>
+                  )}
+                </li>
+              </ul>
+
+            </div>
+          </div>
+
+
+
+          {/* ===== BREAKPOINT MOBILE ===== */}
+
+          <div className='navBar-contents-p1-mobile'>
+            <img src={swasLogo} alt="SWAS Logo" />
+          </div>
+
+            <div className='nav-BranchName-mobile'><h3>Branch Name</h3></div>
+          
+
           <div className='navBar-contents-p2-mobile'>
-            asdasdasd
+            <ul>
+                <li><a href=""><NotifIcon /></a>
+                </li>
+
+                <li>
+                  <div className={`burger-icon ${isOpen ? 'open' : ''}`} onClick={toggleMenu}>
+                    <div className="line"></div>
+                    <div className="line"></div>
+                    <div className="line"></div>
+                  </div>
+
+                  {isOpen && (
+                    <div className="burger-dropdown">
+                      <ul>
+                        <li><a href=""><h3>Service Request</h3></a>
+                        </li>
+
+                        {/* Operations dropdown */}
+                        <li className={`dropdown ${opDropdown ? "dropdown-open" : ""}`}>
+                          <div onClick={() => setopDropdown(prev => !prev)}>
+                            <h3>Operations</h3>
+                            {opDropdown && (
+                              <div className='dropdown-tablet'>
+                                <a href="">Operations</a>
+                                <a href="">Payment</a>
+                              </div>
+                          )}
+                          </div>
+                        </li>
+
+                        {/* Database View dropdown */}
+                        <li className={`dropdown ${dbDropdown ? "dropdown-open" : ""}`}>
+                          <div onClick={() => setdbDropdown(prev => !prev)}>
+                            <h3>Database View</h3>
+                            {dbDropdown && (
+                              <div className='dropdown-tablet'>
+                                <a href="">Central View</a>
+                                <a href="">Customer Information</a>
+                                <a href="">Branches</a>
+                              </div>
+                          )}
+                          </div>
+                        </li>
+                        <li>
+                          <a href="#">
+                            <h3>Analytics</h3>
+                            </a>
+                        </li>
+                        {/* User Management dropdown */}
+                        <li className={`dropdown ${userDropdown ? "dropdown-open" : ""}`}>
+                          <div onClick={() => setuserDropdown(prev => !prev)}>
+                            <h3>User Management</h3>
+                            {userDropdown && (
+                              <div className='dropdown-tablet'>
+                                <a href="">Appointments</a>
+                                <a href="">Announcements</a>
+                              </div>
+                            )}
+                          </div>
+                        </li>
+
+                        <li><a href="">Log Out</a>
+                        </li>
+                      </ul>
+                    </div>
+                  )}
+                </li>
+              </ul>
           </div>
         </div>
           <svg width="100%" height="7">

@@ -13,7 +13,7 @@ export default function NotifIcon() {
           fill: hovered ? '#CE1616' : '#1E1E1E',
           width: '24px',
           height: '24px',
-          padding: '10 0 0 0',
+          padding: '0 0 0 0',
         }}
       />
   );
