@@ -4,8 +4,11 @@ import swasLogo from '@/assets/images/SWAS-Logo-Small.png'
 import NotifIcon from '@/components/icons/NotifIcon';
 import { useDropdownHandlers } from "@/hooks/useDropdownHandlers";
 import { useState, useRef } from 'react';
+import SRM from '@/pages/srm';
 
 function App() {
+  const [activePage, setActivePage] = useState<'serviceRequest' | 'home' | 'other'>('home');
+
   const [opDropdown, setopDropdown ] = useState(false);
   const [dbDropdown, setdbDropdown] = useState(false);
   const [userDropdown, setuserDropdown] = useState(false);
@@ -29,7 +32,15 @@ function App() {
           </div>
           <div className='navBar-contents-p2'>
             <ul>
-              <li><a href=""><h3>Service Request</h3></a></li>
+              <li>
+                <a href="#" onClick={(e) => { 
+                  e.preventDefault(); 
+                  setActivePage('serviceRequest'); 
+                }}>
+                  <h3>Service Request</h3>
+                </a>
+              </li>
+
 
               {/* Operations dropdown */}
               <li className={`dropdown ${opDropdown ? "dropdown-open" : ""}`}>
@@ -264,9 +275,12 @@ function App() {
       </div>
 
       <div className='mainContent'>
-        {/* This is the main content */}
+        {activePage === 'serviceRequest' ? <SRM /> : (
+          <div>
+            <SRM />
+          </div>
+        )}
       </div>
-
     </>
   )
 }

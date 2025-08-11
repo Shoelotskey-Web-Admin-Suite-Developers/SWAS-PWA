@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import SWAS_Logo from '@/assets/images/SWAS-Logo-Large.png'
 import BG_PATTERN from '@/assets/images/bg-pattern.png'
-import '@/styles/Login.css'
+import '@/styles/login.css'
 
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -29,6 +29,12 @@ function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!form.branch) {
+      alert("Please select a branch")
+      return
+    }
+
     setLoading(true)
 
     const payload = { ...form }
@@ -36,6 +42,7 @@ function Login() {
 
     setTimeout(() => setLoading(false), 1000)
   }
+
 
   return (
     <div
@@ -49,7 +56,7 @@ function Login() {
           </div>
 
           <div className="input-wrapper">
-            <InputField label="Choose Branch">
+            <InputField label="Choose Branch" >
               <Select
                 onValueChange={(val) => handleChange('branch', val)}
                 value={form.branch}
