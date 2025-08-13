@@ -3,18 +3,23 @@
 } */
 
 html, body {
-  height: 100%;
   overflow-y: overlay;
   overflow-x: hidden;
 }
 
+@media (min-width: 1024px) {
+  .html, body {
+    overflow-y: hidden;
+  }
+}
+
+
+
 .srm-container {
   position: relative;
-  top: 97px;
   display: flex;
   flex-direction: column;
   width: calc(100vw - 8px);
-  height: 100%;
 }
 
 @media (min-width: 1024px) {
@@ -23,22 +28,28 @@ html, body {
   }
 }
 
-
-
 .srm-form-container {
   display: flex;
   width: 100%;
-  /* background-color: red; */
   justify-content: flex-end;
 }
 
+@media (min-width: 1024px) {
+  .srm-form-container {
+    overflow-y: scroll;
+    max-height: calc(100dvh - 97px);
+  }
+}
+
 .srm-form {
+  height: 100%;
   display: flex;
   flex-direction: column;
   width: 100%;
   padding: 1.5rem;
   gap: 1rem;
   /* background-color: green; */
+  margin-bottom: 20px;
 }
 
 @media (min-width: 1024px) {
@@ -103,23 +114,62 @@ html, body {
   margin: 0.5rem 0;
 }
 
+.total {
+  width: 30%;
+  margin-left: auto; /* pushes it to the right */
+  display: flex;
+  height: 2px;
+  background-color: #d3d3d3;
+}
+
 .shoe-info-grid {
   display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  flex-wrap: wrap;
+  flex-direction: column; /* mobile: stacked */
+  gap: 2rem;
+  width: 100%;
 }
 
+/* Tablet: stack or row, depending on your needs */
 @media (min-width: 768px) {
   .shoe-info-grid {
-    flex-direction: row;
-  }
-
-  .shoe-info-grid > div {
-    flex: 1 1 calc(25% - 0.75rem);
+    flex-direction: column; /* keep stacked until large desktop */
   }
 }
 
+/* Large desktop: side by side */
+@media (min-width: 1368px) {
+  .shoe-info-grid {
+    flex-direction: row;
+    align-items: flex-start; /* keep tops aligned */
+  }
+
+  .shoe-model {
+    flex: 0 0 40%; /* fixed to 30% */
+    max-width: 40%;
+  }
+
+  .services {
+    flex: 1;       /* take the rest */
+    max-width: 60%;
+    width: auto;   /* prevent fixed width from earlier rules */
+  }
+}
+
+
+.bottom-space {
+  background-color: transparent;
+  border: 1px solid transparent;
+  margin-top: 0.5rem;
+  margin-bottom: -3rem;
+}
+
+
+
+.services {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
 
 .checkbox-grid {
   display: grid;
@@ -235,15 +285,13 @@ html, body {
 .srm-summary {
   position: sticky;
   top: 97px; /* sticks below your header/nav height */
-  height: calc(100vh - 97px);
   width: 100%;
   display: flex;
 }
 
-
-
 @media (min-width: 1024px) {
   .srm-summary {
+    height: calc(100vh - 97px);
     width: 700px;
   }
 }
@@ -269,9 +317,17 @@ html, body {
 
 .srm-summary-body {
   display: flex;
+  height: auto;
   flex-direction: column;
   gap: 0.5rem;
   flex-grow: 1;
+}
+
+@media (min-width: 1024px) {
+  .srm-summary-body {
+    max-height: 50dvh;
+    overflow-y: auto;
+  }
 }
 
 .summary-title {
@@ -303,8 +359,8 @@ html, body {
 }
 
 .summary-service-entry {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 0.5rem;
 }
 
