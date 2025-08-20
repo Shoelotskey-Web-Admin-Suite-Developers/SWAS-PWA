@@ -373,7 +373,6 @@ export default function SRM() {
     customerPaid,
     change,
     balance,
-    estimatedCompletionDate,
     receivedBy,
   };
 
