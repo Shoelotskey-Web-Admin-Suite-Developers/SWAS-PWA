@@ -4,8 +4,8 @@ import NotifIcon from '@/components/icons/NotifIcon'
 import { useDropdownHandlers } from '@/hooks/useDropdownHandlers'
 
 type NavbarProps = {
-  activePage: 'serviceRequest' | 'home' | 'other'
-  setActivePage: React.Dispatch<React.SetStateAction<'serviceRequest' | 'home' | 'other'>>
+  activePage: 'serviceRequest' | 'operations' | 'payment'
+  setActivePage: React.Dispatch<React.SetStateAction<'serviceRequest' | 'operations' | 'payment'>>
 }
 
 export default function Navbar({ activePage, setActivePage }: NavbarProps) {
@@ -44,8 +44,8 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
                 {opDropdown && (
                   <div className="dropdown-menu">
                     <div className='dropdown-items'>
-                      <div className='dropdown-item'><a href="">Operations</a></div>
-                      <div className='dropdown-item'><a href="">Payment</a></div>
+                      <div className='dropdown-item'><a href="" onClick={e => { e.preventDefault(); setActivePage('operations') }}>Operations</a></div>
+                      <div className='dropdown-item'><a href="" onClick={e => { e.preventDefault(); setActivePage('payment') }}>Payment</a></div>
                     </div>
                   </div>
                 )}
