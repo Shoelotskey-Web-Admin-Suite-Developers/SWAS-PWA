@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import swasLogo from '@/assets/images/SWAS-Logo-Small.png'
 import NotifIcon from '@/components/icons/NotifIcon'
 import { useDropdownHandlers } from '@/hooks/useDropdownHandlers'
@@ -19,6 +19,13 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
 
   const [isOpen, setIsOpen] = useState(false)
   const toggleMenu = () => setIsOpen(prev => !prev)
+
+    // Close all dropdowns when activePage changes
+  useEffect(() => {
+    setOpDropdown(false)
+    setDbDropdown(false)
+    setUserDropdown(false)
+  }, [activePage])
 
   return (
     <div className='navBar'>
@@ -95,7 +102,7 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
         <div className='navBar-contents-p2-tablet'>
           <div>
             <ul>
-              <li><a href=""><h3>Service Request</h3></a></li>
+              <li><a href="" onClick={e => { e.preventDefault(); setActivePage('serviceRequest') }}><h3>Service Request</h3></a></li>
 
               <li className={`dropdown ${opDropdown ? "dropdown-open" : ""}`}>
                 <div {...opDropdownHandlers}>
@@ -103,8 +110,8 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
                   {opDropdown && (
                     <div className="dropdown-menu">
                       <div className='dropdown-items'>
-                        <div className='dropdown-item'><a href="">Operations</a></div>
-                        <div className='dropdown-item'><a href="">Payment</a></div>
+                        <div className='dropdown-item'><a href="" onClick={e => { e.preventDefault(); setActivePage('operations') }}>Operations</a></div>
+                        <div className='dropdown-item'><a href="" onClick={e => { e.preventDefault(); setActivePage('payment') }}>Payment</a></div>
                       </div>
                     </div>
                   )}
@@ -175,15 +182,15 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
               {isOpen && (
                 <div className="burger-dropdown">
                   <ul>
-                    <li><a href=""><h3>Service Request</h3></a></li>
+                    <li><a href="" onClick={e => { e.preventDefault(); setActivePage('serviceRequest') }}><h3>Service Request</h3></a></li>
 
                     <li className={`dropdown ${opDropdown ? "dropdown-open" : ""}`}>
                       <div onClick={() => setOpDropdown(prev => !prev)}>
                         <h3>Operations</h3>
                         {opDropdown && (
                           <div className='dropdown-tablet'>
-                            <a href="">Operations</a>
-                            <a href="">Payment</a>
+                            <a href="" onClick={e => { e.preventDefault(); setActivePage('operations') }}>Operations</a>
+                            <a href="" onClick={e => { e.preventDefault(); setActivePage('payment') }}>Payment</a>
                           </div>
                         )}
                       </div>
