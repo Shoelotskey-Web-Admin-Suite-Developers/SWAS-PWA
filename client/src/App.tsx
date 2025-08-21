@@ -5,9 +5,10 @@ import Navbar from '@/components/Navbar'
 import SRM from '@/pages/srm'
 import Operations from '@/pages/operations/operations';
 import Payment from '@/pages/operations/payment';
+import CentralView from '@/pages/database-view/CentralView';
 
 function App() {
-  const [activePage, setActivePage] = useState<'serviceRequest' | 'operations' | 'payment'>('serviceRequest')
+  const [activePage, setActivePage] = useState<'serviceRequest' | 'operations' | 'payment' | 'central-view'>('serviceRequest')
 
   return (
     <>
@@ -17,6 +18,7 @@ function App() {
         {activePage === 'serviceRequest' && <SRM />}
         {activePage === 'operations' && <Operations />}
         {activePage === 'payment' && <Payment />}
+        {activePage === 'central-view' && <CentralView />}
       </div>
     </>
   )

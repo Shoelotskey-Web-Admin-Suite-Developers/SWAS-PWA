@@ -1,0 +1,199 @@
+/* Root layout */
+.cv-wrap {
+  padding: 28px 24px 40px;
+  width: calc(100vw - 8px);
+  margin: 0 auto;
+  background-color: white;
+}
+
+.cv-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.cv-title {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.cv-kebab {
+  display: flex;
+  gap: 0px;
+  color: #9ca3af; /* gray-400 */
+  margin-right: -30px;
+  margin-left: -20px;
+}
+
+/* Card & controls */
+.cv-card {
+  margin-bottom: 18px;
+}
+
+.cv-card-header {
+  padding: 16px 16px 0 16px;
+}
+
+.cv-card-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280; /* gray-500 */
+}
+
+.cv-controls {
+  padding-top: 8px !important;
+}
+
+.search-sort {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
+}
+
+.date-filter {
+  display: flex;
+  gap: 1rem;
+}
+
+.cv-date {
+  display: flex;
+  width: 100%;
+  gap: 1rem;
+  align-items: flex-end;
+}
+
+/* Filters grid */
+.cv-filters {
+  display: flex;
+  width: 100%;
+  gap: 1rem;
+  align-items: flex-end;
+}
+
+@media (max-width: 1024px) {
+  .cv-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.cv-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cv-select {
+  width: 100%;
+}
+
+.cv-date-btn {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 8px;
+  border-color: #111827;
+}
+
+.cv-date-icon {
+  opacity: 0.8;
+}
+
+/* Advanced toggle row aligns to left with label */
+.cv-advanced-toggle {
+  grid-column: span 1 / span 1;
+  display: flex;
+  align-items: center;
+}
+
+.cv-advanced {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 4px;
+}
+
+.cv-advanced-label {
+  font-size: 12px;
+  color: #111827;
+}
+
+/* Sort sits at far right on wide screens */
+.cv-sort {
+  grid-column: span 1 / span 1;
+}
+
+/* Action buttons area */
+.cv-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* Table styling */
+.cv-table-card {
+  overflow: hidden;
+}
+
+.cv-thead {
+  background: #f9fafb; /* gray-50 */
+}
+
+.cv-head-row th {
+  white-space: nowrap;
+}
+
+.cv-row {
+  border-bottom: 1px solid #dcfce7; /* green-100 */
+}
+
+.cv-row:last-child {
+  border-bottom: 1px solid #dcfce7;
+}
+
+.cv-id {
+  font-weight: 700;
+  color: #111827;
+}
+
+.cv-received {
+  white-space: nowrap;
+}
+
+.cv-num {
+  text-align: right;
+  tab-size: 2;
+}
+
+.cv-status {
+  font-weight: 600;
+}
+
+.cv-status-paid {
+  color: #047857; /* emerald-700 */
+}
+
+.cv-status-partial {
+  color: #ca8a04; /* yellow-600 */
+}
+
+.cv-status-np {
+  color: #6b7280; /* gray-500 */
+}
+
+.cv-action-col,
+.cv-action {
+  text-align: right;
+}
+
+.cv-edit-btn {
+  background: #ef4444; /* red-500 */
+  color: white;
+  border-radius: 9999px;
+  padding-left: 18px;
+  padding-right: 18px;
+}
+.cv-edit-btn:hover {
+  background: #dc2626; /* red-600 */
+}
