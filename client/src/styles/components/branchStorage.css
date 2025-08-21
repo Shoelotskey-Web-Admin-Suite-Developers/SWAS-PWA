@@ -41,7 +41,7 @@
 }
 
 /* 2. Tablet */
-@media (max-width: 1023px) {
+@media (max-width: 1088px) {
   .branch-card-contents h1 {
     font-size: var(--font-size-xl);
   }
@@ -99,7 +99,7 @@
 
 
 /* 2. Mobile */
-@media (max-width: 599px) {
+@media (max-width: 465px) {
   .mobile {
     display: flex;
     align-items: center;

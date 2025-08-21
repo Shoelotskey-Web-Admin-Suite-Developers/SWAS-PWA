@@ -102,7 +102,7 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
         <div className='navBar-contents-p2-tablet'>
           <div>
             <ul>
-              <li><a href="" onClick={e => { e.preventDefault(); setActivePage('serviceRequest') }}><h3>Service Request</h3></a></li>
+              <li><a href="" onClick={e => { e.preventDefault(); setActivePage('serviceRequest'); setIsOpen(false);   }}><h3>Service Request</h3></a></li>
 
               <li className={`dropdown ${opDropdown ? "dropdown-open" : ""}`}>
                 <div {...opDropdownHandlers}>
@@ -110,8 +110,8 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
                   {opDropdown && (
                     <div className="dropdown-menu">
                       <div className='dropdown-items'>
-                        <div className='dropdown-item'><a href="" onClick={e => { e.preventDefault(); setActivePage('operations') }}>Operations</a></div>
-                        <div className='dropdown-item'><a href="" onClick={e => { e.preventDefault(); setActivePage('payment') }}>Payment</a></div>
+                        <div className='dropdown-item'><a href="" onClick={e => { e.preventDefault(); setActivePage('operations'); setIsOpen(false); }}>Operations</a></div>
+                        <div className='dropdown-item'><a href="" onClick={e => { e.preventDefault(); setActivePage('payment'); setIsOpen(false); }}>Payment</a></div>
                       </div>
                     </div>
                   )}
@@ -182,15 +182,27 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
               {isOpen && (
                 <div className="burger-dropdown">
                   <ul>
-                    <li><a href="" onClick={e => { e.preventDefault(); setActivePage('serviceRequest') }}><h3>Service Request</h3></a></li>
+                    <li><a href="" onClick={e => { 
+                      e.preventDefault(); 
+                      setActivePage('serviceRequest');
+                      setIsOpen(false); 
+                      }}><h3>Service Request</h3></a></li>
 
                     <li className={`dropdown ${opDropdown ? "dropdown-open" : ""}`}>
                       <div onClick={() => setOpDropdown(prev => !prev)}>
                         <h3>Operations</h3>
                         {opDropdown && (
                           <div className='dropdown-tablet'>
-                            <a href="" onClick={e => { e.preventDefault(); setActivePage('operations') }}>Operations</a>
-                            <a href="" onClick={e => { e.preventDefault(); setActivePage('payment') }}>Payment</a>
+                            <a href="" onClick={e => { 
+                              e.preventDefault(); 
+                              setActivePage('operations');
+                              setIsOpen(false); 
+                              }}>Operations</a>
+                            <a href="" onClick={e => { 
+                              e.preventDefault(); 
+                              setActivePage('payment');
+                              setIsOpen(false);  
+                              }}>Payment</a>
                           </div>
                         )}
                       </div>

@@ -18,7 +18,16 @@
 
 .main-card {
   width: 95%;
-  margin-top: 30px;
+  margin-top: 15px;
+  padding: 20px 0px;
+}
+
+@media (max-width: 1023px) {
+  .main-card {
+    width: 95%;
+    margin-top: 10px;
+    padding: 20px 0px;
+  }
 }
 
 
