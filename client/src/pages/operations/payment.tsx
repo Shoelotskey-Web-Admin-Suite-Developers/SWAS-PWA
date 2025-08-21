@@ -24,6 +24,9 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import "@/styles/payment.css"
+import React from "react"
+import { SelectableTableRow } from "@/components/PaymentsTableRow"
+import { PaymentsTableHeader } from "@/components/PaymentsTableHeader"
 
 type Shoe = {
   model: string
@@ -66,17 +69,13 @@ function formatCurrency(n: number) {
 }
 
 function getPaymentStatus(balance: number, totalAmount: number): string {
-  if (balance === totalAmount) {
-    return "NP" // Not Paid
-  } else if (balance > 0 && balance < totalAmount) {
-    return "PARTIAL" // Partially Paid
-  } else if (balance === 0) {
-    return "PAID" // Fully Paid
-  }
+  if (balance === totalAmount) return "NP"
+  else if (balance > 0 && balance < totalAmount) return "PARTIAL"
+  else if (balance === 0) return "PAID"
   return "Unknown"
 }
 
-// Dummy table rows
+// --- Dummy Data ---
 function generateDummyRequests(count: number) {
   const customers = [
     { id: "CUST-0001", name: "Juan Dela Cruz" },
@@ -99,7 +98,7 @@ function generateDummyRequests(count: number) {
     }))
 
     const total = 800 + Math.floor(Math.random() * 500)
-    const paid = Math.floor(total * (Math.random() * 0.8)) // paid up to 80%
+    const paid = Math.floor(total * (Math.random() * 0.8))
     const discount = Math.random() > 0.7 ? Math.floor(Math.random() * 100) : null
 
     return {
@@ -127,7 +126,7 @@ export default function Payments() {
   const [updatedBalance, setUpdatedBalance] = useState(0)
 
   const [searchQuery, setSearchQuery] = useState("")
-  const [sortBy, setSortBy] = useState("default") // dateIn, customerName, total
+  const [sortBy, setSortBy] = useState("default")
   const [sortOrder, setSortOrder] = useState<"Ascending" | "Descending">("Ascending")
 
   const dummyRequests = useMemo(() => generateDummyRequests(20), [])
@@ -137,7 +136,6 @@ export default function Payments() {
   const filteredRequests = useMemo(() => {
     let filtered = dummyRequests
 
-    // Search filter
     if (searchQuery.trim() !== "") {
       const q = searchQuery.toLowerCase()
       filtered = filtered.filter(
@@ -148,13 +146,11 @@ export default function Payments() {
       )
     }
 
-    // Sort
     if (sortBy !== "default") {
       filtered = [...filtered].sort((a, b) => {
         let valA: any = a[sortBy]
         let valB: any = b[sortBy]
 
-        // For date, parse into Date objects
         if (sortBy === "dateIn") {
           valA = new Date(a.dateIn)
           valB = new Date(b.dateIn)
@@ -254,46 +250,19 @@ export default function Payments() {
               {/* Table */}
               <div className="mt-6 overflow-x-auto payment-table">
                 <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Receipt ID</TableHead>
-                      <TableHead>Date In</TableHead>
-                      <TableHead>Customer Name</TableHead>
-                      <TableHead>Total</TableHead>
-                      <TableHead># of Pairs</TableHead>
-                      <TableHead># Released</TableHead>
-                      <TableHead>Amount Paid</TableHead>
-                      <TableHead>Remaining Balance</TableHead>
-                      <TableHead className="text-right">Action</TableHead>
-                    </TableRow>
-                  </TableHeader>
+                  <PaymentsTableHeader />
                   <TableBody>
                     {filteredRequests.map((req, idx) => (
-                      <TableRow key={idx}>
-                        <TableCell>{req.receiptId}</TableCell>
-                        <TableCell>{req.dateIn}</TableCell>
-                        <TableCell>{req.customerName}</TableCell>
-                        <TableCell>{formatCurrency(req.total)}</TableCell>
-                        <TableCell>{req.pairs}</TableCell>
-                        <TableCell>{req.pairsReleased}</TableCell>
-                        <TableCell>{formatCurrency(req.amountPaid)}</TableCell>
-                        <TableCell>{formatCurrency(req.remainingBalance)}</TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant={selectedRequest?.receiptId === req.receiptId ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => {
-                              setSelectedRequest(req)
-                              setDueNow(0)
-                              setCustomerPaid(0)
-                              setChange(0)
-                              setUpdatedBalance(req.remainingBalance)
-                            }}
-                          >
-                            {selectedRequest?.receiptId === req.receiptId ? "Selected" : "Select"}
-                          </Button>
-                        </TableCell>
-                      </TableRow>
+                      <SelectableTableRow
+                        key={idx}
+                        req={req}
+                        isSelected={selectedRequest?.receiptId === req.receiptId}
+                        onSelect={setSelectedRequest}
+                        findServicePrice={findServicePrice}
+                        findAddonPrice={findAddonPrice}
+                        formatCurrency={formatCurrency}
+                        RUSH_FEE={RUSH_FEE}
+                      />
                     ))}
                   </TableBody>
                 </Table>
@@ -305,7 +274,7 @@ export default function Payments() {
           <Card className="payment-card">
             <CardContent className="payment-section">
               {selectedRequest ? (
-                <div className="payment-summary-section">
+                <div className="payment-update-section">
                   <div className="summary-grid">
                     <p>Remaining Balance:</p>
                     <p className="text-right pr-3">
@@ -337,7 +306,7 @@ export default function Payments() {
               )}
             </CardContent>
           </Card>
-          
+
           <hr className="bottom-space" />
         </div>
       </div>

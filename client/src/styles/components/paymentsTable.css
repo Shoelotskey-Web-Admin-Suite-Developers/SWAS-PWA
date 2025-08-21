@@ -1,0 +1,68 @@
+/* src/styles/component/paymentsTable.css */
+
+/* Hide columns below 758px */
+@media (max-width: 1369px) {
+  .hide-below-1369 {
+    display: none;
+  }
+}
+
+@media (max-width: 1220px) {
+  .hide-below-1220 {
+    display: none;
+  }
+}
+
+@media (max-width: 1024px) {
+  .show-below-1024 {
+    display: table-cell;
+  }
+}
+
+@media (max-width: 899px) {
+  .hide-below-899 {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .hide-below-767 {
+    display: none;
+  }
+}
+
+
+.hide {
+  display: none;
+}
+
+/* Show Accordion */
+@media (max-width: 1369px) {
+  .show-below-1369 {
+    display: table-cell;
+  }
+}
+
+@media (max-width: 1220px) {
+  .show-below-1220 {
+    display: table-cell;
+  }
+}
+
+@media (max-width: 1024px) {
+  .hide-below-1024 {
+    display: none;
+  }
+}
+
+@media (max-width: 899px) {
+  .show-below-899 {
+    display: table-cell;
+  }
+}
+
+@media (max-width: 767px) {
+  .show-below-767 {
+    display: table-cell;
+  }
+}

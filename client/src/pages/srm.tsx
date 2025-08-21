@@ -411,7 +411,7 @@ export default function SRM() {
               {/* Customer Info */}
               <div className="customer-info-grid">
                 <div className="customer-info-pair">
-                  <div>
+                  <div className="w-full">
                     <Label>Customer Name</Label>
                     <Input
                       value={name}
@@ -419,7 +419,7 @@ export default function SRM() {
                       placeholder="Enter full name"
                     />
                   </div>
-                  <div>
+                  <div className="w-full">
                     <Label>Customer Birthdate</Label>
                     <Input
                       type="date"
@@ -429,7 +429,7 @@ export default function SRM() {
                   </div>
                 </div>
 
-                <div>
+                <div className="w-full">
                   <Label>Customer Address</Label>
                   <Input
                     value={address}
@@ -440,7 +440,7 @@ export default function SRM() {
                 </div>
 
                 <div className="customer-info-pair">
-                  <div>
+                  <div  className="w-full">
                     <Label>Customer Email</Label>
                     <Input
                       value={email}
@@ -449,7 +449,7 @@ export default function SRM() {
                       placeholder="email@example.com"
                     />
                   </div>
-                  <div>
+                  <div  className="w-full">
                     <Label>Customer Phone Number</Label>
                     <Input
                       value={phone}
@@ -461,8 +461,8 @@ export default function SRM() {
                 </div>
 
                 <div className="customer-info-pair">
-                  <div>
-                    <div>
+                  <div  className="w-full">
+                    <div >
                       <Label>Set Custom Date</Label>
                       <Switch
                         className="ml-3"
@@ -485,7 +485,7 @@ export default function SRM() {
                     </div>
                   </div>
 
-                  <div>
+                  <div className="w-full">
                     <Label>Received by</Label>
                     <Input
                       value={receivedBy}
