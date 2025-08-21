@@ -4,8 +4,8 @@ import NotifIcon from '@/components/icons/NotifIcon'
 import { useDropdownHandlers } from '@/hooks/useDropdownHandlers'
 
 type NavbarProps = {
-  activePage: 'serviceRequest' | 'operations' | 'payment'
-  setActivePage: React.Dispatch<React.SetStateAction<'serviceRequest' | 'operations' | 'payment'>>
+  activePage: 'serviceRequest' | 'operations' | 'payment' | 'central-view'
+  setActivePage: React.Dispatch<React.SetStateAction<'serviceRequest' | 'operations' | 'payment' | 'central-view'>>
 }
 
 export default function Navbar({ activePage, setActivePage }: NavbarProps) {
@@ -66,7 +66,7 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
                 {dbDropdown && (
                   <div className="dropdown-menu">
                     <div className='dropdown-items'>
-                      <div className='dropdown-item'><a href="">Central View</a></div>
+                      <div className='dropdown-item'><a href="" onClick={e => { e.preventDefault(); setActivePage('central-view') }}>Central View</a></div>
                       <div className='dropdown-item'><a href="">Customer Information</a></div>
                       <div className='dropdown-item'><a href="">Branches</a></div>
                     </div>
@@ -135,7 +135,7 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
                           <h3>Database View</h3>
                           {dbDropdown && (
                             <div className='dropdown-tablet'>
-                              <a href="">Central View</a>
+                              <a href="" onClick={e => { e.preventDefault(); setActivePage('payment') }}>Central View</a>
                               <a href="">Customer Information</a>
                               <a href="">Branches</a>
                             </div>
@@ -201,7 +201,7 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
                         <h3>Database View</h3>
                         {dbDropdown && (
                           <div className='dropdown-tablet'>
-                            <a href="">Central View</a>
+                            <a href="" onClick={e => { e.preventDefault(); setActivePage('payment') }}>Central View</a>
                             <a href="">Customer Information</a>
                             <a href="">Branches</a>
                           </div>
