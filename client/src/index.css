@@ -106,7 +106,7 @@ p {
 }
 
 small {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   font-family: 'Inter Regular';
 }
 
