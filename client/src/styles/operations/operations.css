@@ -30,4 +30,129 @@
   }
 }
 
+/* Container */
+.op-sq-container {
+  width: 100%;
+  margin-top: 20px;
+}
+
+/* Table */
+.op-sq-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+}
+
+/* Header */
+.op-sq-header {
+  background-color: #ffffff;
+}
+
+.op-sq-header-row th {
+  border-bottom: none;
+  padding: 8px 12px;
+  text-align: center;
+  font-weight: bold;
+  color: #333;
+}
+
+/* Body Rows */
+.op-sq-body-row td {
+  border-bottom: 1px solid #C7C7C7;
+  padding: 8px 12px;
+  color: #444;
+}
+
+.op-sq-body-row {
+  background-color: #f0f0f0;
+}
+
+.op-sq-body-row:hover {
+  background-color: #fafafa;
+}
+
+/* Buttons */
+.op-sq-btn-delivery {
+  background-color: #0e9cff;
+  color: white;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.op-sq-btn-delivery:hover {
+  background-color: #007acc;
+}
+
+/* Make table body scrollable */
+.op-sq-body {
+  display: block;
+  max-height: 250px; /* set desired height */
+  overflow-y: scroll; /* always scrollable */
+  scrollbar-width: none; /* Firefox */
+}
+
+/* Keep header aligned with body */
+.op-sq-header, 
+.op-sq-header-row {
+  display: table;
+  width: 100%;
+}
+
+/* Ensure body rows align with header */
+.op-sq-body-row {
+  display: table;
+  width: 100%;
+}
+
+.op-sq-header,
+.op-sq-header-row,
+.op-sq-body-row {
+  display: table;
+  width: 100%;
+  table-layout: auto; /* restore natural auto sizing */
+}
+
+.op-sq-head-transact, .op-sq-body-transact {
+  width: 10%;
+}
+
+.op-sq-head-date, .op-sq-body-date {
+  width: 10%;
+}
+
+.op-sq-head-customer, .op-sq-body-customer {
+  width: 10%;
+}
+
+.op-sq-head-shoe, .op-sq-body-shoe {
+  width: 10%;
+}
+
+.op-sq-head-service, .op-sq-body-service {
+  width: 10%;
+}
+
+.op-sq-head-branch, .op-sq-body-branch {
+  width: 10%;
+}
+
+.op-sq-head-location, .op-sq-body-location {
+  width: 10%;
+}
+
+.op-sq-head-status, .op-sq-body-status {
+  width: 7%;
+}
+
+.op-sq-head-rush, .op-sq-body-rush {
+  width: 7%;
+}
+
+.op-sq-head-action, .op-sq-body-action {
+  width: 16%;
+}
 
