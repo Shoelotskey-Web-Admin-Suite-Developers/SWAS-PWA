@@ -3,37 +3,50 @@
 
 .main-div {
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  height: 80vh;
 }
 
 .admin-upper {
   width: 100%;
+  flex: 0 0 auto;
 }
 
 .main-content {
+  flex: 1;
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-top: 15px;
 }
 
 .main-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   width: 95%;
-  margin-top: 15px;
   padding: 20px 0px;
 }
 
-@media (max-width: 1023px) {
+@media (max-width: 1088px) {
   .main-card {
-    width: 95%;
+    width: 97%;
     margin-top: 10px;
     padding: 20px 0px;
+    @apply rounded-xl;
   }
 }
 
+/* Service Queue CSS (Temporarily specific for now) */
+
 /* Container */
 .op-sq-container {
+  flex: 1;
+  min-height: 0;
   width: 100%;
-  margin-top: 20px;
+  margin-top: 10px;
 }
 
 /* Table */
@@ -90,7 +103,8 @@
 /* Make table body scrollable */
 .op-sq-body {
   display: block;
-  max-height: 250px; /* set desired height */
+  flex: 1;
+  max-height: calc(100vh - var(--fillheight, 0px)); /* set desired height */
   overflow-y: scroll; /* always scrollable */
   scrollbar-width: none; /* Firefox */
 }
@@ -117,35 +131,39 @@
 }
 
 .op-sq-head-transact, .op-sq-body-transact {
-  width: 10%;
+  width: 15%;
 }
 
 .op-sq-head-date, .op-sq-body-date {
-  width: 10%;
+  width: 7%;
 }
 
 .op-sq-head-customer, .op-sq-body-customer {
-  width: 10%;
+  width: 15%;
 }
 
 .op-sq-head-shoe, .op-sq-body-shoe {
-  width: 10%;
+  width: 15%;
 }
 
 .op-sq-head-service, .op-sq-body-service {
-  width: 10%;
+  width: 12%;
 }
 
 .op-sq-head-branch, .op-sq-body-branch {
-  width: 10%;
+  width: 7%;
 }
 
 .op-sq-head-location, .op-sq-body-location {
-  width: 10%;
+  width: 7%;
 }
 
 .op-sq-head-status, .op-sq-body-status {
   width: 7%;
+}
+
+.op-sq-body-status {
+  color: #FF5E5E !important;
 }
 
 .op-sq-head-rush, .op-sq-body-rush {
@@ -153,6 +171,33 @@
 }
 
 .op-sq-head-action, .op-sq-body-action {
-  width: 16%;
+  width: 5%;
 }
 
+.op-sq-below-container {
+  display: flex;
+  align-items: center;
+  justify-content: end;
+  margin-top: 10px;
+  margin-right: auto;
+}
+
+.op-sq-below-container p {
+  margin-right: 10px;
+}
+
+.op-sq-table-tablet {
+  display: none;
+}
+ 
+@media (max-width: 145px) {
+
+  .op-sq-table {
+    display: none;
+  }
+
+  .op-sq-table-tablet {
+    display: block;
+  }
+
+}

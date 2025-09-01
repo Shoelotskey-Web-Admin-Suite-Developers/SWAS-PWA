@@ -14,12 +14,18 @@ import OpPickup from '@/pages/operations/operations-sub-tab/OpPickup'
 
 export default function Operations() {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [showAdminUpper, setShowAdminUpper] = useState(true);
+
 
   return (
-    <div className='main-div'>
-      <div className='admin-upper'>
-        <BranchStorage />
-      </div>
+    <div 
+    className='main-div'
+    style={{ "--fillheight": showAdminUpper ? "500px" : "330px" } as React.CSSProperties}>
+      {showAdminUpper && ( // conditional rendering
+        <div className='admin-upper'>
+          <BranchStorage />
+        </div>
+      )}
 
       <div className='main-content'>
         <Card className='rounded-3xl main-card'>

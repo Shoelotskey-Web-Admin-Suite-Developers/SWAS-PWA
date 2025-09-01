@@ -42,6 +42,11 @@
 
 /* 2. Tablet */
 @media (max-width: 1088px) {
+  .branch-card {
+    width: 97%;
+    @apply rounded-xl;
+  }
+
   .branch-card-contents h1 {
     font-size: var(--font-size-xl);
   }
@@ -58,7 +63,8 @@
 .landscape-mobile {
     display: none;
   }
-  
+
+
 @media (max-width: 899px) {
   .branch-storage-stats h1 {
     font-size: var(--font-size-xl);
@@ -77,7 +83,7 @@
 
   .mobile-card {
     color: #797979;
-    width: 95%;
+    width: 97%;
   }
 
   .carousel {
@@ -109,7 +115,7 @@
 
   .mobile-card {
     color: #797979;
-    width: 95%;
+    width: 97%;
   }
 
   .pc-tablet {
