@@ -9,7 +9,7 @@ html, body {
   }
 }
 
-.srm-container {
+.payment-container {
   position: relative;
   display: flex;
   flex-direction: column;
@@ -17,25 +17,25 @@ html, body {
 }
 
 @media (min-width: 1024px) {
-  .srm-container {
+  .payment-container {
     flex-direction: row;
   }
 }
 
-.srm-form-container {
+.payment-form-container {
   display: flex;
   width: 100%;
   justify-content: flex-end;
 }
 
 @media (min-width: 1024px) {
-  .srm-form-container {
+  .payment-form-container {
     overflow-y: scroll;
-    max-height: calc(100dvh - 97px);
+    max-height: calc(100dvh - 77px);
   }
 }
 
-.srm-form {
+.payment-form {
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -45,7 +45,7 @@ html, body {
 }
 
 @media (min-width: 1024px) {
-  .srm-form {
+  .payment-form {
     width: 100%;
   }
 }
@@ -153,7 +153,7 @@ html, body {
   font-weight: 500;
 }
 
-.srm-summary {
+.payment-summary {
   position: sticky;
   top: 97px;
   width: 100%;
@@ -161,13 +161,13 @@ html, body {
 }
 
 @media (min-width: 1024px) {
-  .srm-summary {
-    height: calc(100vh - 97px);
+  .payment-summary {
+    height: calc(100vh - 77px);
     width: 700px;
   }
 }
 
-.srm-summary-card {
+.payment-summary-card {
   display: flex;
   flex-grow: 1;
   height: 100%;
@@ -178,14 +178,14 @@ html, body {
   border-right: 0px;
 }
 
-.srm-summary-content {
+.payment-summary-content {
   display: flex;
   flex-direction: column;
   flex-grow: 1;
   padding: 3rem;
 }
 
-.srm-summary-body {
+.payment-summary-body {
   display: flex;
   height: auto;
   flex-direction: column;
@@ -194,7 +194,7 @@ html, body {
 }
 
 @media (min-width: 1024px) {
-  .srm-summary-body {
+  .payment-summary-body {
     max-height: 50dvh;
     overflow-y: auto;
   }

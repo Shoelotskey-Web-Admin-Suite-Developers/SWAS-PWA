@@ -7,7 +7,7 @@
 
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh - 97px); /* take full screen height */
+  min-height: calc(100vh - 77px); /* take full screen height */
 }
 
 .cv-header {

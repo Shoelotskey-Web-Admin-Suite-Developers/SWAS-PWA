@@ -11,34 +11,19 @@ import {
   TableCell,
 } from "@/components/ui/table"
 import "@/styles/database-view/central-table.css"
+import { EditReceiptDialog } from "@/components/database-view/EditReceiptDialog"
 
-type PaymentStatus = "PAID" | "PARTIAL" | "NP"
-type Branch = "SM Valenzuela" | "Valenzuela" | "SM Grand"
-type BranchLocation = "Valenzuela City" | "Caloocan City"
-
-export type Row = {
-  id: string
-  dateIn: Date
-  receivedBy: string
-  dateOut?: Date | null
-  customer: string
-  pairs: number
-  released: number
-  branch: Branch
-  branchLocation: BranchLocation
-  total: number
-  amountPaid: number
-  remaining: number
-  status: PaymentStatus
-}
+// ✅ Import types from dedicated file
+import type { ReceiptRow } from "@/components/database-view/central-view.types"
 
 interface CentralTableProps {
-  rows: Row[]
+  rows: ReceiptRow[]
 }
 
 export function CentralTable({ rows }: CentralTableProps) {
   const [openRow, setOpenRow] = React.useState<string | null>(null)
   const [hiddenCols, setHiddenCols] = React.useState<Record<string, boolean>>({})
+  const [selectedReceipt, setSelectedReceipt] = React.useState<ReceiptRow | null>(null)
 
   const fields = [
     { key: "dateIn", label: "Date In", hiddenBelow: 767 },
@@ -122,18 +107,26 @@ export function CentralTable({ rows }: CentralTableProps) {
                     {r.status}
                   </TableCell>
                   <TableCell className="cv-action">
-                    <Button className="cv-edit-btn"><small>Edit</small></Button>
+                    <Button
+                      className="cv-edit-btn"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setSelectedReceipt(r)
+                      }}
+                    >
+                      <small>Edit</small>
+                    </Button>
                   </TableCell>
                 </TableRow>
 
-                {/* Only show accordion if some columns are hidden */}
+                {/* Accordion details for hidden columns */}
                 {hasHiddenCols && openRow === r.id && (
                   <TableRow className="cv-row-details">
                     <TableCell colSpan={15}>
                       <div className="cv-details">
                         {fields.map((f) => {
                           if (!hiddenCols[f.key]) return null
-                          let value: any = r[f.key as keyof Row]
+                          let value: any = r[f.key as keyof ReceiptRow]
 
                           if (f.key === "dateIn" && value) value = format(value, "PPpp")
                           if (f.key === "dateOut") value = value ? format(value, "PPpp") : "—"
@@ -153,6 +146,16 @@ export function CentralTable({ rows }: CentralTableProps) {
           })}
         </TableBody>
       </Table>
+
+      {selectedReceipt && (
+        <EditReceiptDialog
+          open={!!selectedReceipt}
+          onOpenChange={(open) => {
+            if (!open) setSelectedReceipt(null)
+          }}
+          receipt={selectedReceipt}
+        />
+      )}
     </div>
   )
 }

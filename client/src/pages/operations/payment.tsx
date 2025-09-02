@@ -18,13 +18,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import {
   Table,
   TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
 } from "@/components/ui/table"
 import "@/styles/payment.css"
-import React from "react"
 import { SelectableTableRow } from "@/components/PaymentsTableRow"
 import { PaymentsTableHeader } from "@/components/PaymentsTableHeader"
 
@@ -198,10 +193,10 @@ export default function Payments() {
   }
 
   return (
-    <div className="srm-container">
+    <div className="payment-container">
       {/* Left: Form + Table */}
-      <div className="srm-form-container">
-        <div className="srm-form">
+      <div className="payment-form-container">
+        <div className="payment-form">
           <Card>
             <CardContent className="form-card-content">
               <h1>Update Payment</h1>
@@ -312,13 +307,13 @@ export default function Payments() {
       </div>
 
       {/* Right: Request Summary */}
-      <div className="srm-summary">
-        <Card className="srm-summary-card">
-          <CardContent className="srm-summary-content">
+      <div className="payment-summary">
+        <Card className="payment-summary-card">
+          <CardContent className="payment-summary-content">
             <h1>Request Summary</h1>
             <hr className="section-divider" />
             {selectedRequest ? (
-              <div className="srm-summary-body">
+              <div className="payment-summary-body">
                 <div className="summary-grid">
                   <p className="bold">Customer ID</p>
                   <p className="text-right">#{selectedRequest.customerId}</p>

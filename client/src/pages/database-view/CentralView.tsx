@@ -1,6 +1,6 @@
 "use client"
 import * as React from "react"
-import { Calendar as CalendarIcon, Search, X, MoreVertical } from "lucide-react"
+import { MoreVertical } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { SearchBar } from "@/components/ui/searchbar"
 import {
@@ -15,150 +15,216 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Filters } from "@/components/database-view/Filters"
 import { CentralTable } from "@/components/database-view/CentralTable"
 
+/* ----------------------------- types ----------------------------- */
+export type PaymentStatus = "PAID" | "PARTIAL" | "NP"
+export type Branch = "SM Valenzuela" | "Valenzuela" | "SM Grand"
+export type BranchLocation = "Valenzuela City" | "Caloocan City"
 
-type PaymentStatus = "PAID" | "PARTIAL" | "NP"
-type Branch = "SM Valenzuela" | "Valenzuela" | "SM Grand"
-type BranchLocation = "Valenzuela City" | "Caloocan City"
-
-type Row = {
+export type Transaction = {
   id: string
-  dateIn: Date
-  receivedBy: string
-  dateOut?: Date | null
+  shoeModel: string
+  serviceNeeded: string[]
+  additional: string[]
+  rush: boolean
+  status: string
+  statusDates: {
+    queued: string | null
+    readyForDelivery: string | null
+    toWarehouse: string | null
+    inProcess: string | null
+    returnToBranch: string | null
+    received: string | null
+    readyForPickup: string | null
+    pickedUp: string | null
+  }
+  beforeImage?: string | null
+  afterImage?: string | null
+}
+
+export type Row = {
+  id: string // receiptId
   customer: string
-  pairs: number
-  released: number
+  customerBirthday?: string
+  address?: string
+  email?: string
+  contact?: string
+
   branch: Branch
   branchLocation: BranchLocation
+  receivedBy: string
+  dateIn: Date
+  dateOut?: Date | null
+
+  status: PaymentStatus
   total: number
   amountPaid: number
   remaining: number
-  status: PaymentStatus
+
+  pairs: number
+  released: number
+  transactions: Transaction[]
 }
 
+/* ----------------------------- dummy data ----------------------------- */
 const INITIAL_ROWS: Row[] = [
   {
     id: "2025-0001-VALEN",
-    dateIn: new Date("2025-04-01"),
-    receivedBy: "staffVALEN @JSantos",
-    dateOut: new Date("2025-04-15"),
     customer: "Mark Dela Cruz",
-    pairs: 2,
-    released: 2,
+    customerBirthday: "1990-05-20",
+    address: "123 Mabini St, Manila",
+    email: "mark.delacruz@example.com",
+    contact: "09171234567",
+
     branch: "Valenzuela",
     branchLocation: "Valenzuela City",
+    receivedBy: "staffVALEN @JSantos",
+    dateIn: new Date("2025-04-01"),
+    dateOut: new Date("2025-04-15"),
+
+    status: "PAID",
     total: 500,
     amountPaid: 500,
     remaining: 0,
-    status: "PAID",
+
+    pairs: 2,
+    released: 2,
+
+    transactions: [
+      {
+        id: "0001-VALEN-001",
+        shoeModel: "Nike Air Force 1",
+        serviceNeeded: ["Basic Cleaning"],
+        additional: ["Unyellowing"],
+        rush: false,
+        status: "In Process",
+        statusDates: {
+          queued: "2025-04-01",
+          readyForDelivery: "2025-04-02",
+          toWarehouse: "2025-04-02",
+          inProcess: "2025-04-03",
+          returnToBranch: null,
+          received: null,
+          readyForPickup: null,
+          pickedUp: null,
+        },
+        beforeImage: "/images/af1_before.jpg",
+        afterImage: "/images/af1_after.jpg",
+      },
+      {
+        id: "0001-VALEN-002",
+        shoeModel: "Nike Air Force 1",
+        serviceNeeded: ["Basic Cleaning"],
+        additional: ["Unyellowing"],
+        rush: false,
+        status: "In Process",
+        statusDates: {
+          queued: "2025-04-01",
+          readyForDelivery: "2025-04-02",
+          toWarehouse: "2025-04-02",
+          inProcess: "2025-04-03",
+          returnToBranch: null,
+          received: null,
+          readyForPickup: null,
+          pickedUp: null,
+        },
+        beforeImage: "/images/af1_before.jpg",
+        afterImage: "/images/af1_after.jpg",
+      },
+    ],
   },
   {
     id: "2025-0002-VALEN",
-    dateIn: new Date("2025-04-05"),
-    receivedBy: "staffVALEN @KUy",
-    dateOut: new Date("2025-04-20"),
     customer: "Anna Rodriguez",
-    pairs: 1,
-    released: 1,
+    customerBirthday: "1990-01-20",
+    address: "Guadalupe Nuevo, Makati City",
+    email: "anna@yahoo.com",
+    contact: "09452368451",
+
     branch: "Valenzuela",
     branchLocation: "Valenzuela City",
+    receivedBy: "staffVALEN @KUy",
+    dateIn: new Date("2025-04-05"),
+    dateOut: new Date("2025-04-20"),
+
+    status: "PAID",
     total: 250,
     amountPaid: 250,
     remaining: 0,
-    status: "PAID",
+
+    pairs: 1,
+    released: 1,
+
+    transactions: [
+      {
+        id: "0002-VALEN-001",
+        shoeModel: "Adidas UltraBoost",
+        serviceNeeded: ["Basic Cleaning"],
+        additional: [],
+        rush: true,
+        status: "In Process",
+        statusDates: {
+          queued: "2025-04-05",
+          readyForDelivery: "2025-04-05",
+          toWarehouse: "2025-04-05",
+          inProcess: "2025-04-05",
+          returnToBranch: null,
+          received: null,
+          readyForPickup: null,
+          pickedUp: null,
+        },
+        beforeImage: null,
+        afterImage: null,
+      },
+    ],
   },
   {
     id: "2025-0003-VALEN",
-    dateIn: new Date("2025-04-03"),
-    receivedBy: "staffVALEN @JSantos",
-    dateOut: new Date("2025-04-19"),
     customer: "Carlo Reyes",
-    pairs: 3,
-    released: 2,
+    customerBirthday: "1985-07-15",
+    address: "Caloocan City",
+    email: "carlo.reyes@example.com",
+    contact: "09281234567",
+
     branch: "Valenzuela",
     branchLocation: "Valenzuela City",
+    receivedBy: "staffVALEN @JSantos",
+    dateIn: new Date("2025-04-03"),
+    dateOut: new Date("2025-04-19"),
+
+    status: "PARTIAL",
     total: 750,
     amountPaid: 500,
     remaining: 250,
-    status: "PARTIAL",
-  },
-  {
-    id: "2025-0004-VALEN",
-    dateIn: new Date("2025-03-28"),
-    receivedBy: "staffVALEN @JSantos",
-    dateOut: new Date("2025-04-10"),
-    customer: "Joyce Lim",
-    pairs: 1,
-    released: 1,
-    branch: "Valenzuela",
-    branchLocation: "Valenzuela City",
-    total: 300,
-    amountPaid: 300,
-    remaining: 0,
-    status: "PAID",
-  },
-  {
-    id: "2025-0005-VALEN",
-    dateIn: new Date("2025-04-10"),
-    receivedBy: "staffVALEN @JSantos",
-    dateOut: new Date("2025-04-21"),
-    customer: "Joshua Santos",
-    pairs: 2,
-    released: 1,
-    branch: "Valenzuela",
-    branchLocation: "Valenzuela City",
-    total: 600,
-    amountPaid: 400,
-    remaining: 200,
-    status: "PARTIAL",
-  },
-  {
-    id: "2025-0006-VALEN",
-    dateIn: new Date("2025-04-12"),
-    receivedBy: "staffVALEN @KUy",
-    dateOut: null,
-    customer: "Katrina Bayani",
-    pairs: 1,
-    released: 0,
-    branch: "Valenzuela",
-    branchLocation: "Valenzuela City",
-    total: 300,
-    amountPaid: 0,
-    remaining: 300,
-    status: "NP",
-  },
-  {
-    id: "2025-0007-VALEN",
-    dateIn: new Date("2025-04-08"),
-    receivedBy: "staffVALEN @VRamos",
-    dateOut: new Date("2025-04-28"),
-    customer: "Nathaniel Ramos",
-    pairs: 2,
+
+    pairs: 3,
     released: 2,
-    branch: "Valenzuela",
-    branchLocation: "Valenzuela City",
-    total: 550,
-    amountPaid: 550,
-    remaining: 0,
-    status: "PAID",
-  },
-  {
-    id: "2025-0008-VALEN",
-    dateIn: new Date("2025-04-15"),
-    receivedBy: "staffVALEN @JSantos",
-    dateOut: null,
-    customer: "Bianca Cruz",
-    pairs: 4,
-    released: 0,
-    branch: "Valenzuela",
-    branchLocation: "Valenzuela City",
-    total: 980,
-    amountPaid: 300,
-    remaining: 680,
-    status: "PARTIAL",
+
+    transactions: [
+      {
+        id: "0003-VALEN-001",
+        shoeModel: "Converse Chuck Taylor",
+        serviceNeeded: ["Minor Reglue"],
+        additional: ["Minor Retouch"],
+        rush: false,
+        status: "Queued",
+        statusDates: {
+          queued: "2025-04-10",
+          readyForDelivery: null,
+          toWarehouse: null,
+          inProcess: null,
+          returnToBranch: null,
+          received: null,
+          readyForPickup: null,
+          pickedUp: null,
+        },
+        beforeImage: null,
+        afterImage: null,
+      },
+    ],
   },
 ]
 
+/* ----------------------------- component ----------------------------- */
 type SortKey =
   | "dateIn"
   | "dateOut"
@@ -170,17 +236,13 @@ type SortKey =
 export default function CentralView() {
   const [rows] = React.useState<Row[]>(INITIAL_ROWS)
 
-  // Filters
+  // filters
   const [search, setSearch] = React.useState("")
   const [dateIn, setDateIn] = React.useState<Date | undefined>()
   const [dateOut, setDateOut] = React.useState<Date | undefined>()
   const [branch, setBranch] = React.useState<Branch | "">("")
-  const [paymentStatus, setPaymentStatus] = React.useState<PaymentStatus | "">(
-    ""
-  )
-  const [branchLocation, setBranchLocation] = React.useState<
-    BranchLocation | ""
-  >("")
+  const [paymentStatus, setPaymentStatus] = React.useState<PaymentStatus | "">("")
+  const [branchLocation, setBranchLocation] = React.useState<BranchLocation | "">("")
   const [receivedBy, setReceivedBy] = React.useState<string>("")
 
   const [sortKey, setSortKey] = React.useState<SortKey | "">("")
@@ -255,18 +317,11 @@ export default function CentralView() {
     advanced,
   ])
 
-  const clearSearch = () => setSearch("")
-  const clearDates = () => {
-    setDateIn(undefined)
-    setDateOut(undefined)
-  }
-
   return (
     <div className="cv-wrap">
       <div className="cv-header">
         <h1>Central View</h1>
       </div>
-
 
       {/* Search and Sort grid */}
       <div className="search-sort">
@@ -311,7 +366,6 @@ export default function CentralView() {
             </RadioGroup>
           </div>
 
-              
           <div className="cv-kebab" aria-hidden>
             <MoreVertical size={50} />
           </div>
@@ -324,7 +378,7 @@ export default function CentralView() {
         setDateIn={setDateIn}
         dateOut={dateOut}
         setDateOut={setDateOut}
-        clearDates={clearDates}
+        clearDates={() => { setDateIn(undefined); setDateOut(undefined) }}
         branch={branch}
         setBranch={setBranch}
         paymentStatus={paymentStatus}
@@ -336,7 +390,6 @@ export default function CentralView() {
         advanced={advanced}
         setAdvanced={setAdvanced}
       />
-      
 
       <CentralTable rows={filtered} />
     </div>
@@ -344,7 +397,6 @@ export default function CentralView() {
 }
 
 /* ----------------------------- helpers ----------------------------- */
-
 function sameDay(a?: Date | null, b?: Date | null) {
   if (!a || !b) return false
   return (
@@ -353,5 +405,3 @@ function sameDay(a?: Date | null, b?: Date | null) {
     a.getDate() === b.getDate()
   )
 }
-
-
