@@ -32,8 +32,8 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
       <div className='navBar-contents'>
         <div className='navBar-contents-p1'>
           <img src={swasLogo} alt="SWAS Logo" />
-          <div className='nav-BranchName'><h2>Branch Name</h2></div>
-          <a href=""><h2 className='regular'>Log Out</h2></a>
+          <div className='nav-BranchName'><h3>Branch Name</h3></div>
+          <a href=""><h4 className='regular'>Log Out</h4></a>
         </div>
 
         <div className='navBar-contents-p2'>

@@ -10,6 +10,8 @@ import {
   TableCell,
 } from "@/components/ui/table";
 
+import IconRD from "@/assets/icons/op-ready-delivery.svg?react";
+
 type Branch = "Valenzuela" | "SM Valenzuela" | "SM Grand";
 type Location = "Branch" | "Hub";
 
@@ -28,9 +30,9 @@ type Row = {
 const INITIAL_ROWS: Row[] = [
   {
     transactId: "0001-001-VALEN",
-    date: new Date("2025-04-01"),
-    customer: "Mark Dela Cruz",
-    shoe: "Nike Air Max 270",
+    date: new Date("2025-01-15"),
+    customer: "Juan Dela Cruz",
+    shoe: "Nike Air Force 1",
     service: "Basic Cleaning",
     branch: "Valenzuela",
     Location: "Branch",
@@ -38,65 +40,65 @@ const INITIAL_ROWS: Row[] = [
     isRush: true,
   },
   {
-    transactId: "0001-002-VALEN",
-    date: new Date("2025-04-01"),
-    customer: "Mark Dela Cruz",
-    shoe: "Nike Air Max 270",
-    service: "Basic Cleaning",
-    branch: "Valenzuela",
+    transactId: "0001-002-SMVAL",
+    date: new Date("2025-02-03"),
+    customer: "Maria Santos",
+    shoe: "Adidas Ultraboost",
+    service: "Deep Cleaning",
+    branch: "SM Valenzuela",
     Location: "Branch",
     status: "Queued",
-    isRush: true,
+    isRush: false,
   },
   {
-    transactId: "0001-003-VALEN",
-    date: new Date("2025-04-01"),
-    customer: "Mark Dela Cruz",
-    shoe: "Nike Air Max 270",
+    transactId: "0001-003-GRAND",
+    date: new Date("2025-03-22"),
+    customer: "Carlo Mendoza",
+    shoe: "Converse Chuck Taylor",
     service: "Basic Cleaning",
-    branch: "Valenzuela",
+    branch: "SM Grand",
     Location: "Branch",
     status: "Queued",
     isRush: true,
   },
   {
     transactId: "0001-004-VALEN",
-    date: new Date("2025-04-01"),
-    customer: "Mark Dela Cruz",
-    shoe: "Nike Air Max 270",
-    service: "Basic Cleaning",
+    date: new Date("2025-04-11"),
+    customer: "Angela Reyes",
+    shoe: "Puma Suede Classic",
+    service: "Sole Repaint",
     branch: "Valenzuela",
+    Location: "Branch",
+    status: "Queued",
+    isRush: false,
+  },
+  {
+    transactId: "0001-005-SMVAL",
+    date: new Date("2025-05-07"),
+    customer: "Mark Tan",
+    shoe: "New Balance 550",
+    service: "Basic Cleaning",
+    branch: "SM Valenzuela",
     Location: "Branch",
     status: "Queued",
     isRush: true,
   },
   {
-    transactId: "0001-005-VALEN",
-    date: new Date("2025-04-01"),
-    customer: "Mark Dela Cruz",
-    shoe: "Nike Air Max 270",
-    service: "Basic Cleaning",
-    branch: "Valenzuela",
+    transactId: "0001-006-GRAND",
+    date: new Date("2025-06-19"),
+    customer: "Sofia Cruz",
+    shoe: "Vans Old Skool",
+    service: "Deep Cleaning",
+    branch: "SM Grand",
     Location: "Branch",
     status: "Queued",
-    isRush: true,
-  },
-  {
-    transactId: "0001-006-VALEN",
-    date: new Date("2025-04-01"),
-    customer: "Mark Dela Cruz",
-    shoe: "Nike Air Max 270",
-    service: "Basic Cleaning",
-    branch: "Valenzuela",
-    Location: "Branch",
-    status: "Queued",
-    isRush: true,
+    isRush: false,
   },
   {
     transactId: "0001-007-VALEN",
-    date: new Date("2025-04-01"),
-    customer: "Mark Dela Cruz",
-    shoe: "Nike Air Max 270",
+    date: new Date("2025-07-08"),
+    customer: "Daniel Chua",
+    shoe: "Asics Gel-Lyte III",
     service: "Basic Cleaning",
     branch: "Valenzuela",
     Location: "Branch",
@@ -104,61 +106,62 @@ const INITIAL_ROWS: Row[] = [
     isRush: true,
   },
   {
-    transactId: "0001-008-VALEN",
-    date: new Date("2025-04-01"),
-    customer: "Mark Dela Cruz",
-    shoe: "Nike Air Max 270",
-    service: "Basic Cleaning",
-    branch: "Valenzuela",
+    transactId: "0001-008-SMVAL",
+    date: new Date("2025-08-14"),
+    customer: "Grace Lim",
+    shoe: "Nike Dunk Low",
+    service: "Deep Cleaning",
+    branch: "SM Valenzuela",
     Location: "Branch",
     status: "Queued",
-    isRush: true,
+    isRush: false,
   },
   {
-    transactId: "0001-009-VALEN",
-    date: new Date("2025-04-01"),
-    customer: "Mark Dela Cruz",
-    shoe: "Nike Air Max 270",
+    transactId: "0001-009-GRAND",
+    date: new Date("2025-09-02"),
+    customer: "Jose Ramirez",
+    shoe: "Reebok Classic",
     service: "Basic Cleaning",
-    branch: "Valenzuela",
+    branch: "SM Grand",
     Location: "Branch",
     status: "Queued",
     isRush: true,
   },
   {
     transactId: "0001-010-VALEN",
-    date: new Date("2025-04-01"),
-    customer: "Mark Dela Cruz",
-    shoe: "Nike Air Max 270",
-    service: "Basic Cleaning",
+    date: new Date("2025-10-21"),
+    customer: "Patricia Gomez",
+    shoe: "Fila Disruptor",
+    service: "Sole Repaint",
     branch: "Valenzuela",
+    Location: "Branch",
+    status: "Queued",
+    isRush: false,
+  },
+  {
+    transactId: "0001-011-SMVAL",
+    date: new Date("2025-11-05"),
+    customer: "Michael Lee",
+    shoe: "Onitsuka Tiger Mexico 66",
+    service: "Deep Cleaning",
+    branch: "SM Valenzuela",
     Location: "Branch",
     status: "Queued",
     isRush: true,
   },
   {
-    transactId: "0001-011-VALEN",
-    date: new Date("2025-04-01"),
-    customer: "Mark Dela Cruz",
-    shoe: "Nike Air Max 270",
+    transactId: "0001-012-GRAND",
+    date: new Date("2025-12-18"),
+    customer: "Hannah Uy",
+    shoe: "Jordan 1 Mid",
     service: "Basic Cleaning",
-    branch: "Valenzuela",
+    branch: "SM Grand",
     Location: "Branch",
     status: "Queued",
-    isRush: true,
-  },
-  {
-    transactId: "0001-012-VALEN",
-    date: new Date("2025-04-01"),
-    customer: "Mark Dela Cruz",
-    shoe: "Nike Air Max 270",
-    service: "Basic Cleaning",
-    branch: "Valenzuela",
-    Location: "Branch",
-    status: "Queued",
-    isRush: true,
+    isRush: false,
   },
 ];
+
 
 
 export default function OpServiceQueue() {
@@ -231,7 +234,7 @@ export default function OpServiceQueue() {
               <h5>Status</h5>
             </TableHead>
             <TableHead className="op-sq-head-rush">
-              <h5>Rush</h5>
+              <h5>Priority</h5>
             </TableHead>
           </TableRow>
         </TableHeader>
@@ -280,14 +283,22 @@ export default function OpServiceQueue() {
                 <h5>{row.status}</h5>
               </TableCell>
               <TableCell className="op-sq-body-rush">
-                <small>{row.isRush ? "Yes" : "No"}</small>
+                {row.isRush ? (
+                  <span className="px-3 py-1 bg-red-200 text-red-800 rounded-full text-sm font-medium">
+                    Rush
+                  </span>
+                ) : (
+                  <span className="px-3 py-1 bg-green-200 text-green-800 rounded-full text-sm font-medium">
+                    Normal
+                  </span>
+                )}
               </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
       <div className="op-sq-below-container flex justify-end gap-4 mt-2">
-        <p>{selected.length} items selected</p>
+        <p>{selected.length} item(s) selected</p>
         <button
           className="op-sq-btn-delivery text-white bg-[#0E9CFF] button-md"
           disabled={selected.length === 0}

@@ -16,11 +16,24 @@ export default function Operations() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [showAdminUpper, setShowAdminUpper] = useState(true);
 
+  let fillheight = "450px";
+
+  if (showAdminUpper) {
+    if (window.innerWidth <= 535) fillheight = "700px";
+    else if (window.innerWidth <= 639) fillheight = "470px";
+    else if (window.innerWidth <= 1088) fillheight = "430px";
+  } else {
+    if (window.innerWidth <= 535) fillheight = "460px";
+    else if (window.innerWidth <= 639) fillheight = "420px";
+    else if (window.innerWidth <= 1088) fillheight = "380px";
+    else fillheight = "360px";
+  }
 
   return (
     <div 
     className='main-div'
-    style={{ "--fillheight": showAdminUpper ? "500px" : "330px" } as React.CSSProperties}>
+    style={{ "--fillheight": fillheight } as React.CSSProperties}
+    >
       {showAdminUpper && ( // conditional rendering
         <div className='admin-upper'>
           <BranchStorage />
