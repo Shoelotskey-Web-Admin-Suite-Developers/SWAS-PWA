@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import '@/styles/operations/operations.css'
 import BranchStorage from '@/components/BranchStorage'
 import OperationsNav from '@/components/OperationsNav'
@@ -15,24 +15,44 @@ import OpPickup from '@/pages/operations/operations-sub-tab/OpPickup'
 export default function Operations() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [showAdminUpper, setShowAdminUpper] = useState(true);
+  const [fillHeight, setFillHeight] = useState("455px");
 
-  let fillheight = "450px";
+  const calculateFillHeight = () => {
+    let height = "455px";
+    const width = window.innerWidth;
 
-  if (showAdminUpper) {
-    if (window.innerWidth <= 535) fillheight = "700px";
-    else if (window.innerWidth <= 639) fillheight = "470px";
-    else if (window.innerWidth <= 1088) fillheight = "430px";
-  } else {
-    if (window.innerWidth <= 535) fillheight = "460px";
-    else if (window.innerWidth <= 639) fillheight = "420px";
-    else if (window.innerWidth <= 1088) fillheight = "380px";
-    else fillheight = "360px";
-  }
+    if (showAdminUpper) {
+      if (width <= 535) height = "365px";
+      else if (width <= 639) height = "385px";
+      else if (width <= 1088) height = "415px";
+    } else {
+      if (width <= 535) height = "460px";
+      else if (width <= 639) height = "420px";
+      else if (width <= 1088) height = "380px";
+      else height = "360px";
+    }
+
+    setFillHeight(height);
+  };
+
+  useEffect(() => {
+    calculateFillHeight(); // initial calculation
+
+    const handleResize = () => {
+      calculateFillHeight();
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize); // cleanup
+    };
+  }, [showAdminUpper]); // recalc if showAdminUpper changes
 
   return (
     <div 
     className='main-div'
-    style={{ "--fillheight": fillheight } as React.CSSProperties}
+    style={{ "--fillheight": fillHeight } as React.CSSProperties}
     >
       {showAdminUpper && ( // conditional rendering
         <div className='admin-upper'>

@@ -100,7 +100,7 @@ export default function OperationsNav({ onChange }: OperationsNavProps) {
               </button>
               <div className="mobile-carousel-item">
                 {navItems[activeIndex].icon}
-                <h2 className="mobile-label">{navItems[activeIndex].label}</h2>
+                <h3 className="mobile-label">{navItems[activeIndex].label}</h3>
               </div>
               <button
                 className="carousel-btn next"

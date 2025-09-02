@@ -83,8 +83,12 @@
   background-color: #f0f0f0;
 }
 
+.op-sq-body-row.selected {
+  background-color: #fafafa !important; /* light blue highlight */
+}
+
 .op-sq-body-row:hover {
-  background-color: #fafafa;
+  background-color: #e6f3ff;
 }
 
 /* Buttons */
@@ -122,6 +126,8 @@
 .op-sq-body-row {
   display: table;
   width: 100%;
+  user-select: none; /* Prevents text from being highlighted */
+  cursor: pointer;   /* Optional: makes it feel clickable */
 }
 
 .op-sq-header,
@@ -132,48 +138,28 @@
   table-layout: auto; /* restore natural auto sizing */
 }
 
-.op-sq-head-transact, .op-sq-body-transact {
-  width: 15%;
-}
+.op-sq-head-action, .op-sq-body-action { width: 1%; }        /* checkbox */
+.op-sq-head-transact, .op-sq-body-transact { width: 13%; }
+.op-sq-head-date, .op-sq-body-date { width: 6%; }
+.op-sq-head-customer, .op-sq-body-customer { width: 10%; }
+.op-sq-head-shoe, .op-sq-body-shoe { width: 15%; }
+.op-sq-head-service, .op-sq-body-service { width: 10%; }
+.op-sq-head-branch, .op-sq-body-branch { width: 10%; }
+.op-sq-head-location, .op-sq-body-location { width: 6%; }
+.op-sq-head-status, .op-sq-body-status { width: 6%; }
+.op-sq-head-rush, .op-sq-body-rush { width: 7%; }
+.op-sq-head-due, .op-sq-body-due { width: 8%; }             /* Due Date */
+.op-sq-head-mod, .op-sq-body-mod { width: 7%; }              /* Updated */
+.op-sq-head-chevron, .op-sq-body-dropdown-toggle { width: 1%; }              /* Updated */
 
-.op-sq-head-date, .op-sq-body-date {
-  width: 5%;
-}
-
-.op-sq-head-customer, .op-sq-body-customer {
-  width: 14%;
-}
-
-.op-sq-head-shoe, .op-sq-body-shoe {
-  width: 14%;
-}
-
-.op-sq-head-service, .op-sq-body-service {
-  width: 12%;
-}
-
-.op-sq-head-branch, .op-sq-body-branch {
-  width: 9%;
-}
-
-.op-sq-head-location, .op-sq-body-location {
-  width: 7%;
-}
-
-.op-sq-head-status, .op-sq-body-status {
-  width: 7%;
-}
+.op-sq-body-dropdown-toggle button {
+  width: -10px;
+  margin-left: -40px;
+  margin-right: -30px;
+}      
 
 .op-sq-body-status {
   color: #FF5E5E !important;
-}
-
-.op-sq-head-rush, .op-sq-body-rush {
-  width: 9%;
-}
-
-.op-sq-head-action, .op-sq-body-action {
-  width: 5%;
 }
 
 .op-sq-below-container {
@@ -189,12 +175,64 @@
   margin-right: 10px;
 }
 
-
- 
 @media (max-width: 1312px) {
-
   .op-sq-head-location, .op-sq-body-location, .op-sq-head-status, .op-sq-body-status {
     display: none;
   }
 
+  .op-sq-head-action, .op-sq-body-action { width: 1%; }        /* checkbox */
+  .op-sq-head-transact, .op-sq-body-transact { width: 16%; }
+  .op-sq-head-date, .op-sq-body-date { width: 5%; }
+  .op-sq-head-customer, .op-sq-body-customer { width: 13%; }
+  .op-sq-head-shoe, .op-sq-body-shoe { width: 18%; }
+  .op-sq-head-service, .op-sq-body-service { width: 13%; }
+  .op-sq-head-branch, .op-sq-body-branch { width: 12%; }
+  .op-sq-head-rush, .op-sq-body-rush { width: 7%; }
+  .op-sq-head-due, .op-sq-body-due { width: 7%; }             /* Due Date */
+  .op-sq-head-mod, .op-sq-body-mod { width: 7%; }              /* Updated */
+  .op-sq-head-chevron, .op-sq-body-dropdown-toggle { width: 1%; }              /* Updated */
+
+}
+
+@media (max-width: 1124px) {
+  .op-sq-head-mod, .op-sq-body-mod, .op-sq-head-shoe, .op-sq-body-shoe, .op-sq-head-date, .op-sq-body-date {
+    display: none;
+  }
+}
+
+@media (max-width: 899px) {
+  .op-sq-head-action, .op-sq-body-action, .op-sq-head-customer, .op-sq-body-customer, .op-sq-head-due, .op-sq-body-due, .op-sq-head-branch, .op-sq-body-branch {
+    display: none;
+  }
+}
+
+/* Dropdown card style */
+.op-sq-dropdown-card {
+  padding: 8px 12px;
+  background: #f9f9f9;
+  display: flex;
+  gap: 4px;
+  
+}
+
+/* Chevron button */
+.chevron-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.chevron-btn:focus {
+  outline: none;
+}
+
+.chevron-btn.rotate-180 {
+  transform: rotate(180deg);
+}
+
+/* Optional: mobile-friendly dropdown row spacing */
+.op-sq-body-dropdown-row td {
+  padding: 4px 0;
+  background: #fafafa;
 }
