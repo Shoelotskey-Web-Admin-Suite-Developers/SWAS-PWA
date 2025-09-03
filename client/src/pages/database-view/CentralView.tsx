@@ -2,6 +2,7 @@
 import * as React from "react"
 import { MoreVertical } from "lucide-react"
 import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/button"
 import { SearchBar } from "@/components/ui/searchbar"
 import {
   Select,
@@ -14,6 +15,13 @@ import "@/styles/database-view/central-view.css"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Filters } from "@/components/database-view/Filters"
 import { CentralTable } from "@/components/database-view/CentralTable"
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 /* ----------------------------- types ----------------------------- */
 export type PaymentStatus = "PAID" | "PARTIAL" | "NP"
@@ -327,7 +335,7 @@ export default function CentralView() {
       <div className="search-sort">
         <div className="w-[70%] width-full-767">
           <Label>Search by Receipt ID/ Customer Name/ Received by/ Branch/ Location</Label>
-          <SearchBar value={search} onChange={setSearch}/>
+          <SearchBar value={search} onChange={setSearch} />
         </div>
 
         <div className="sort-kebab w-[30%] width-full-767">
@@ -348,7 +356,7 @@ export default function CentralView() {
               </SelectContent>
             </Select>
           </div>
-        
+
           <div>
             <RadioGroup
               className="flex flex-col mt-5"
@@ -356,19 +364,38 @@ export default function CentralView() {
               onValueChange={(v) => setSortOrder(v as "asc" | "desc")}
             >
               <div className="radio-option">
-                <RadioGroupItem value="asc" id="asc"/>
+                <RadioGroupItem value="asc" id="asc" />
                 <Label htmlFor="asc">Ascending</Label>
               </div>
               <div className="radio-option">
-                <RadioGroupItem value="desc" id="desc"/>
+                <RadioGroupItem value="desc" id="desc" />
                 <Label htmlFor="desc">Descending</Label>
               </div>
             </RadioGroup>
           </div>
 
-          <div className="cv-kebab" aria-hidden>
-            <MoreVertical size={50} />
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                className="h-10 w-10 p-0 flex items-center justify-center"
+                variant="unselected"
+                aria-label="Options"
+              >
+                <MoreVertical size={80} className="!w-10 !h-10" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem onClick={() => console.log("Export clicked")}>
+                Export Records
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-red-600"
+                onClick={() => console.log("Delete clicked")}
+              >
+                Delete Records
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -378,7 +405,10 @@ export default function CentralView() {
         setDateIn={setDateIn}
         dateOut={dateOut}
         setDateOut={setDateOut}
-        clearDates={() => { setDateIn(undefined); setDateOut(undefined) }}
+        clearDates={() => {
+          setDateIn(undefined)
+          setDateOut(undefined)
+        }}
         branch={branch}
         setBranch={setBranch}
         paymentStatus={paymentStatus}

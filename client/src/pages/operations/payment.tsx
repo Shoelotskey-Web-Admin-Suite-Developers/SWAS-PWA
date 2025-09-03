@@ -11,17 +11,15 @@ import {
   SelectContent,
   SelectTrigger,
   SelectValue,
-  SelectItem
+  SelectItem,
 } from "@/components/ui/select"
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Card, CardContent } from "@/components/ui/card"
-import {
-  Table,
-  TableBody,
-} from "@/components/ui/table"
+import { Table, TableBody } from "@/components/ui/table"
 import "@/styles/payment.css"
 import { SelectableTableRow } from "@/components/PaymentsTableRow"
 import { PaymentsTableHeader } from "@/components/PaymentsTableHeader"
+import { Checkbox } from "@/components/ui/checkbox"
 
 type Shoe = {
   model: string
@@ -29,6 +27,20 @@ type Shoe = {
   additionals: string[]
   pairs?: number
   rush?: "yes" | "no"
+}
+
+type Request = {
+  receiptId: string
+  dateIn: string
+  customerId: string
+  customerName: string
+  total: number
+  pairs: number
+  pairsReleased: number
+  shoes: Shoe[]
+  amountPaid: number
+  remainingBalance: number
+  discount: number | null
 }
 
 // --- Price Config ---
@@ -70,8 +82,30 @@ function getPaymentStatus(balance: number, totalAmount: number): string {
   return "Unknown"
 }
 
+// --- Helper: calculate total ---
+function calculateTotal(shoes: Shoe[], discount: number | null): number {
+  let total = 0
+
+  shoes.forEach((shoe) => {
+    const serviceTotal = shoe.services.reduce(
+      (sum, srv) => sum + findServicePrice(srv),
+      0
+    )
+    const addonTotal = shoe.additionals.reduce(
+      (sum, add) => sum + findAddonPrice(add),
+      0
+    )
+    const rushFee = shoe.rush === "yes" ? RUSH_FEE : 0
+
+    total += serviceTotal + addonTotal + rushFee
+  })
+
+  if (discount) total -= discount
+  return Math.max(total, 0)
+}
+
 // --- Dummy Data ---
-function generateDummyRequests(count: number) {
+function generateDummyRequests(count: number): Request[] {
   const customers = [
     { id: "CUST-0001", name: "Juan Dela Cruz" },
     { id: "CUST-0002", name: "Maria Santos" },
@@ -81,6 +115,7 @@ function generateDummyRequests(count: number) {
 
   const shoeModels = ["Nike Air Force", "Adidas Superstar", "Converse High", "Puma Runner"]
   const serviceOptions = services.map((s) => s.name)
+  const addonOptions = addons.map((a) => a.name)
 
   return Array.from({ length: count }, (_, i) => {
     const cust = customers[Math.floor(Math.random() * customers.length)]
@@ -89,12 +124,16 @@ function generateDummyRequests(count: number) {
     const shoes: Shoe[] = Array.from({ length: pairs }, () => ({
       model: shoeModels[Math.floor(Math.random() * shoeModels.length)],
       services: [serviceOptions[Math.floor(Math.random() * serviceOptions.length)]],
-      additionals: [],
+      additionals:
+        Math.random() > 0.5
+          ? [addonOptions[Math.floor(Math.random() * addonOptions.length)]]
+          : [],
+      rush: Math.random() > 0.7 ? "yes" : "no",
     }))
 
-    const total = 800 + Math.floor(Math.random() * 500)
-    const paid = Math.floor(total * (Math.random() * 0.8))
     const discount = Math.random() > 0.7 ? Math.floor(Math.random() * 100) : null
+    const total = calculateTotal(shoes, discount)
+    const paid = Math.floor(total * (Math.random() * 0.8))
 
     return {
       receiptId: `2025-${String(i + 1).padStart(4, "0")}-SMVAL`,
@@ -121,11 +160,13 @@ export default function Payments() {
   const [updatedBalance, setUpdatedBalance] = useState(0)
 
   const [searchQuery, setSearchQuery] = useState("")
-  const [sortBy, setSortBy] = useState("default")
+  const [sortBy, setSortBy] = useState<"default" | keyof Request>("default")
   const [sortOrder, setSortOrder] = useState<"Ascending" | "Descending">("Ascending")
+  const [modeOfPayment, setModeOfPayment] = useState<'cash' | 'gcash' | 'bank' | 'other'>('cash')
+  const [paymentOnly, setPaymentOnly] = useState(false)
 
   const dummyRequests = useMemo(() => generateDummyRequests(20), [])
-  const [selectedRequest, setSelectedRequest] = useState<any | null>(null)
+  const [selectedRequest, setSelectedRequest] = useState<Request | null>(null)
 
   // Filter + Sort
   const filteredRequests = useMemo(() => {
@@ -143,16 +184,37 @@ export default function Payments() {
 
     if (sortBy !== "default") {
       filtered = [...filtered].sort((a, b) => {
-        let valA: any = a[sortBy]
-        let valB: any = b[sortBy]
+        let valA: unknown = a[sortBy]
+        let valB: unknown = b[sortBy]
 
         if (sortBy === "dateIn") {
           valA = new Date(a.dateIn)
           valB = new Date(b.dateIn)
         }
 
-        if (valA < valB) return sortOrder === "Ascending" ? -1 : 1
-        if (valA > valB) return sortOrder === "Ascending" ? 1 : -1
+        if (sortBy === "total") {
+          valA = a.total
+          valB = b.total
+        }
+
+        if (valA instanceof Date && valB instanceof Date) {
+          if (valA < valB) return sortOrder === "Ascending" ? -1 : 1
+          if (valA > valB) return sortOrder === "Ascending" ? 1 : -1
+          return 0
+        }
+
+        if (typeof valA === "number" && typeof valB === "number") {
+          if (valA < valB) return sortOrder === "Ascending" ? -1 : 1
+          if (valA > valB) return sortOrder === "Ascending" ? 1 : -1
+          return 0
+        }
+
+        if (typeof valA === "string" && typeof valB === "string") {
+          return sortOrder === "Ascending"
+            ? valA.localeCompare(valB)
+            : valB.localeCompare(valA)
+        }
+
         return 0
       })
     }
@@ -173,6 +235,26 @@ export default function Payments() {
     setUpdatedBalance(Math.max(0, selectedRequest.total - newTotalPaid))
   }
 
+  const handleSavePaymentOnly = () => {
+    if (dueNow <= 0) {
+      alert("Please enter an amount due now.")
+      return
+    }
+    if (customerPaid < dueNow) {
+      alert("Customer paid is less than due now.")
+      return
+    }
+    console.log("Payment only saved:", {
+      selectedRequest,
+      dueNow,
+      customerPaid,
+      change,
+      updatedBalance,
+      modeOfPayment,
+    })
+    alert("Payment saved successfully!")
+  }
+
   const handleConfirmPayment = () => {
     if (dueNow <= 0) {
       alert("Please enter an amount due now.")
@@ -182,15 +264,17 @@ export default function Payments() {
       alert("Customer paid is less than due now.")
       return
     }
-    console.log("Payment updated:", {
+    console.log("Payment updated & picked up:", {
       selectedRequest,
       dueNow,
       customerPaid,
       change,
       updatedBalance,
+      modeOfPayment,
     })
-    alert("Payment updated successfully!")
+    alert("Payment updated & marked as picked up!")
   }
+
 
   return (
     <div className="payment-container">
@@ -211,7 +295,7 @@ export default function Payments() {
                   </div>
                   <div className="w-[20%]">
                     <Label>Sort by</Label>
-                    <Select value={sortBy} onValueChange={setSortBy}>
+                    <Select value={sortBy} onValueChange={(val) => setSortBy(val as any)}>
                       <SelectTrigger id="branch">
                         <SelectValue placeholder="Select an option" />
                       </SelectTrigger>
@@ -226,15 +310,17 @@ export default function Payments() {
                   <div>
                     <RadioGroup
                       value={sortOrder}
-                      onValueChange={(val) => setSortOrder(val as "Ascending" | "Descending")}
+                      onValueChange={(val) =>
+                        setSortOrder(val as "Ascending" | "Descending")
+                      }
                       className="flex flex-col mt-5"
                     >
                       <div className="radio-option">
-                        <RadioGroupItem value="Ascending"/>
+                        <RadioGroupItem value="Ascending" />
                         <Label>Ascending</Label>
                       </div>
                       <div className="radio-option">
-                        <RadioGroupItem value="Descending"/>
+                        <RadioGroupItem value="Descending" />
                         <Label>Descending</Label>
                       </div>
                     </RadioGroup>
@@ -270,7 +356,35 @@ export default function Payments() {
             <CardContent className="payment-section">
               {selectedRequest ? (
                 <div className="payment-update-section">
-                  <div className="summary-grid">
+                  <div className="w-[40%]">
+                    <div className="flex flex-col gap-5">
+                      <p>Mode of Payment</p>
+                      <RadioGroup
+                        value={modeOfPayment}
+                        onValueChange={(val) => setModeOfPayment(val as 'cash' | 'gcash' | 'bank' | 'other')}
+                        className="pl-10"
+                      >
+                        <div className="radio-option">
+                          <RadioGroupItem value="cash" id="cash" />
+                          <Label htmlFor="cash">Cash</Label>
+                        </div>
+                        <div className="radio-option">
+                          <RadioGroupItem value="gcash" id="gcash" />
+                          <Label htmlFor="gcash">GCash</Label>
+                        </div>
+                        <div className="radio-option">
+                          <RadioGroupItem value="bank" id="bank" />
+                          <Label htmlFor="bank">Bank</Label>
+                        </div>
+                        <div className="radio-option">
+                          <RadioGroupItem value="other" id="other" />
+                          <Label htmlFor="other">Other</Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+                  </div>
+
+                  <div className="payment-grid w-[60%]">
                     <p>Remaining Balance:</p>
                     <p className="text-right pr-3">
                       {formatCurrency(selectedRequest.remainingBalance)}
@@ -387,7 +501,7 @@ export default function Payments() {
                 </div>
               </div>
             ) : (
-              <p className="text-gray-500">Select a request to view summary</p>
+              <p className="mt-[-950px] text-gray-500">Select a request to view summary</p>
             )}
 
             <hr className="section-divider" />
@@ -401,11 +515,21 @@ export default function Payments() {
                   <h2>Updated Status:</h2>
                   <h2>{getPaymentStatus(updatedBalance, selectedRequest.total)}</h2>
                 </div>
+                <div className="flex items-center justify-center gap-2 mt-4 w-fullrounded">
+                  <Checkbox
+                    id="payment-only"
+                    checked={paymentOnly}
+                    onCheckedChange={(checked) => setPaymentOnly(!!checked)}
+                  />
+                  <Label htmlFor="payment-only">Payment only</Label>
+                </div>
                 <Button
                   className="w-full p-8 mt-4 button-lg bg-[#22C55E] hover:bg-[#1E9A50]"
-                  onClick={handleConfirmPayment}
+                  onClick={() =>
+                    paymentOnly ? handleSavePaymentOnly() : handleConfirmPayment()
+                  }
                 >
-                  Confirm Payment
+                  {paymentOnly ? "Save Payment" : "Save & Mark as Picked Up"}
                 </Button>
               </div>
             )}

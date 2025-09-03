@@ -37,7 +37,7 @@ html, body {
 @media (min-width: 1024px) {
   .srm-form-container {
     overflow-y: scroll;
-    max-height: calc(100dvh - 97px);
+    max-height: calc(100dvh - 77px);
   }
 }
 
@@ -54,7 +54,7 @@ html, body {
 
 @media (min-width: 1024px) {
   .srm-form {
-    width: 95%;
+    width: 100%;
   }
 }
 
@@ -107,8 +107,6 @@ html, body {
     grid-template-columns: repeat(2, 1fr);
   }
 }
-
-
 
 .section-divider {
   margin: 0.5rem 0;
@@ -291,7 +289,7 @@ html, body {
 
 @media (min-width: 1024px) {
   .srm-summary {
-    height: calc(100vh - 97px);
+    height: calc(100vh - 77px);
     width: 700px;
   }
 }
@@ -312,7 +310,7 @@ html, body {
   flex-direction: column;
   flex-grow: 1;
   padding: 3rem;
-  
+  justify-content: space-between;
 }
 
 .srm-summary-body {
@@ -325,7 +323,7 @@ html, body {
 
 @media (min-width: 1024px) {
   .srm-summary-body {
-    max-height: 50dvh;
+    max-height: calc(65dvh - 97px);
     overflow-y: auto;
   }
 }

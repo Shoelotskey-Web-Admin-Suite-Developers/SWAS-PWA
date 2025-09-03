@@ -104,6 +104,7 @@ export default function SRM() {
   const [customerType, setCustomerType] = useState<'new' | 'old'>('new')
   const [useCustomDate, setUseCustomDate] = useState(false)
   const [customDate, setCustomDate] = useState<string>(todayISODate())
+  const [modeOfPayment, setModeOfPayment] = useState<'cash' | 'gcash' | 'bank' | 'other'>('cash')
   const [paymentType, setPaymentType] = useState<'full' | 'half' | 'custom'>(
     'full'
   )
@@ -330,8 +331,8 @@ export default function SRM() {
     setBalance(Math.max(0, totalSales - amountDueNow));
   }, [customerPaid, amountDueNow, totalSales]);
 
-  // Handle manual Amount Due entry (switches to custom)
-  const handleAmountDueChange = (value) => {
+  // Explicitly type the value as string or number
+  const handleAmountDueChange = (value: string | number) => {
     const num = Math.max(0, Math.min(Number(value) || 0, totalSales));
     setPaymentType("custom");
     setAmountDueNow(num);
@@ -374,6 +375,7 @@ export default function SRM() {
     change,
     balance,
     receivedBy,
+    modeOfPayment,
   };
 
   console.log("Service Request Saved:", serviceRequest);
@@ -592,6 +594,32 @@ export default function SRM() {
             <CardContent className="payment-section">
               {/* Left: Discount Section */}
               <div className="discount-section">
+                <div className="flex flex-col gap-5">
+                  <Label>Mode of Payment</Label>
+                  <RadioGroup
+                    value={modeOfPayment}
+                    onValueChange={(val) => setModeOfPayment(val as 'cash' | 'gcash' | 'bank' | 'other')}
+                    className="pl-10"
+                  >
+                    <div className="radio-option">
+                      <RadioGroupItem value="cash" id="cash" />
+                      <Label htmlFor="cash">Cash</Label>
+                    </div>
+                    <div className="radio-option">
+                      <RadioGroupItem value="gcash" id="gcash" />
+                      <Label htmlFor="gcash">GCash</Label>
+                    </div>
+                    <div className="radio-option">
+                      <RadioGroupItem value="bank" id="bank" />
+                      <Label htmlFor="bank">Bank</Label>
+                    </div>
+                    <div className="radio-option">
+                      <RadioGroupItem value="other" id="other" />
+                      <Label htmlFor="other">Other</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
                 <div className="checkbox-item">
                   <Checkbox
                     checked={applyDiscount}
@@ -670,6 +698,7 @@ export default function SRM() {
                     value={amountDueNow}
                     onChange={(e) => handleAmountDueChange(e.target.value)}
                   />
+
 
                   <p>Customer Paid:</p>
                   <Input

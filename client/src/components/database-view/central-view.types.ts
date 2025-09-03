@@ -40,3 +40,20 @@ export type ReceiptRow = {
 
 export type TxStatusDates = Record<string, string | null>
 
+
+/* ----------------------------- customer types ----------------------------- */
+export type CustomerRow = {
+  id: number
+  name: string
+  birthday: string
+  address: string
+  email: string
+  contact: string
+  balance: number
+  status: "Active" | "Stored"
+  currentServiceCount: number
+  totalServices: number
+}
+
+
+

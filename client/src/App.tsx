@@ -6,9 +6,11 @@ import SRM from '@/pages/srm'
 import Operations from '@/pages/operations/operations';
 import Payment from '@/pages/operations/payment';
 import CentralView from '@/pages/database-view/CentralView';
+import CustomerInformation from '@/pages/database-view/CustomerInformation';
+import Branches from '@/pages/database-view/Branches';
 
 function App() {
-  const [activePage, setActivePage] = useState<'serviceRequest' | 'operations' | 'payment' | 'central-view'>('serviceRequest')
+  const [activePage, setActivePage] = useState<'serviceRequest' | 'operations' | 'payment' | 'central-view'  | 'customer-information' | 'branches'>('serviceRequest')
 
   return (
     <>
@@ -19,6 +21,8 @@ function App() {
         {activePage === 'operations' && <Operations />}
         {activePage === 'payment' && <Payment />}
         {activePage === 'central-view' && <CentralView />}
+        {activePage === 'customer-information' && <CustomerInformation />}
+        {activePage === 'branches' && <Branches />}
       </div>
     </>
   )

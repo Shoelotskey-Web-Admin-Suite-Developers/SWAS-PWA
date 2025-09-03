@@ -104,14 +104,8 @@ html, body {
 }
 
 .payment-card {
-  width: 50%;
+  width: 100%;
   align-self:flex-end;
-}
-
-@media (max-width: 1023px) {
-  .payment-card {
-    width: 100%;
-  }
 }
 
 .payment-section {
@@ -130,27 +124,42 @@ html, body {
 }
 
 .payment-update-section {
-  flex: 2.5;
   display: flex;
-  flex-direction: column;
-  border-left: none;
-  padding: 0px;
+  flex-direction: row;
+  gap: 1rem;
+  width: 100%;
 }
 
-@media (max-width: 1024px) {
+
+@media (max-width: 767px) {
   .payment-update-section {
-    border-left: none;
-    border-top: none;
-    padding-left: 0;
-    padding-top: 0;
+    flex-direction: column;
   }
 }
 
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
+.payment-grid {
+  display: flex;
+  flex-wrap: wrap;
   font-size: 0.875rem;
   font-weight: 500;
+  gap: 0.5rem;
+  /* Border style */
+  border-left: 2px solid #C7C7C7;
+  padding-left: 2rem;
+  width: 100%;
+}
+
+.payment-grid > * {
+  flex: 1 1 48%;
+}
+
+@media (max-width: 767px) {
+  .payment-grid {
+    border-left: none;
+    border-top: 2px solid #C7C7C7;
+    padding-left: 0;
+    padding-top: 1rem;
+  }
 }
 
 .payment-summary {
@@ -183,6 +192,7 @@ html, body {
   flex-direction: column;
   flex-grow: 1;
   padding: 3rem;
+  justify-content: space-between;
 }
 
 .payment-summary-body {
@@ -195,7 +205,7 @@ html, body {
 
 @media (min-width: 1024px) {
   .payment-summary-body {
-    max-height: 50dvh;
+    max-height: calc(65dvh - 97px);
     overflow-y: auto;
   }
 }

@@ -1,6 +1,5 @@
 "use client"
 
-import React from "react"
 import { TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import "@/styles/payment.css"
 import "@/styles/components/paymentsTable.css"

@@ -4,8 +4,8 @@ import NotifIcon from '@/components/icons/NotifIcon'
 import { useDropdownHandlers } from '@/hooks/useDropdownHandlers'
 
 type NavbarProps = {
-  activePage: 'serviceRequest' | 'operations' | 'payment' | 'central-view'
-  setActivePage: React.Dispatch<React.SetStateAction<'serviceRequest' | 'operations' | 'payment' | 'central-view'>>
+  activePage: 'serviceRequest' | 'operations' | 'payment' | 'central-view' | 'customer-information' | 'branches'
+  setActivePage: React.Dispatch<React.SetStateAction<'serviceRequest' | 'operations' | 'payment' | 'central-view' | 'customer-information' | 'branches'>>
 }
 
 export default function Navbar({ activePage, setActivePage }: NavbarProps) {
@@ -67,8 +67,8 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
                   <div className="dropdown-menu">
                     <div className='dropdown-items'>
                       <div className='dropdown-item'><a href="" onClick={e => { e.preventDefault(); setActivePage('central-view') }}>Central View</a></div>
-                      <div className='dropdown-item'><a href="">Customer Information</a></div>
-                      <div className='dropdown-item'><a href="">Branches</a></div>
+                      <div className='dropdown-item'><a href="" onClick={e => { e.preventDefault(); setActivePage('customer-information') }}>Customer Information</a></div>
+                      <div className='dropdown-item'><a href="" onClick={e => { e.preventDefault(); setActivePage('branches') }}>Branches</a></div>
                     </div>
                   </div>
                 )}
@@ -135,9 +135,9 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
                           <h3>Database View</h3>
                           {dbDropdown && (
                             <div className='dropdown-tablet'>
-                              <a href="" onClick={e => { e.preventDefault(); setActivePage('payment') }}>Central View</a>
-                              <a href="">Customer Information</a>
-                              <a href="">Branches</a>
+                              <a href="" onClick={e => { e.preventDefault(); setActivePage('central-view'); setIsOpen(false); }}>Central View</a>
+                              <a href="" onClick={e => { e.preventDefault(); setActivePage('customer-information'); setIsOpen(false); }}>Customer Information</a>
+                              <a href="" onClick={e => { e.preventDefault(); setActivePage('branches'); setIsOpen(false); }}>Branches</a>
                             </div>
                           )}
                         </div>
@@ -213,9 +213,9 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
                         <h3>Database View</h3>
                         {dbDropdown && (
                           <div className='dropdown-tablet'>
-                            <a href="" onClick={e => { e.preventDefault(); setActivePage('payment') }}>Central View</a>
-                            <a href="">Customer Information</a>
-                            <a href="">Branches</a>
+                            <a href="" onClick={e => { e.preventDefault(); setActivePage('central-view'); setIsOpen(false); }}>Central View</a>
+                            <a href="" onClick={e => { e.preventDefault(); setActivePage('customer-information'); setIsOpen(false); }}>Customer Information</a>
+                            <a href="" onClick={e => { e.preventDefault(); setActivePage('branches'); setIsOpen(false); }}>Branches</a>
                           </div>
                         )}
                       </div>
