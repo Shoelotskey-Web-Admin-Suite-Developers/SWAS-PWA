@@ -52,7 +52,7 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
                   <div className="dropdown-menu">
                     <div className='dropdown-items'>
                       <div className='dropdown-item'><a href="" onClick={e => { e.preventDefault(); setActivePage('operations') }}>Operations</a></div>
-                      <div className='dropdown-item'><a href="" onClick={e => { e.preventDefault(); setActivePage('payment') }}>Payment</a></div>
+                      <div className='dropdown-item'><a href="" onClick={e => { e.preventDefault(); setActivePage('payment') }}>Payment & Pickup</a></div>
                     </div>
                   </div>
                 )}
@@ -111,7 +111,7 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
                     <div className="dropdown-menu">
                       <div className='dropdown-items'>
                         <div className='dropdown-item'><a href="" onClick={e => { e.preventDefault(); setActivePage('operations'); setIsOpen(false); }}>Operations</a></div>
-                        <div className='dropdown-item'><a href="" onClick={e => { e.preventDefault(); setActivePage('payment'); setIsOpen(false); }}>Payment</a></div>
+                        <div className='dropdown-item'><a href="" onClick={e => { e.preventDefault(); setActivePage('payment'); setIsOpen(false); }}>Payment & Pickup</a></div>
                       </div>
                     </div>
                   )}
@@ -202,7 +202,7 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
                               e.preventDefault(); 
                               setActivePage('payment');
                               setIsOpen(false);  
-                              }}>Payment</a>
+                              }}>Payment & Pickup</a>
                           </div>
                         )}
                       </div>

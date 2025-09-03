@@ -9,11 +9,10 @@ import {
   TableBody,
   TableCell,
 } from "@/components/ui/table";
-import IconRD from "@/assets/icons/op-ready-delivery.svg?react";
 
 
 type Branch = "Valenzuela" | "SM Valenzuela" | "SM Grand";
-type Location = "Branch" | "Hub";
+type Location = "Branch" | "Hub" | "To Branch" | "To Hub";
 
 type Row = {
   transactId: string;
@@ -248,58 +247,61 @@ export default function OpServiceQueue() {
   const hiddenColumns = getHiddenColumns();
 
   return (
-    <div className="op-sq-container">
-      <Table className="op-sq-table">
-        <TableHeader className="op-sq-header">
-          <TableRow className="op-sq-header-row">
-            <TableCell className="op-sq-head-action"></TableCell>
-            <TableHead className="op-sq-head-transact"><h5>Transaction No</h5></TableHead>
-            <TableHead className="op-sq-head-date"><h5>Date</h5></TableHead>
-            <TableHead className="op-sq-head-customer"><h5>Customer</h5></TableHead>
-            <TableHead className="op-sq-head-shoe"><h5>Shoe</h5></TableHead>
-            <TableHead className="op-sq-head-service"><h5>Service</h5></TableHead>
-            <TableHead className="op-sq-head-branch"><h5>Branch</h5></TableHead>
-            <TableHead className="op-sq-head-location"><h5>Location</h5></TableHead>
-            <TableHead className="op-sq-head-status"><h5>Status</h5></TableHead>
-            <TableHead className="op-sq-head-rush"><h5>Priority</h5></TableHead>
-            <TableHead className="op-sq-head-due"><h5>Due Date</h5></TableHead>
-            <TableHead className="op-sq-head-mod"><h5>Updated</h5></TableHead>
+    <div className="op-container">
+      <Table className="op-table">
+        <TableHeader className="op-header">
+          <TableRow className="op-header-row">
+            <TableCell className="op-head-action"></TableCell>
+            <TableHead className="op-head-transact"><h5>Transaction No</h5></TableHead>
+            <TableHead className="op-head-date"><h5>Date</h5></TableHead>
+            <TableHead className="op-head-customer"><h5>Customer</h5></TableHead>
+            <TableHead className="op-head-shoe"><h5>Shoe</h5></TableHead>
+            <TableHead className="op-head-service"><h5>Service</h5></TableHead>
+            <TableHead className="op-head-branch"><h5>Branch</h5></TableHead>
+            <TableHead className="op-head-location"><h5>Location</h5></TableHead>
+            <TableHead className="op-head-status"><h5>Status</h5></TableHead>
+            <TableHead className="op-head-rush"><h5>Priority</h5></TableHead>
+            <TableHead className="op-head-due"><h5>Due Date</h5></TableHead>
+            <TableHead className="op-head-mod"><h5>Updated</h5></TableHead>
             {hiddenColumns.length > 0 && (
-            <TableHead className="op-sq-head-chevron"></TableHead>
+              <TableHead className="op-head-chevron"></TableHead>
             )}
           </TableRow>
         </TableHeader>
 
-        <TableBody className="op-sq-body">
+        <TableBody className="op-body">
           {INITIAL_ROWS.map((row, index) => (
             <React.Fragment key={row.transactId}>
               <TableRow
-                className={`op-sq-body-row ${selected.includes(row.transactId) ? "selected" : ""}`}
+                className={`op-body-row ${selected.includes(row.transactId) ? "selected" : ""}`}
                 onClick={(e) => handleRowClick(e, row.transactId, index)}
               >
-                <TableCell className="op-sq-body-action" onClick={(e) => e.stopPropagation()}>
+                <TableCell className="op-body-action" onClick={(e) => e.stopPropagation()}>
                   <input
                     type="checkbox"
                     checked={selected.includes(row.transactId)}
                     onChange={() => toggleCheckbox(row.transactId, index)}
                   />
                 </TableCell>
-                <TableCell className="op-sq-body-transact"><h5>{row.transactId}</h5></TableCell>
-                <TableCell className="op-sq-body-date"><small>{row.date.toLocaleDateString()}</small></TableCell>
-                <TableCell className="op-sq-body-customer"><small>{row.customer}</small></TableCell>
-                <TableCell className="op-sq-body-shoe"><small>{row.shoe}</small></TableCell>
-                <TableCell className="op-sq-body-service"><small>{row.service}</small></TableCell>
-                <TableCell className="op-sq-body-branch"><small>{row.branch}</small></TableCell>
-                <TableCell className="op-sq-body-location"><small>{row.Location}</small></TableCell>
-                <TableCell className="op-sq-body-status"><h5>{row.status}</h5></TableCell>
-                <TableCell className="op-sq-body-rush">
-                  {row.isRush ? <span className="px-3 py-1 bg-red-200 text-red-800 rounded-full text-sm font-medium">Rush</span> :
-                  <span className="px-3 py-1 bg-green-200 text-green-800 rounded-full text-sm font-medium">Normal</span>}
+                <TableCell className="op-body-transact"><h5 className="text-[#000000]">{row.transactId}</h5></TableCell>
+                <TableCell className="op-body-date"><small>{row.date.toLocaleDateString()}</small></TableCell>
+                <TableCell className="op-body-customer"><small>{row.customer}</small></TableCell>
+                <TableCell className="op-body-shoe"><small>{row.shoe}</small></TableCell>
+                <TableCell className="op-body-service"><small>{row.service}</small></TableCell>
+                <TableCell className="op-body-branch"><small>{row.branch}</small></TableCell>
+                <TableCell className="op-body-location"><small>{row.Location}</small></TableCell>
+                <TableCell className="op-body-status op-status-sq"><h5>{row.status}</h5></TableCell>
+                <TableCell className="op-body-rush">
+                  {row.isRush ? (
+                    <span className="px-3 py-1 bg-red-200 text-red-800 rounded-full text-sm font-medium">Rush</span>
+                  ) : (
+                    <span className="px-3 py-1 bg-green-200 text-green-800 rounded-full text-sm font-medium">Normal</span>
+                  )}
                 </TableCell>
-                <TableCell className="op-sq-body-due"><small>{row.dueDate.toLocaleDateString()}</small></TableCell>
-                <TableCell className="op-sq-body-mod"><small>{row.updated.toLocaleDateString()}</small></TableCell>
+                <TableCell className="op-body-due"><small>{row.dueDate.toLocaleDateString()}</small></TableCell>
+                <TableCell className="op-body-mod"><small>{row.updated.toLocaleDateString()}</small></TableCell>
                 {hiddenColumns.length > 0 && (
-                  <TableCell className="op-sq-body-dropdown-toggle">
+                  <TableCell className="op-body-dropdown-toggle">
                     <button
                       onClick={(e) => { e.stopPropagation(); toggleExpand(row.transactId); }}
                       className={`chevron-btn ${expanded.includes(row.transactId) ? "rotate-180" : ""}`}
@@ -312,19 +314,39 @@ export default function OpServiceQueue() {
 
               {/* Dropdown card */}
               {expanded.includes(row.transactId) && hiddenColumns.length > 0 && (
-                <TableRow className="op-sq-body-dropdown-row">
-                  <TableCell colSpan={12}>
-                    <div className="op-sq-dropdown-card">
-                      {hiddenColumns.includes("Date") && <div><h5>Date:</h5> {row.date.toLocaleDateString()}</div>}
-                      {hiddenColumns.includes("Customer") && <div><h5>Customer:</h5> {row.customer}</div>}
-                      {hiddenColumns.includes("Shoe") && <div><h5>Shoe:</h5> {row.shoe}</div>}
-                      {hiddenColumns.includes("Service") && <div><h5>Service:</h5> {row.service}</div>}
-                      {hiddenColumns.includes("Branch") && <div><h5>Branch:</h5> {row.branch}</div>}
-                      {hiddenColumns.includes("Location") && <div><h5>Location:</h5> {row.Location}</div>}
-                      {hiddenColumns.includes("Status") && <div><h5>Status:</h5> {row.status}</div>}
-                      {hiddenColumns.includes("Priority") && <div><h5>Priority:</h5> {row.isRush ? "Rush" : "Normal"}</div>}
-                      {hiddenColumns.includes("Due") && <div><h5>Due Date:</h5> {row.dueDate.toLocaleDateString()}</div>}
-                      {hiddenColumns.includes("Mod") && <div><h5>Updated:</h5> {row.updated.toLocaleDateString()}</div>}
+                <TableRow className="op-body-dropdown-row">
+                  <TableCell colSpan={12} className="op-dropdown-cell">
+                    <div className="op-dropdown-card">
+                      {hiddenColumns.includes("Date") && (
+                        <div><h5 className="label">Date</h5> <h5 className="name">{row.date.toLocaleDateString()}</h5></div>
+                      )}
+                      {hiddenColumns.includes("Customer") && (
+                        <div><h5 className="label">Customer</h5> <h5 className="name">{row.customer}</h5></div>
+                      )}
+                      {hiddenColumns.includes("Shoe") && (
+                        <div><h5 className="label">Shoe</h5> <h5 className="name">{row.shoe}</h5></div>
+                      )}
+                      {hiddenColumns.includes("Service") && (
+                        <div><h5 className="label">Service</h5> <h5 className="name">{row.service}</h5></div>
+                      )}
+                      {hiddenColumns.includes("Branch") && (
+                        <div><h5 className="label">Branch</h5> <h5 className="name">{row.branch}</h5></div>
+                      )}
+                      {hiddenColumns.includes("Location") && (
+                        <div><h5 className="label">Location</h5> <h5 className="name">{row.Location}</h5></div>
+                      )}
+                      {hiddenColumns.includes("Status") && (
+                        <div><h5 className="label">Status</h5> <h5 className="name">{row.status}</h5></div>
+                      )}
+                      {hiddenColumns.includes("Priority") && (
+                        <div><h5 className="label">Priority</h5> <h5 className="name">{row.isRush ? "Rush" : "Normal"}</h5></div>
+                      )}
+                      {hiddenColumns.includes("Due") && (
+                        <div><h5 className="label">Due Date</h5> <h5 className="name">{row.dueDate.toLocaleDateString()}</h5></div>
+                      )}
+                      {hiddenColumns.includes("Mod") && (
+                        <div><h5 className="label">Updated</h5> <h5 className="name">{row.updated.toLocaleDateString()}</h5></div>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -334,10 +356,10 @@ export default function OpServiceQueue() {
         </TableBody>
       </Table>
 
-      <div className="op-sq-below-container flex justify-end gap-4 mt-2">
+      <div className="op-below-container flex justify-end gap-4 mt-2">
         <p>{selected.length} item(s) selected</p>
         <button
-          className="op-sq-btn-delivery text-white bg-[#0E9CFF] button-md"
+          className="op-btn-sq op-btn text-white bg-[#0E9CFF] button-md"
           disabled={selected.length === 0}
         >
           <h5>Mark as Ready for Delivery</h5>
