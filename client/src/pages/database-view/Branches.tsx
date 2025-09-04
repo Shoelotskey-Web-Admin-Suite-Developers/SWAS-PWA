@@ -70,14 +70,15 @@ export default function Branches() {
     position: "Branch Admin" | "Branch Staff",
     password?: string
   ) => {
-    const newUser: User = { id: userId, branchId, position }
+    const newUser: User & { password?: string } = { id: userId, branchId, position, password }
     setUsers([...users, newUser])
   }
+
 
   return (
     <div className="branches-wrapper">
       {/* Branches Table */}
-      <Card className="branches-card">
+      <Card className="branches-cards">
         <CardHeader className="flex flex-row justify-between pb-0">
           <CardTitle>
             <h1 className="mt-3">Branches</h1>
@@ -87,7 +88,7 @@ export default function Branches() {
           </Button>
         </CardHeader>
 
-        <CardContent className="card-content">
+        <CardContent className="card-contents">
           <div className="branches-table-container">
             <Table className="branches-table">
               <TableHeader>
@@ -149,7 +150,7 @@ export default function Branches() {
       </Card>
 
       {/* Users in Selected Branch */}
-      <Card className="branches-card">
+      <Card className="branches-cards">
         <CardHeader className="flex flex-row justify-between  pb-0">
           <CardTitle>
             <h1 className="mt-3">
@@ -163,7 +164,7 @@ export default function Branches() {
           )}
         </CardHeader>
 
-        <CardContent className="card-content">
+        <CardContent className="card-contents">
           {selectedBranch ? (
             filteredUsers.length > 0 ? (
               <div className="branches-table-container">

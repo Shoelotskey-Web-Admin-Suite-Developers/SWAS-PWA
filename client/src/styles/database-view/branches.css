@@ -9,7 +9,7 @@
 }
 
 /* Cards fill height and use flex column so header + content layout correctly */
-.branches-card {
+.branches-cards {
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -17,7 +17,7 @@
 }
 
 /* Make CardContent fill remaining space */
-.branches-card .card-content {
+.branches-cards .card-contents {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -131,7 +131,7 @@
     grid-template-columns: 1fr;
     height: auto;
   }
-  .branches-card {
+  .branches-cards {
     height: auto; /* let cards grow naturally */
   }
   .branches-table-container {
