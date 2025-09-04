@@ -8,9 +8,10 @@ import Payment from '@/pages/operations/payment';
 import CentralView from '@/pages/database-view/CentralView';
 import CustomerInformation from '@/pages/database-view/CustomerInformation';
 import Branches from '@/pages/database-view/Branches';
+import Analytics from '@/pages/analytics/analytics'
 
 function App() {
-  const [activePage, setActivePage] = useState<'serviceRequest' | 'operations' | 'payment' | 'central-view'  | 'customer-information' | 'branches'>('serviceRequest')
+  const [activePage, setActivePage] = useState<'serviceRequest' | 'operations' | 'payment' | 'central-view'  | 'customer-information' | 'branches' | 'analytics'>('serviceRequest')
 
   return (
     <>
@@ -23,6 +24,7 @@ function App() {
         {activePage === 'central-view' && <CentralView />}
         {activePage === 'customer-information' && <CustomerInformation />}
         {activePage === 'branches' && <Branches />}
+        {activePage === 'analytics' && <Analytics />}
       </div>
     </>
   )

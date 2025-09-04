@@ -4,8 +4,8 @@ import NotifIcon from '@/components/icons/NotifIcon'
 import { useDropdownHandlers } from '@/hooks/useDropdownHandlers'
 
 type NavbarProps = {
-  activePage: 'serviceRequest' | 'operations' | 'payment' | 'central-view' | 'customer-information' | 'branches'
-  setActivePage: React.Dispatch<React.SetStateAction<'serviceRequest' | 'operations' | 'payment' | 'central-view' | 'customer-information' | 'branches'>>
+  activePage: 'serviceRequest' | 'operations' | 'payment' | 'central-view' | 'customer-information' | 'branches' | 'analytics'
+  setActivePage: React.Dispatch<React.SetStateAction<'serviceRequest' | 'operations' | 'payment' | 'central-view' | 'customer-information' | 'branches' | 'analytics'>>
 }
 
 export default function Navbar({ activePage, setActivePage }: NavbarProps) {
@@ -75,7 +75,7 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
               </div>
             </li>
 
-            <li><a href=""><h3>Analytics</h3></a></li>
+            <li><a href="" onClick={e => { e.preventDefault(); setActivePage('analytics') }}><h3>Analytics</h3></a></li>
 
             {/* User Management dropdown */}
             <li className={`dropdown ${userDropdown ? "dropdown-open" : ""}`}>
@@ -142,7 +142,7 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
                           )}
                         </div>
                       </li>
-                      <li><a href="#"><h3>Analytics</h3></a></li>
+                      <li><a href="#" onClick={e => { e.preventDefault(); setActivePage('analytics'); setIsOpen(false); }}><h3>Analytics</h3></a></li>
                       <li className={`dropdown ${userDropdown ? "dropdown-open" : ""}`}>
                         <div onClick={() => setUserDropdown(prev => !prev)}>
                           <h3>User Management</h3>
@@ -221,7 +221,7 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
                       </div>
                     </li>
 
-                    <li><a href="#"><h3>Analytics</h3></a></li>
+                    <li><a href="#" onClick={e => { e.preventDefault(); setActivePage('analytics'); setIsOpen(false);  }}><h3>Analytics</h3></a></li>
 
                     <li className={`dropdown ${userDropdown ? "dropdown-open" : ""}`}>
                       <div onClick={() => setUserDropdown(prev => !prev)}>
