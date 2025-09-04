@@ -83,6 +83,39 @@ const INITIAL_ROWS: Row[] = [
     paymentStatus: "Partial",
     contact: "09221239876",
   },
+  {
+    transactId: "0002-001-VALEN",
+    date: new Date("2025-01-15"),
+    customer: "Juan Dela Cruz",
+    shoe: "Nike Air Force 1",
+    service: "Basic Cleaning",
+    branch: "Valenzuela",
+    pickupNotice: { notifiedAt: new Date("2025-01-16"), allowanceDays: 5 }, // 5 days left
+    paymentStatus: "Paid",
+    contact: "09171234567",
+  },
+  {
+    transactId: "0003-001-VALEN",
+    date: new Date("2025-01-15"),
+    customer: "Juan Dela Cruz",
+    shoe: "Nike Air Force 1",
+    service: "Basic Cleaning",
+    branch: "Valenzuela",
+    pickupNotice: { notifiedAt: new Date("2025-01-16"), allowanceDays: 5 }, // 5 days left
+    paymentStatus: "Paid",
+    contact: "09171234567",
+  },
+  {
+    transactId: "0004-001-VALEN",
+    date: new Date("2025-01-15"),
+    customer: "Juan Dela Cruz",
+    shoe: "Nike Air Force 1",
+    service: "Basic Cleaning",
+    branch: "Valenzuela",
+    pickupNotice: { notifiedAt: new Date("2025-01-16"), allowanceDays: 5 }, // 5 days left
+    paymentStatus: "Paid",
+    contact: "09171234567",
+  },
 ];
 
 

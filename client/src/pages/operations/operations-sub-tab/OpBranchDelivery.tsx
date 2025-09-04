@@ -10,6 +10,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 
+import InProcessModal from "@/components/operations/modals/OpBDModal"
 
 type Branch = "Valenzuela" | "SM Valenzuela" | "SM Grand";
 type Location = "Branch" | "Hub" | "To Branch" | "To Hub";
@@ -194,6 +195,7 @@ export default function OpBranchDelivery() {
   const [lastIndex, setLastIndex] = useState<number | null>(null);
   const [expanded, setExpanded] = useState<string[]>([]);
   const [windowWidth, setWindowWidth] = useState<number>(window.innerWidth);
+  const [modalOpen, setModalOpen] = useState(false);
 
   // update windowWidth on resize
   useEffect(() => {
@@ -360,11 +362,21 @@ export default function OpBranchDelivery() {
       <div className="op-below-container flex justify-end gap-4 mt-2">
         <p>{selected.length} item(s) selected</p>
         <button
-          className="op-btn-bd op-btn text-white bg-[#0E9CFF] button-md"
+          className="op-btn-bd op-btn text-white bg-[#0E9CFF] button-md disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={selected.length === 0}
+          onClick={() => setModalOpen(true)}
         >
-          <h5>In Process</h5>
+          <h5>Mark as In Process</h5>
         </button>
+
+        <InProcessModal
+            open={modalOpen}
+            onOpenChange={setModalOpen}
+            selectedCount={selected.length}
+            onConfirm={() => {
+              console.log("Confirmed for:", selected)
+            }}
+          />
       </div>
     </div>
   );

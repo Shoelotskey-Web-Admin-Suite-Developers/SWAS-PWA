@@ -10,6 +10,8 @@ import {
   TableCell,
 } from "@/components/ui/table";
 
+import ToWarehouseModal from "@/components/operations/modals/OpRDModal"
+
 
 type Branch = "Valenzuela" | "SM Valenzuela" | "SM Grand";
 type Location = "Branch" | "Hub" | "To Branch" | "To Hub";
@@ -194,6 +196,7 @@ export default function OpReadyDelivery() {
   const [lastIndex, setLastIndex] = useState<number | null>(null);
   const [expanded, setExpanded] = useState<string[]>([]);
   const [windowWidth, setWindowWidth] = useState<number>(window.innerWidth);
+  const [modalOpen, setModalOpen] = useState(false);
 
   // update windowWidth on resize
   useEffect(() => {
@@ -360,11 +363,21 @@ export default function OpReadyDelivery() {
       <div className="op-below-container flex justify-end gap-4 mt-2">
         <p>{selected.length} item(s) selected</p>
         <button
-          className="op-btn-rd op-btn text-white bg-[#1447E6] button-md"
+          className="op-btn-rd op-btn text-white bg-[#1447E6] button-md disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={selected.length === 0}
+          onClick={() => setModalOpen(true)}
         >
-          <h5>To Warehouse</h5>
+          <h5>Move To Warehouse</h5>
         </button>
+
+        <ToWarehouseModal
+              open={modalOpen}
+              onOpenChange={setModalOpen}
+              selectedCount={selected.length}
+              onConfirm={() => {
+              console.log("Confirmed for:", selected)
+            }}
+          />
       </div>
     </div>
   );

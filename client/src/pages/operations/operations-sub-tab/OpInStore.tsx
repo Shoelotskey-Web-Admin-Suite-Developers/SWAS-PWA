@@ -10,6 +10,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 
+import MarkAsReadyForPickupModal from "@/components/operations/modals/OpISModal"
 
 type Branch = "Valenzuela" | "SM Valenzuela" | "SM Grand";
 type Location = "Branch" | "Hub" | "To Branch" | "To Hub";
@@ -194,6 +195,7 @@ export default function OpInStore() {
   const [lastIndex, setLastIndex] = useState<number | null>(null);
   const [expanded, setExpanded] = useState<string[]>([]);
   const [windowWidth, setWindowWidth] = useState<number>(window.innerWidth);
+  const [modalOpen, setModalOpen] = useState(false);
 
   // update windowWidth on resize
   useEffect(() => {
@@ -360,11 +362,20 @@ export default function OpInStore() {
       <div className="op-below-container flex justify-end gap-4 mt-2">
         <p>{selected.length} item(s) selected</p>
         <button
-          className="op-btn-is op-btn text-white bg-[#0E9CFF] button-md"
+          className="op-btn-is op-btn text-white bg-[#0E9CFF] button-md disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={selected.length === 0}
+          onClick={() => setModalOpen(true)}
         >
-          <h5>Ready for Pickup</h5>
+          <h5>Mark As Ready for Pickup</h5>
         </button>
+        <MarkAsReadyForPickupModal
+              open={modalOpen}
+              onOpenChange={setModalOpen}
+              selectedCount={selected.length}
+              onConfirm={() => {
+                console.log("Confirmed for:", selected)
+              }}
+            />
       </div>
     </div>
   );

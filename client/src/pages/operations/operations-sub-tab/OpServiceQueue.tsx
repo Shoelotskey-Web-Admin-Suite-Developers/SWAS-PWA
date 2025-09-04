@@ -10,6 +10,8 @@ import {
   TableCell,
 } from "@/components/ui/table";
 
+import MarkAsReadyModal from "@/components/operations/modals/OpSQModal"
+
 
 type Branch = "Valenzuela" | "SM Valenzuela" | "SM Grand";
 type Location = "Branch" | "Hub" | "To Branch" | "To Hub";
@@ -193,6 +195,7 @@ export default function OpServiceQueue() {
   const [lastIndex, setLastIndex] = useState<number | null>(null);
   const [expanded, setExpanded] = useState<string[]>([]);
   const [windowWidth, setWindowWidth] = useState<number>(window.innerWidth);
+  const [modalOpen, setModalOpen] = useState(false)
 
   // update windowWidth on resize
   useEffect(() => {
@@ -359,11 +362,21 @@ export default function OpServiceQueue() {
       <div className="op-below-container flex justify-end gap-4 mt-2">
         <p>{selected.length} item(s) selected</p>
         <button
-          className="op-btn-sq op-btn text-white bg-[#0E9CFF] button-md"
+          className="op-btn-sq op-btn text-white button-md disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={selected.length === 0}
+          onClick={() => setModalOpen(true)}
         >
           <h5>Mark as Ready for Delivery</h5>
         </button>
+
+        <MarkAsReadyModal
+          open={modalOpen}
+          onOpenChange={setModalOpen}
+          selectedCount={selected.length}
+          onConfirm={() => {
+            console.log("Confirmed for:", selected)
+          }}
+        />
       </div>
     </div>
   );
