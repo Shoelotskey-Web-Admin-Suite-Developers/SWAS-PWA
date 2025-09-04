@@ -12,6 +12,7 @@ import {
   TableCell,
 } from "@/components/ui/table"
 import "@/styles/database-view/customer-information.css"
+import { EditCustomerDialog } from "@/components/database-view/EditCustomerDialog"
 
 import type { CustomerRow } from "@/components/database-view/central-view.types"
 
@@ -56,7 +57,7 @@ export function CustomerTable({ rows }: CustomerTableProps) {
   }
 
   return (
-    <div className="ci-table-wrap">
+    <div className="ci-table-container">
       <Table className="ci-table">
         <TableHeader className="ci-header">
           <TableRow className="ci-head-row">
@@ -97,13 +98,12 @@ export function CustomerTable({ rows }: CustomerTableProps) {
                   <TableCell className="hide-below-1369"><small>{r.totalServices}</small></TableCell>
                   <TableCell className="ci-action">
                     <Button
-                      className="ci-edit-btn"
+                      className="ci-edit-btn extra-bold"
                       onClick={(e) => {
                         e.stopPropagation()
                         setSelectedCustomer(r)
                       }}
-                    >
-                      <small>Edit</small>
+                    >Edit
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -133,9 +133,13 @@ export function CustomerTable({ rows }: CustomerTableProps) {
       </Table>
 
       {selectedCustomer && (
-        <div>
-          <p>Editing customer: {selectedCustomer.name}</p>
-        </div>
+        <EditCustomerDialog
+          open={!!selectedCustomer}
+          onOpenChange={(open) => {
+            if (!open) setSelectedCustomer(null)
+          }}
+          customer={selectedCustomer}   // no mapping needed
+        />
       )}
     </div>
   )

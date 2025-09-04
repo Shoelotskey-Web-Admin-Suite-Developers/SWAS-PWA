@@ -501,7 +501,7 @@ export default function Payments() {
                 </div>
               </div>
             ) : (
-              <p className="mt-[-950px] text-gray-500">Select a request to view summary</p>
+              <p className="text-gray-500">Select a request to view summary</p>
             )}
 
             <hr className="section-divider" />

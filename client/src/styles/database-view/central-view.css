@@ -44,15 +44,15 @@
 
 .cv-controls { padding-top: 8px; }
 
-.search-sort {
+.search-sorts {
   display: flex;
   gap: 2rem;
   align-items: flex-end;
 }
 @media (max-width: 767px) {
-  .search-sort {
+  .search-sorts {
     flex-direction: column;
-    gap: 0;
+    gap: 0.5rem;
     width: 100%;
   }
   .width-full-767 {

@@ -14,9 +14,15 @@ import "@/styles/database-view/customer-information.css"
 
 import { CustomerTable } from "@/components/database-view/CustomerTable"
 import type { CustomerRow as CustomerTableRow } from "@/components/database-view/central-view.types"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { MoreVertical } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
 
 /* ----------------------------- types ----------------------------- */
 export type CustomerStatus = "Active" | "Stored"
@@ -74,63 +80,63 @@ const INITIAL_CUSTOMERS: CustomerRow[] = [
   },
   {
     id: 4,
-    name: "Camille Santos",
-    birthday: "2002-02-10",
-    address: "22 Maginhawa St., Diliman",
-    email: "camilles@protonmail.com",
-    contact: "09098887766",
-    balance: 0,
-    status: "Stored",
-    currentServiceCount: 1,
-    totalServices: 1,
+    name: "Marco Reyes",
+    birthday: "1998-12-01",
+    address: "87 Mabini St., Caloocan",
+    email: "marco.reyes98@yahoo.com",
+    contact: "09395556677",
+    balance: 600,
+    status: "Active",
+    currentServiceCount: 2,
+    totalServices: 6,
   },
   {
     id: 5,
-    name: "Camille Santos",
-    birthday: "2002-02-10",
-    address: "22 Maginhawa St., Diliman",
-    email: "camilles@protonmail.com",
-    contact: "09098887766",
-    balance: 0,
-    status: "Stored",
-    currentServiceCount: 1,
-    totalServices: 1,
+    name: "Marco Reyes",
+    birthday: "1998-12-01",
+    address: "87 Mabini St., Caloocan",
+    email: "marco.reyes98@yahoo.com",
+    contact: "09395556677",
+    balance: 600,
+    status: "Active",
+    currentServiceCount: 2,
+    totalServices: 6,
   },
   {
     id: 6,
-    name: "Camille Santos",
-    birthday: "2002-02-10",
-    address: "22 Maginhawa St., Diliman",
-    email: "camilles@protonmail.com",
-    contact: "09098887766",
-    balance: 0,
-    status: "Stored",
-    currentServiceCount: 1,
-    totalServices: 1,
+    name: "Marco Reyes",
+    birthday: "1998-12-01",
+    address: "87 Mabini St., Caloocan",
+    email: "marco.reyes98@yahoo.com",
+    contact: "09395556677",
+    balance: 600,
+    status: "Active",
+    currentServiceCount: 2,
+    totalServices: 6,
   },
   {
     id: 7,
-    name: "Camille Santos",
-    birthday: "2002-02-10",
-    address: "22 Maginhawa St., Diliman",
-    email: "camilles@protonmail.com",
-    contact: "09098887766",
-    balance: 0,
-    status: "Stored",
-    currentServiceCount: 1,
-    totalServices: 1,
+    name: "Marco Reyes",
+    birthday: "1998-12-01",
+    address: "87 Mabini St., Caloocan",
+    email: "marco.reyes98@yahoo.com",
+    contact: "09395556677",
+    balance: 600,
+    status: "Active",
+    currentServiceCount: 2,
+    totalServices: 6,
   },
   {
     id: 8,
-    name: "Camille Santos",
-    birthday: "2002-02-10",
-    address: "22 Maginhawa St., Diliman",
-    email: "camilles@protonmail.com",
-    contact: "09098887766",
-    balance: 0,
-    status: "Stored",
-    currentServiceCount: 1,
-    totalServices: 1,
+    name: "Marco Reyes",
+    birthday: "1998-12-01",
+    address: "87 Mabini St., Caloocan",
+    email: "marco.reyes98@yahoo.com",
+    contact: "09395556677",
+    balance: 600,
+    status: "Active",
+    currentServiceCount: 2,
+    totalServices: 6,
   },
 ]
 
@@ -182,8 +188,6 @@ export default function CustomerInformation() {
           case "totalServices":
             result = a.totalServices - b.totalServices
             break
-          default:
-            result = 0
         }
         return sortOrder === "asc" ? result : -result
       })
@@ -192,10 +196,7 @@ export default function CustomerInformation() {
     return data
   }, [rows, search, status, hasBalance, sortKey, sortOrder])
 
-  // map into simplified CustomerTableRow
-  const tableRows: CustomerTableRow[] = filtered.map((c) => ({
-    ...c, // keep all fields
-  }))
+  const tableRows: CustomerTableRow[] = filtered.map((c) => ({ ...c }))
 
   return (
     <div className="ci-wrap">
@@ -203,17 +204,17 @@ export default function CustomerInformation() {
         <h1>Customer Information</h1>
       </div>
 
-      {/* Search and Sort grid */}
-      <div className="search-sort">
-        <div className="w-[70%] width-full-767">
+      {/* Search and Sort */}
+      <div className="search-sorts">
+        <div className="ci-width-full-767 w-[70%]">
           <Label>Search by Name, Birthday, Email, Contact</Label>
           <SearchBar value={search} onChange={setSearch} />
         </div>
 
-        <div className="flex gap-[1rem] w-[30%] width-full-767 items-end">
-          <div className="flex flex-col gap-1 w-[100%]">
+        <div className="flex gap-4 w-[30%] ci-width-full-767 items-end">
+          <div className="flex flex-col gap-1 w-full">
             <Label className="w-fit">Sort by</Label>
-            <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey | "")}>
+            <Select value={sortKey || "none"} onValueChange={(v) => setSortKey(v === "none" ? "" : (v as SortKey))}>
               <SelectTrigger className="ci-select">
                 <SelectValue placeholder="Select an option" />
               </SelectTrigger>
@@ -249,7 +250,7 @@ export default function CustomerInformation() {
                 variant="unselected"
                 aria-label="Options"
               >
-                <MoreVertical size={80} className="!w-10 !h-10" />
+                <MoreVertical className="!w-10 !h-10" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40">
@@ -265,34 +266,34 @@ export default function CustomerInformation() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-
-
       </div>
 
       {/* Filters */}
-      <div className="filters-wrapper">
-        {/* Desktop: always visible */}
-        <div className="filters-row hidden-767">
-          <div className="w-[20%] width-half-767 width-full-465">
+      <div className="ci-filters ">
+        {/* Desktop */}
+        <div className="ci-filter-row hide-below-767">
+          <div className="w-[20%] ci-width-half-767 ci-width-full-465">
             <Label>Status</Label>
-            <Select value={status} onValueChange={(v) => setStatus(v as CustomerStatus | "")}>
+            <Select value={status || "none"} onValueChange={(v) => setStatus(v === "none" ? "" : (v as CustomerStatus))}>
               <SelectTrigger className="ci-select">
                 <SelectValue placeholder="Select an option" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="none">None</SelectItem>
                 <SelectItem value="Active">Active</SelectItem>
                 <SelectItem value="Stored">Stored</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          <div className="w-[20%] width-half-767 width-full-465">
+          <div className="w-[20%] ci-width-half-767 ci-width-full-465">
             <Label>Has Balance</Label>
-            <Select value={hasBalance} onValueChange={(v) => setHasBalance(v as "yes" | "no" | "")}>
+            <Select value={hasBalance || "none"} onValueChange={(v) => setHasBalance(v === "none" ? "" : (v as "yes" | "no"))}>
               <SelectTrigger className="ci-select">
                 <SelectValue placeholder="Select an option" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="none">None</SelectItem>
                 <SelectItem value="yes">Yes</SelectItem>
                 <SelectItem value="no">No</SelectItem>
               </SelectContent>
@@ -300,21 +301,20 @@ export default function CustomerInformation() {
           </div>
         </div>
 
-        {/* Mobile: collapsible under Advanced Filters */}
-        <div className="show-767">
-          <div className="flex items-center gap-2">
-            <input
+        {/* Mobile */}
+        <div className="ci-show-767 ci-width-full-465">
+          <div className="flex items-center gap-2 pt-[1.5rem] pb-[1rem]">
+            <Checkbox
               id="advanced-filters"
-              type="checkbox"
               checked={showFilters}
-              onChange={(e) => setShowFilters(e.target.checked)}
+              onCheckedChange={(checked) => setShowFilters(!!checked)}
             />
             <Label htmlFor="advanced-filters">Advanced Filters</Label>
           </div>
 
           {showFilters && (
-            <div className="filters-row">
-              <div className="w-[20%] width-half-767 width-full-465">
+            <div className="ci-filter-row">
+              <div className="ci-width-half-767 ci-width-full-465">
                 <Label>Status</Label>
                 <Select value={status} onValueChange={(v) => setStatus(v as CustomerStatus | "")}>
                   <SelectTrigger className="ci-select">
@@ -327,7 +327,7 @@ export default function CustomerInformation() {
                 </Select>
               </div>
 
-              <div className="w-[20%] width-half-767 width-full-465">
+              <div className="ci-width-half-767 ci-width-full-465">
                 <Label>Has Balance</Label>
                 <Select value={hasBalance} onValueChange={(v) => setHasBalance(v as "yes" | "no" | "")}>
                   <SelectTrigger className="ci-select">
@@ -344,7 +344,7 @@ export default function CustomerInformation() {
         </div>
       </div>
 
-      {/* ✅ Use CustomerTable instead of manual <table> */}
+      {/* Table */}
       <div className="ci-table">
         <CustomerTable rows={tableRows} />
       </div>

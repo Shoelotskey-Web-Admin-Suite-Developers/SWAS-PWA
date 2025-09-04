@@ -18,12 +18,6 @@
   margin-bottom: 16px;
 }
 
-.ci-title {
-  font-size: 28px;
-  font-weight: 700;
-  line-height: 1.2;
-}
-
 .ci-kebab {
   display: flex;
   gap: 0;
@@ -31,13 +25,45 @@
   margin: 0 -20px -8px -20px;
 }
 
+/* Responsive width helpers */
+@media (max-width: 767px) {
+  .ci-width-full-767 { width: 100% !important; }
+  .ci-width-half-767 { width: 50% !important; }
+}
+
+@media (max-width: 465px) {
+  .ci-width-full-465 { width: 100% !important; }
+}
+
+/* Mobile-only toggle */
+.ci-show-767 {
+  display: none;
+}
+@media (max-width: 767px) {
+  .ci-show-767 { display: block; }
+}
+
+/* Filters row */
+.ci-filter-row {
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+@media (max-width: 465px) {
+  .ci-filter-row {
+    flex-direction: column;
+    width: 100%;
+  }
+}
+
+
 /* ========== Card & Controls ========== */
 .ci-card { margin-bottom: 18px; }
 
 .ci-card-header { padding: 16px 16px 0; }
 
 .ci-card-title {
-  font-size: 12px;
   font-weight: 500;
   color: #6b7280; /* gray-500 */
 }
@@ -59,13 +85,14 @@
     width: 100%;
     align-self: flex-start;
   }
+  .width-half-767 {
+    width: 50%;
+  }
 }
 
 .sort-kebab,
 .date-advanced,
-.date-filter,
-.ci-filter-row,
-.ci-filters {
+.date-filter{
   display: flex;
   align-items: flex-end;
   gap: 2rem;
@@ -96,12 +123,13 @@
 @media (max-width: 465px) {
   .ci-filter-row {
     flex-direction: column;
+    gap: 0.5rem;
     width: 100%;
   }
   .width-full-465 { width: 100%; }
 }
 
-.ci-filter {
+.ci-filters {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -139,7 +167,6 @@
 }
 
 .ci-advanced-label {
-  font-size: 12px;
   color: #111827;
 }
 
@@ -174,7 +201,6 @@
 .ci-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
   table-layout: fixed;
 }
 

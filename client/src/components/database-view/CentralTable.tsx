@@ -106,15 +106,14 @@ export function CentralTable({ rows }: CentralTableProps) {
                   <TableCell className={`hide-below-767 cv-status cv-status-${r.status.toLowerCase()}`}>
                     {r.status}
                   </TableCell>
-                  <TableCell className="cv-action">
+                  <TableCell className="cv-action extra-bold">
                     <Button
                       className="cv-edit-btn"
                       onClick={(e) => {
                         e.stopPropagation()
                         setSelectedReceipt(r)
                       }}
-                    >
-                      <small>Edit</small>
+                    >Edit
                     </Button>
                   </TableCell>
                 </TableRow>
