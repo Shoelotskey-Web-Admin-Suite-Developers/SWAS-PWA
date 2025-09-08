@@ -1,14 +1,12 @@
 "use client"
 
 import * as React from "react"
-import { TrendingUp } from "lucide-react"
-import { Label, Pie, PieChart } from "recharts"
+import { Pie, PieChart, Label } from "recharts"
 
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -22,9 +20,9 @@ import {
 export const description = "A donut chart with text"
 
 const chartData = [
-  { status: "Unpaid", customers: 1875, fill: '#FF2056' },
-  { status: "Partially Paid", customers: 800, fill: '#78e8a1ff' },
-  { status: "Paid", customers: 800, fill: '#FACC15' },
+  { status: "Unpaid", customers: 1875, fill: "#FF2056" },
+  { status: "Partially Paid", customers: 800, fill: "#78e8a1ff" },
+  { status: "Paid", customers: 800, fill: "#FACC15" },
 ]
 
 const chartConfig = {
@@ -51,33 +49,32 @@ export function SalesBreakdown() {
   }, [])
 
   return (
-    <Card className="flex" style={{ width: "560px", height: "140px" }}>
+    <Card className="flex" style={{ width: "360px", height: "140px" }}>
       <CardHeader className="items-center pb-0">
-        <CardTitle><h3>Sales Breakdown</h3></CardTitle>
+        <CardTitle>
+          <h3>Sales Breakdown</h3>
+        </CardTitle>
         <CardDescription>January - June 2024</CardDescription>
         <CardDescription>
           <ul className="space-y-0">
             <li className="flex items-center gap-2">
               <div className="w-3 h-3 bg-[#FF2056] rounded-sm"></div>
-              Basic Cleaning
+              Unpaid
+            </li>
+            <li className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-[#78e8a1ff] rounded-sm"></div>
+              Partially Paid
             </li>
             <li className="flex items-center gap-2">
               <div className="w-3 h-3 bg-[#FACC15] rounded-sm"></div>
-              Minor Reglue
-            </li>
-            <li className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-[#FB923C] rounded-sm"></div>
-              Full Reglue
+              Paid
             </li>
           </ul>
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex-1 pb-0">
-        <ChartContainer
-          config={chartConfig}
-          className="mx-auto aspect-square max-h-[250px]"
-        >
-          <PieChart>
+      <CardContent className="flex-1 flex justify-center items-center pb-0">
+        <ChartContainer config={chartConfig} className="flex justify-center items-center w-[100px] h-[100px]">
+          <PieChart width={150} height={150}>
             <ChartTooltip
               cursor={false}
               content={<ChartTooltipContent hideLabel />}
@@ -86,8 +83,9 @@ export function SalesBreakdown() {
               data={chartData}
               dataKey="customers"
               nameKey="status"
-              innerRadius={60}
-              strokeWidth={5}
+              innerRadius={30}
+              outerRadius={50}
+              strokeWidth={4}
             >
               <Label
                 content={({ viewBox }) => {
@@ -101,15 +99,15 @@ export function SalesBreakdown() {
                       >
                         <tspan
                           x={viewBox.cx}
-                          y={viewBox.cy}
-                          className="fill-foreground text-3xl font-bold"
+                          y={(viewBox.cy || 0) - 4}
+                          className="fill-foreground text-lg font-bold"
                         >
                           {totalCustomers.toLocaleString()}
                         </tspan>
                         <tspan
                           x={viewBox.cx}
-                          y={(viewBox.cy || 0) + 24}
-                          className="fill-muted-foreground"
+                          y={(viewBox.cy || 0) + 8}
+                          className="fill-muted-foreground text-[10px]"
                         >
                           Customers
                         </tspan>

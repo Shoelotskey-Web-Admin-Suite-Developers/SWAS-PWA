@@ -25,14 +25,14 @@ interface ChartLineLinearProps {
 export const description = "A linear line chart"
 
 const chartConfig = {
-  total: { label: "Total of Branches", color: "hsl(var(--chart-1))" },
-  totalFC: { label: "Total of Branches Forecasted", color: "hsl(var(--chart-1))" },
-  SMVal: { label: "SM Valenzuela", color: "hsl(var(--chart-2))" },
-  SMValFC: { label: "SM Valenzuela Forecasted", color: "hsl(var(--chart-2))" },
-  Val: { label: "Valenzuela", color: "hsl(var(--chart-3))" },
-  ValFC: { label: "Valenzuela Forecasted", color: "hsl(var(--chart-3))" },
-  SMGra: { label: "SM Grand", color: "hsl(var(--chart-4))" },
-  SMGraFC: { label: "SM Grand Forecasted", color: "hsl(var(--chart-4))" },
+  total: { label: "Total of Branches", color: "#CE1616" },
+  totalFC: { label: "Total of Branches Forecasted", color: "#CE1616" },
+  SMVal: { label: "SM Valenzuela", color: "#22C55E" },
+  SMValFC: { label: "SM Valenzuela Forecasted", color: "#22C55E" },
+  Val: { label: "Valenzuela", color: "#9747FF" },
+  ValFC: { label: "Valenzuela Forecasted", color: "#9747FF" },
+  SMGra: { label: "SM Grand", color: "#0D55F1" },
+  SMGraFC: { label: "SM Grand Forecasted", color: "#0D55F1" },
 } satisfies ChartConfig
 
 const hollowDot = (color: string) => (props: any) => {

@@ -38,19 +38,19 @@ const branchMap: Record<string, keyof typeof sampleData[0]> = {
 const chartConfig = {
   total: {
     label: "SM Total of Branches",
-    color: "var(--chart-1)",
+    color: "#CE1616",
   },
   SMVal: {
     label: "SM Valenzuela",
-    color: "var(--chart-2)",
+    color: "#22C55E",
   },
   Val: {
     label: "Valenzuela",
-    color: "var(--chart-3)",
+    color: "#9747FF",
   },
   SMGra: {
     label: "SM Grand",
-    color: "var(--chart-4)",
+    color: "#0D55F1",
   },
 } satisfies ChartConfig
 
@@ -78,12 +78,12 @@ export function MonthlyGrowthRate({ selectedBranches }: ChartBarMultipleProps) {
       : ["total", "SMVal", "Val", "SMGra"]
 
   return (
-    <Card className="rounded-3xl mt-5 mb-5">
+    <Card className="rounded-3xl mb-10">
       <CardHeader>
         <CardTitle><h3>Monthly Growth Rate</h3></CardTitle>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig} style={{ width: "640px", height: "160px" }}>
+        <ChartContainer config={chartConfig} style={{ width: "620px", height: "210px" }}>
           <BarChart accessibilityLayer data={filteredData} margin={{ left: 12, right: 12 }}>
             <CartesianGrid vertical={false} />
             <YAxis
@@ -113,7 +113,7 @@ export function MonthlyGrowthRate({ selectedBranches }: ChartBarMultipleProps) {
               <Bar
                 key={key}
                 dataKey={key}
-                fill={`hsl(${chartConfig[key].color})`}
+                fill={chartConfig[key].color}
                 radius={4}
               />
             ))}

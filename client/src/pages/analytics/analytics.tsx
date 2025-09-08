@@ -1,9 +1,10 @@
 import '@/styles/analytics.css'
-import { DailyRevenueTrend } from "@/components/analytics/charts/dailyRev"
-import { SalesOverTime } from "@/components/analytics/charts/salesOv"
-import { MonthlyGrowthRate } from '@/components/analytics/charts/monthlyGrowth'
+import { DailyRevenueTrend } from "@/components/analytics/charts/DailyRev"
+import { SalesOverTime } from "@/components/analytics/charts/SalesOv"
+import { MonthlyGrowthRate } from '@/components/analytics/charts/MonthlyGrowth'
 import { TopServices } from '@/components/analytics/charts/TopServices'
 import { SalesBreakdown } from '@/components/analytics/charts/SalesBreak'
+import { TopCustomers } from '@/components/analytics/charts/TopCust'
 import {
   Card,
   CardContent,
@@ -129,12 +130,13 @@ function Analytics() {
         </div>
 
         <div className='lower-part'>
-          <div className='lower-part 1'>
+          <div className='lower-part-1'>
             <TopServices />
             <SalesBreakdown />
           </div>
-          <div className='lower-part 2'>
+          <div className='lower-part-2'>
             <MonthlyGrowthRate selectedBranches={selectedBranches}/>
+            <TopCustomers />
           </div>
         </div>
 

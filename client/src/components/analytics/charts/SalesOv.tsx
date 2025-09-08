@@ -27,22 +27,10 @@ interface ChartLineLinearProps {
 }
 
 const chartConfig = {
-  total: {
-    label: "SM Total of Branches",
-    color: "var(--chart-1)",
-  },
-  SMVal: {
-    label: "SM Valenzuela",
-    color: "var(--chart-2)",
-  },
-  val: {
-    label: "Valenzuela",
-    color: "var(--chart-3)",
-  },
-  smGrand: {
-    label: "SM Grand",
-    color: "var(--chart-4)",
-  },
+  total: { label: "Total of Branches", color: "#CE1616" },
+  SMVal: { label: "SM Valenzuela", color: "#22C55E" },
+  Val: { label: "Valenzuela", color: "#9747FF" },
+  SMGra: { label: "SM Grand", color: "#0D55F1" },
 } satisfies ChartConfig
 
 export function SalesOverTime({ selectedBranches }: ChartLineLinearProps) {
@@ -50,7 +38,6 @@ export function SalesOverTime({ selectedBranches }: ChartLineLinearProps) {
   const [startDate, setStartDate] = useState<string>("")
   const [endDate, setEndDate] = useState<string>("")
 
-  // Fetch JSON from public folder
   useEffect(() => {
     fetch("/dummy-data/sales_over_time.json")
       .then((res) => res.json())
@@ -64,15 +51,13 @@ export function SalesOverTime({ selectedBranches }: ChartLineLinearProps) {
       .catch((err) => console.error("Error loading revenue data:", err))
   }, [])
 
-  // Filter by date range
   const filteredByDate = rawData.filter(item => {
     return (!startDate || item.date >= startDate) &&
            (!endDate || item.date <= endDate)
   })
 
-  // Apply branch filtering
   const filteredData = filteredByDate.map(item => ({
-  date: item.date,
+    date: item.date,
     SMVal: selectedBranches.includes("1") || selectedBranches.length === 0 ? item.SMVal : null,
     Val: selectedBranches.includes("2") || selectedBranches.length === 0 ? item.Val : null,
     SMGra: selectedBranches.includes("3") || selectedBranches.length === 0 ? item.SMGra : null,
@@ -80,9 +65,6 @@ export function SalesOverTime({ selectedBranches }: ChartLineLinearProps) {
   }))
 
   const maxTicks = 6
-  const tickIndices = filteredData
-    .map((_, i) => i)
-    .filter(i => i % Math.ceil(filteredData.length / maxTicks) === 0)
 
   return (
     <Card className="rounded-3xl">
@@ -109,6 +91,7 @@ export function SalesOverTime({ selectedBranches }: ChartLineLinearProps) {
                 value: "Sales",
                 angle: -90,
                 position: "insideLeft",
+                 dx: -12,
                 style: {
                   textAnchor: "middle",
                   fill: "var(--foreground)",
@@ -135,27 +118,27 @@ export function SalesOverTime({ selectedBranches }: ChartLineLinearProps) {
 
             <defs>
               <linearGradient id="totalGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="hsl(var(--chart-1))" stopOpacity={0.5} />
-                <stop offset="100%" stopColor="hsl(var(--chart-1))" stopOpacity={0} />
+                <stop offset="0%" stopColor="#CE1616" stopOpacity={0.5} />
+                <stop offset="100%" stopColor="#CE1616" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="smValGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="hsl(var(--chart-2))" stopOpacity={0.5} />
-                <stop offset="100%" stopColor="hsl(var(--chart-2))" stopOpacity={0} />
+                <stop offset="0%" stopColor="#22C55E" stopOpacity={0.5} />
+                <stop offset="100%" stopColor="#22C55E" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="valGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="hsl(var(--chart-3))" stopOpacity={0.5} />
-                <stop offset="100%" stopColor="hsl(var(--chart-3))" stopOpacity={0} />
+                <stop offset="0%" stopColor="#9747FF" stopOpacity={0.5} />
+                <stop offset="100%" stopColor="#9747FF" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="smGrandGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="hsl(var(--chart-4))" stopOpacity={0.5} />
-                <stop offset="100%" stopColor="hsl(var(--chart-4))" stopOpacity={0} />
+                <stop offset="0%" stopColor="#0D55F1" stopOpacity={0.5} />
+                <stop offset="100%" stopColor="#0D55F1" stopOpacity={0} />
               </linearGradient>
             </defs>
 
-            <Area dataKey="total" type="natural" fill="url(#totalGradient)" stroke="hsl(var(--chart-1))" strokeWidth={2} />
-            <Area dataKey="SMVal" type="natural" fill="url(#smValGradient)" stroke="hsl(var(--chart-2))" strokeWidth={2} />
-            <Area dataKey="Val" type="natural" fill="url(#valGradient)" stroke="hsl(var(--chart-3))" strokeWidth={2} />
-            <Area dataKey="SMGra" type="natural" fill="url(#smGrandGradient)" stroke="hsl(var(--chart-4))" strokeWidth={2} />
+            <Area dataKey="total" type="natural" fill="url(#totalGradient)" stroke="#CE1616" strokeWidth={2} />
+            <Area dataKey="SMVal" type="natural" fill="url(#smValGradient)" stroke="#22C55E" strokeWidth={2} />
+            <Area dataKey="Val" type="natural" fill="url(#valGradient)" stroke="#9747FF" strokeWidth={2} />
+            <Area dataKey="SMGra" type="natural" fill="url(#smGrandGradient)" stroke="#0D55F1" strokeWidth={2} />
           </AreaChart>
         </ChartContainer>
       </CardContent>
