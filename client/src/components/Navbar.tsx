@@ -4,8 +4,8 @@ import NotifIcon from '@/components/icons/NotifIcon'
 import { useDropdownHandlers } from '@/hooks/useDropdownHandlers'
 
 type NavbarProps = {
-  activePage: 'serviceRequest' | 'operations' | 'payment' | 'central-view' | 'customer-information' | 'branches' | 'analytics'
-  setActivePage: React.Dispatch<React.SetStateAction<'serviceRequest' | 'operations' | 'payment' | 'central-view' | 'customer-information' | 'branches' | 'analytics'>>
+  activePage: 'serviceRequest' | 'operations' | 'payment' | 'central-view' | 'customer-information' | 'branches' | 'analytics' | 'appointments' | 'announcements'
+  setActivePage: React.Dispatch<React.SetStateAction<'serviceRequest' | 'operations' | 'payment' | 'central-view' | 'customer-information' | 'branches' | 'analytics' | 'appointments' | 'announcements'>>
 }
 
 export default function Navbar({ activePage, setActivePage }: NavbarProps) {
@@ -84,8 +84,8 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
                 {userDropdown && (
                   <div className="dropdown-menu">
                     <div className='dropdown-items'>
-                      <div className='dropdown-item'><a href="">Appointments</a></div>
-                      <div className='dropdown-item'><a href="">Announcements</a></div>
+                      <div className='dropdown-item'><a href="" onClick={e => { e.preventDefault(); setActivePage('appointments') }}>Appointments</a></div>
+                      <div className='dropdown-item'><a href="" onClick={e => { e.preventDefault(); setActivePage('announcements') }}>Announcements</a></div>
                     </div>
                   </div>
                 )}
@@ -148,8 +148,8 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
                           <h3>User Management</h3>
                           {userDropdown && (
                             <div className='dropdown-tablet'>
-                              <a href="">Appointments</a>
-                              <a href="">Announcements</a>
+                              <a href="" onClick={e => { e.preventDefault(); setActivePage('appointments'); setIsOpen(false); }}>Appointments</a>
+                              <a href="" onClick={e => { e.preventDefault(); setActivePage('announcements'); setIsOpen(false); }}>Announcements</a>
                             </div>
                           )}
                         </div>
@@ -228,8 +228,8 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
                         <h3>User Management</h3>
                         {userDropdown && (
                           <div className='dropdown-tablet'>
-                            <a href="">Appointments</a>
-                            <a href="">Announcements</a>
+                            <a href="" onClick={e => { e.preventDefault(); setActivePage('appointments'); setIsOpen(false); }}>Appointments</a>
+                            <a href="" onClick={e => { e.preventDefault(); setActivePage('announcements'); setIsOpen(false); }}>Announcements</a>
                           </div>
                         )}
                       </div>

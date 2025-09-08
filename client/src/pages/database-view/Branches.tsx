@@ -36,6 +36,12 @@ export default function Branches() {
     { id: 3, name: "Valenzuela", location: "Valenzuela City" },
     { id: 4, name: "SM Grand", location: "Caloocan" },
     { id: 5, name: "SM Grand", location: "Caloocan" },
+    { id: 6, name: "SM Grand", location: "Caloocan" },
+    { id: 7, name: "SM Grand", location: "Caloocan" },
+    { id: 8, name: "SM Grand", location: "Caloocan" },
+    { id: 9, name: "SM Grand", location: "Caloocan" },
+    { id: 10, name: "SM Grand", location: "Caloocan" },
+    { id: 11, name: "SM Grand", location: "Caloocan" },
   ])
 
   const [users, setUsers] = useState<User[]>([
@@ -74,7 +80,6 @@ export default function Branches() {
     setUsers([...users, newUser])
   }
 
-
   return (
     <div className="branches-wrapper">
       {/* Branches Table */}
@@ -88,22 +93,22 @@ export default function Branches() {
           </Button>
         </CardHeader>
 
-        <CardContent className="card-contents">
+        <CardContent className="branch-card-contents">
           <div className="branches-table-container">
             <Table className="branches-table">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-center text-black branches-col-id">
+                  <TableHead className="branches-col-id text-center text-black">
                     <h5>Branch ID</h5>
                   </TableHead>
-                  <TableHead className="text-center text-black">
+                  <TableHead className="branches-col-name text-center text-black">
                     <h5>Branch</h5>
                   </TableHead>
-                  <TableHead className="text-center text-black">
+                  <TableHead className="branches-col-location text-center text-black">
                     <h5>Location</h5>
                   </TableHead>
-                  <TableHead className=" text-black branches-col-action">
-                    <h5 className="text-right pr-[3.5rem]">Action</h5>
+                  <TableHead className="branches-col-action text-black">
+                    <h5 className="text-right pr-[5.5rem]">Action</h5>
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -111,35 +116,37 @@ export default function Branches() {
               <TableBody>
                 {branches.map((branch) => (
                   <TableRow key={branch.id} className="branches-row">
-                    <TableCell>
-                      <small className="bold text-center">{branch.id}</small>
+                    <TableCell className="branches-col-id text-center">
+                      <small className="bold">{branch.id}</small>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="branches-col-name">
                       <small>{branch.name}</small>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="branches-col-location">
                       <small>{branch.location}</small>
                     </TableCell>
-                    <TableCell className="flex gap-2 justify-end">
-                      <Button
-                        className="bg-[#CE1616] hover:bg-[#E64040] text-white extra-bold"
-                        size="sm"
-                        onClick={() => setEditingBranch(branch)}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        className={`branches-btn extra-bold ${
-                          selectedBranchId === branch.id ? "branches-btn-active" : ""
-                        }`}
-                        variant={selectedBranchId === branch.id ? "default" : "outline"}
-                        size="sm"
-                        onClick={() =>
-                          setSelectedBranchId(selectedBranchId === branch.id ? null : branch.id)
-                        }
-                      >
-                        View Users
-                      </Button>
+                    <TableCell className="branches-col-action">
+                      <div className="flex gap-2 justify-end">
+                        <Button
+                          className="bg-[#CE1616] hover:bg-[#E64040] text-white extra-bold"
+                          size="sm"
+                          onClick={() => setEditingBranch(branch)}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          className={`branches-btn extra-bold ${
+                            selectedBranchId === branch.id ? "branches-btn-active" : ""
+                          }`}
+                          variant={selectedBranchId === branch.id ? "default" : "outline"}
+                          size="sm"
+                          onClick={() =>
+                            setSelectedBranchId(selectedBranchId === branch.id ? null : branch.id)
+                          }
+                        >
+                          View Users
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -151,7 +158,7 @@ export default function Branches() {
 
       {/* Users in Selected Branch */}
       <Card className="branches-cards">
-        <CardHeader className="flex flex-row justify-between  pb-0">
+        <CardHeader className="flex flex-row justify-between pb-0">
           <CardTitle>
             <h1 className="mt-3">
               {selectedBranch ? `Users in ${selectedBranch.name}` : "Select a Branch"}
@@ -164,23 +171,23 @@ export default function Branches() {
           )}
         </CardHeader>
 
-        <CardContent className="card-contents">
+        <CardContent className="branch-card-contents">
           {selectedBranch ? (
             filteredUsers.length > 0 ? (
               <div className="branches-table-container">
                 <Table className="branches-table">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="text-center text-black">
+                      <TableHead className="users-col-id text-center text-black">
                         <h5>User ID</h5>
                       </TableHead>
-                      <TableHead className="text-center text-black">
+                      <TableHead className="users-col-branch text-center text-black">
                         <h5>Branch ID</h5>
                       </TableHead>
-                      <TableHead className="text-center text-black">
+                      <TableHead className="users-col-position text-center text-black">
                         <h5>Position</h5>
                       </TableHead>
-                      <TableHead className="text-black">
+                      <TableHead className="users-col-action text-black">
                         <h5 className="text-right pr-[0.3rem]">Action</h5>
                       </TableHead>
                     </TableRow>
@@ -189,16 +196,16 @@ export default function Branches() {
                   <TableBody>
                     {filteredUsers.map((user) => (
                       <TableRow key={user.id} className="branches-row">
-                        <TableCell>
+                        <TableCell className="users-col-id">
                           <small>{user.id}</small>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="users-col-branch text-center">
                           <small>{user.branchId}</small>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="users-col-position text-center">
                           <small>{user.position}</small>
                         </TableCell>
-                        <TableCell className="flex justify-end">
+                        <TableCell className="users-col-action">
                           <Button
                             className="bg-[#CE1616] hover:bg-[#E64040] text-white extra-bold"
                             size="sm"
@@ -221,7 +228,7 @@ export default function Branches() {
         </CardContent>
       </Card>
 
-      {/* Edit Branch Dialog */}
+      {/* Dialogs */}
       {editingBranch && (
         <EditBranchDialog
           open={!!editingBranch}
@@ -234,7 +241,6 @@ export default function Branches() {
         />
       )}
 
-      {/* Edit User Dialog */}
       {editingUser && (
         <EditUserDialog
           open={!!editingUser}
@@ -248,14 +254,12 @@ export default function Branches() {
         />
       )}
 
-      {/* Add Branch Dialog */}
       <AddBranchDialog
         open={addBranchOpen}
         onOpenChange={setAddBranchOpen}
         onAddBranch={handleAddBranch}
       />
 
-      {/* Add User Dialog */}
       {selectedBranch && (
         <AddUserDialog
           open={addUserOpen}

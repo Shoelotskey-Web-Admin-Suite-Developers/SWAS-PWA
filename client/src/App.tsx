@@ -9,9 +9,11 @@ import CentralView from '@/pages/database-view/CentralView';
 import CustomerInformation from '@/pages/database-view/CustomerInformation';
 import Branches from '@/pages/database-view/Branches';
 import Analytics from '@/pages/analytics/analytics'
+import Appointments from '@/pages/user-management/appointments'
+import Announcements from '@/pages/user-management/announcements'
 
 function App() {
-  const [activePage, setActivePage] = useState<'serviceRequest' | 'operations' | 'payment' | 'central-view'  | 'customer-information' | 'branches' | 'analytics'>('serviceRequest')
+  const [activePage, setActivePage] = useState<'serviceRequest' | 'operations' | 'payment' | 'central-view'  | 'customer-information' | 'branches' | 'analytics' | 'appointments' | 'announcements'>('serviceRequest')
 
   return (
     <>
@@ -25,6 +27,8 @@ function App() {
         {activePage === 'customer-information' && <CustomerInformation />}
         {activePage === 'branches' && <Branches />}
         {activePage === 'analytics' && <Analytics />}
+        {activePage === 'appointments' && <Appointments />}
+        {activePage === 'announcements' && <Announcements />}
       </div>
     </>
   )

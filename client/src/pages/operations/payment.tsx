@@ -15,10 +15,8 @@ import {
 } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Card, CardContent } from "@/components/ui/card"
-import { Table, TableBody } from "@/components/ui/table"
 import "@/styles/payment.css"
-import { SelectableTableRow } from "@/components/PaymentsTableRow"
-import { PaymentsTableHeader } from "@/components/PaymentsTableHeader"
+import { PaymentsTable } from "@/components/operations/PaymentsTable"
 import { Checkbox } from "@/components/ui/checkbox"
 
 type Shoe = {
@@ -330,23 +328,15 @@ export default function Payments() {
 
               {/* Table */}
               <div className="mt-6 overflow-x-auto payment-table">
-                <Table>
-                  <PaymentsTableHeader />
-                  <TableBody>
-                    {filteredRequests.map((req, idx) => (
-                      <SelectableTableRow
-                        key={idx}
-                        req={req}
-                        isSelected={selectedRequest?.receiptId === req.receiptId}
-                        onSelect={setSelectedRequest}
-                        findServicePrice={findServicePrice}
-                        findAddonPrice={findAddonPrice}
-                        formatCurrency={formatCurrency}
-                        RUSH_FEE={RUSH_FEE}
-                      />
-                    ))}
-                  </TableBody>
-                </Table>
+                     <PaymentsTable
+                      requests={filteredRequests}
+                      selectedRequest={selectedRequest}
+                      onSelect={setSelectedRequest}
+                      findServicePrice={findServicePrice}
+                      findAddonPrice={findAddonPrice}
+                      formatCurrency={formatCurrency}
+                      RUSH_FEE={RUSH_FEE}
+                    />
               </div>
             </CardContent>
           </Card>

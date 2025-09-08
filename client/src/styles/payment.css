@@ -88,8 +88,39 @@ html, body {
 }
 
 .payment-table {
-  height: 45dvh;
+  width: 100%;
+  border-collapse: collapse;
+  display: block; /* needed for scrollable body separation */
 }
+
+/* Keep header fixed */
+.payment-table-header {
+  display: table;
+  width: 100%;
+  table-layout: fixed; /* ensures column alignment */
+}
+
+.payment-table-body {
+  display: block;
+  max-height: 35dvh;
+  overflow-y: auto;
+  width: 100%;
+  
+  /* Hide scrollbar but keep scroll functionality */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.payment-table-body::-webkit-scrollbar {
+  display: none; /* Chrome, Safari */
+}
+
+.payment-table-body tr {
+  display: table;
+  table-layout: fixed;
+  width: 100%;
+}
+
 
 .section-divider {
   margin: 0.5rem 0;
