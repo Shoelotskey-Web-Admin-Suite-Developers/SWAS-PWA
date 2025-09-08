@@ -14,7 +14,7 @@ export default function BranchStorage() {
     <div>
       <div className='pc-tablet'>
         <Card className='branch-card'>
-          <CardContent className='branch-card-contents'>
+          <CardContent className='op-branch-card-contents'>
             <div className='branch-storage-stats'>
               <div className='upper-branch-stats'>
                 <div className='branch-stats'>
