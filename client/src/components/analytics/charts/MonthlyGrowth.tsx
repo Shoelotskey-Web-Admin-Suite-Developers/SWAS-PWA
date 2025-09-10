@@ -78,12 +78,12 @@ export function MonthlyGrowthRate({ selectedBranches }: ChartBarMultipleProps) {
       : ["total", "SMVal", "Val", "SMGra"]
 
   return (
-    <Card className="rounded-3xl mb-10">
+    <Card className="rounded-3xl flex-[1_1_70%]">
       <CardHeader>
         <CardTitle><h3>Monthly Growth Rate</h3></CardTitle>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig} style={{ width: "620px", height: "210px" }}>
+        <ChartContainer config={chartConfig} style={{ width: "100%", height: "210px" }}>
           <BarChart accessibilityLayer data={filteredData} margin={{ left: 12, right: 12 }}>
             <CartesianGrid vertical={false} />
             <YAxis

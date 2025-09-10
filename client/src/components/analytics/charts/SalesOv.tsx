@@ -67,7 +67,7 @@ export function SalesOverTime({ selectedBranches }: ChartLineLinearProps) {
   const maxTicks = 6
 
   return (
-    <Card className="rounded-3xl">
+    <Card className="rounded-3xl flex-[1_1_5%]">
       <CardHeader className="items-start gap-2 text-sm">
         <CardTitle><h2>Sales Over Time</h2></CardTitle>
       </CardHeader>

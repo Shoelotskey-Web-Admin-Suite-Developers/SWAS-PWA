@@ -25,7 +25,7 @@ const customers = [
 
 export function TopCustomers() {
   return (
-    <Card className="flex flex-col" style={{ width: "320px", height: "290px" }}>
+    <Card className="flex flex-col flex-[1_1_30%]" style={{ width: "100%", height: "290px" }}>
       <CardHeader className="pb-2">
         <CardTitle><h3>Top Customers</h3></CardTitle>
         <CardDescription>January - June 2024</CardDescription>

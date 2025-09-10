@@ -97,12 +97,12 @@ export function DailyRevenueTrend({ selectedBranches }: ChartLineLinearProps) {
   const highlightEnd = chartData[8]?.date
 
   return (
-    <Card className="rounded-3xl">
+    <Card className="rounded-3xl flex-[1_1_85%]">
       <CardHeader className="items-start gap-2 text-sm">
         <CardTitle><h2>Daily Revenue Trend</h2></CardTitle>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig} style={{ width: "900px", height: "250px" }}>
+        <ChartContainer config={chartConfig} style={{ width: "100%", height: "250px" }}>
           <LineChart data={filteredData} margin={{ top: 12, right: 12, bottom: 25, left: 12 }}>
             <defs>
               <linearGradient id="lineUntilDash" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -132,7 +132,31 @@ export function DailyRevenueTrend({ selectedBranches }: ChartLineLinearProps) {
               axisLine={false}
               tickMargin={8}
               interval={0}
-              tickFormatter={(value) => value.replace(" ", "")}
+              tick={(props) => {
+                const { x, y, payload } = props;
+                const value = payload.value; // "20 Aug"
+                
+                if (window.innerWidth < 870) {
+                  const [day, month] = value.split(" ");
+                  return (
+                    <g transform={`translate(${x},${y + 10})`}>
+                      <text textAnchor="middle" fill="var(--foreground)" fontSize={10}>
+                        <tspan x={0} dy={-8}>{month}</tspan>
+                        <tspan x={0} dy={14}>{day}</tspan>
+                      </text>
+                    </g>
+                  );
+                }
+
+                // default horizontal tick
+                return (
+                  <g transform={`translate(${x},${y + 10})`}>
+                    <text textAnchor="middle" fill="var(--foreground)" fontSize={12}>
+                      {value}
+                    </text>
+                  </g>
+                );
+              }}
               label={{ value: "Date", position: "insideBottom", offset: -20, style: { textAnchor: "middle", fill: "var(--foreground)", fontSize: 14 } }}
             />
             
@@ -156,11 +180,11 @@ export function DailyRevenueTrend({ selectedBranches }: ChartLineLinearProps) {
       </CardContent>
 
       <CardFooter className="justify-end gap-6 -mt-10">
-        <div className="flex items-center gap-2 text-sm text-gray-700">
+        <div className="flex items-center gap-2 text-xs text-gray-700 sm:text-sm">
           <span className="inline-block w-6 h-[2px] bg-black"></span>
           <span>Actual Data</span>
         </div>
-        <div className="flex items-center gap-2 text-sm text-gray-700">
+        <div className="flex items-center gap-2 text-xs text-gray-700 sm:text-sm">
           <span className="inline-block w-6 h-[2px] border-b-2 border-black border-dashed"></span>
           <span>Forecasted Data</span>
         </div>

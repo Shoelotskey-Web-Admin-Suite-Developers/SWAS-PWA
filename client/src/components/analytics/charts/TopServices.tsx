@@ -46,7 +46,7 @@ const chartConfig = {
 
 export function TopServices() {
   return (
-    <Card className="flex" style={{ width: "360px", height: "140px" }}>
+    <Card className="flex" style={{ width: "100%", height: "140px" }}>
       <CardHeader className="items-left pb-0">
         <CardTitle><h3>Top Services</h3></CardTitle>
         <CardDescription>January - June 2024</CardDescription>
@@ -67,17 +67,17 @@ export function TopServices() {
           </ul>
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex-1 pb-0">
+      <CardContent className="flex-1 flex justify-center items-center pb-0">
         <ChartContainer
           config={chartConfig}
-          className="mx-auto aspect-square max-h-[130px]"
+          className="flex justify-center items-center w-[100px] h-[100px]"
         >
           <PieChart>
             <ChartTooltip
               cursor={false}
               content={<ChartTooltipContent hideLabel />}
             />
-            <Pie data={chartData} dataKey="transactions" nameKey="service" />
+            <Pie data={chartData} dataKey="transactions" nameKey="service" outerRadius={50}/>
           </PieChart>
         </ChartContainer>
       </CardContent>

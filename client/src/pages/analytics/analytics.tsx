@@ -50,7 +50,7 @@ function Analytics() {
 
       <div className='analyticsContent'>
         <div className='header'>
-          <Card className="rounded-3xl">
+          <Card className="rounded-3xl flex-1">
             <CardContent>
               <div className='branch-select-card'>
                 <h2>Branch Selector</h2>
@@ -101,7 +101,7 @@ function Analytics() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-3xl">
+          <Card className="rounded-3xl flex-1">
             <CardContent>
               <div className='branches-card'>
                 <h2>Branches</h2>
@@ -125,7 +125,7 @@ function Analytics() {
         </div>
 
         <div className="upper-part">
-          <DailyRevenueTrend selectedBranches={selectedBranches} />
+          <DailyRevenueTrend selectedBranches={selectedBranches}/>
           <SalesOverTime selectedBranches={selectedBranches}/>
         </div>
 

@@ -49,8 +49,8 @@ export function SalesBreakdown() {
   }, [])
 
   return (
-    <Card className="flex" style={{ width: "360px", height: "140px" }}>
-      <CardHeader className="items-center pb-0">
+    <Card className="flex" style={{ width: "100%", height: "140px" }}>
+      <CardHeader className="items-left pb-0">
         <CardTitle>
           <h3>Sales Breakdown</h3>
         </CardTitle>
@@ -85,7 +85,6 @@ export function SalesBreakdown() {
               nameKey="status"
               innerRadius={30}
               outerRadius={50}
-              strokeWidth={4}
             >
               <Label
                 content={({ viewBox }) => {

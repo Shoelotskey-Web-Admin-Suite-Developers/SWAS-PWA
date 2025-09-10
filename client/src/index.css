@@ -161,7 +161,7 @@ samp {
   font-size: var(--font-size-sm);
 }
 
-/* --TABLE */
+--TABLE
 
 table {
   width: 100%;
@@ -182,7 +182,6 @@ tbody{
 th, /* th and th padding and alignment */
 td {
   text-align: center;
-  padding: 0.75rem 1rem; /* Subject to change (needs further calibration) */
 }
 
 th { /* th size */
