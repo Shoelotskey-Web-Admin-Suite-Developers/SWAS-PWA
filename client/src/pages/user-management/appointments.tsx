@@ -112,14 +112,14 @@ export default function Appointments() {
   }
 
   return (
-    <div className="p-[1rem] grid grid-cols-3 gap-4 w-full h-full">
+    <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 w-full h-full">
       {/* Calendar */}
-      <div className="col-span-2 w-full h-full">
+      <div className="md:col-span-2 w-full h-full">
         <Calendar
           mode="single"
           selected={date}
           onSelect={setDate}
-          className="rounded-2xl border-2 border-[#C7C7C7] h-full w-full p-[2rem]"
+          className="rounded-2xl border-[1px] border-[#C7C7C7] h-full w-full p-[2rem]"
           classNames={{
             caption_label: "text-2xl bold text-center mb-2",
             day: "h-[3rem] w-[14.28%] pl-[0.5%] pr-[0.5%] p-0 text-sm",
@@ -156,11 +156,11 @@ export default function Appointments() {
       <Card>
         <CardHeader>
           <CardTitle>
-              <div className="flex justify-between items-center w-full">
-                <h1>Time Slot</h1>
-                <h3 className="regular text-gray-500">{formatDayTitle(date)}</h3>
-              </div>
-            </CardTitle>
+            <div className="flex justify-between items-center w-full">
+              <h1>Time Slot</h1>
+              <h3 className="regular text-gray-500">{formatDayTitle(date)}</h3>
+            </div>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <ScrollArea className="h-[300px]">
@@ -192,84 +192,112 @@ export default function Appointments() {
       </Card>
 
       {/* Manage Availability */}
-      <Card className="col-span-3">
-        <CardHeader>
-          <CardTitle>Manage Availability</CardTitle>
+      <div>
+        
+      </div>
+      <Card className="grid-cols-1 md:col-span-3">
+        <CardHeader className="pb-2">
+          <CardTitle><h1>Manage Availability</h1></CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <Label>Date</Label>
-              <Input type="date" value={date ? date.toISOString().split("T")[0] : ""} readOnly />
-            </div>
-            <div>
-              <Label>Note</Label>
-              <Input value={note} onChange={(e) => setNote(e.target.value)} />
-            </div>
-            <div>
-              <Label>Type</Label>
-              <RadioGroup
-                value={availabilityType}
-                onValueChange={(v: "whole" | "custom") => setAvailabilityType(v)}
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="whole" id="whole" />
-                  <Label htmlFor="whole">Whole Day</Label>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[0.5fr_0.25fr_0.25fr] gap-4">
+          {/* Left Side: Date, Note, Type, Confirm */}
+          <div className="grid grid-cols-1 md:col-span-2 lg:col-span-1 gap-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Date + Note (40%) */}
+              <div className="grid grid-cols-1 gap-1">
+                <div>
+                  <Label>Date</Label>
+                  <Input
+                    type="date"
+                    value={date ? date.toISOString().split("T")[0] : ""}
+                    readOnly
+                  />
                 </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="custom" id="custom" />
-                  <Label htmlFor="custom">Custom Hours</Label>
+                <div>
+                  <Label>Note</Label>
+                  <Input value={note} onChange={(e) => setNote(e.target.value)} />
                 </div>
-              </RadioGroup>
-              {availabilityType === "custom" && (
-                <div className="flex gap-2 mt-2">
-                  <Input type="time" value={opening} onChange={(e) => setOpening(e.target.value)} />
-                  <Input type="time" value={closing} onChange={(e) => setClosing(e.target.value)} />
-                </div>
-              )}
+              </div>
+
+              {/* Type + Time Inputs (60%) */}
+              <div>
+                <Label>Type</Label>
+                <RadioGroup
+                  value={availabilityType}
+                  onValueChange={(v: "whole" | "custom") => setAvailabilityType(v)}
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="whole" id="whole" />
+                    <Label htmlFor="whole">Whole Day</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="custom" id="custom" />
+                    <Label htmlFor="custom">Custom Hours</Label>
+                  </div>
+                </RadioGroup>
+                {availabilityType === "custom" && (
+                  <div className="grid grid-cols-2 gap-2 mt-5">
+                    <Input
+                      type="time"
+                      value={opening}
+                      onChange={(e) => setOpening(e.target.value)}
+                    />
+                    <Input
+                      type="time"
+                      value={closing}
+                      onChange={(e) => setClosing(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
+
+            <Button className="mt-4 bg-[#CE1616] hover:bg-red-500 text-white extra-bold">Confirm</Button>
           </div>
 
-          <Button className="mt-4 bg-red-600 text-white">Confirm</Button>
+          {/* Full Day Table */}
+          <div>
+            <h3 className="font-semibold mb-2">Full-Day Unv</h3>
+            <ScrollArea className="h-32 border rounded-md bg-[#F0F0F0]">
+              <div className="p-2 space-y-2">
+                {unavailability
+                  .filter((u) => u.type === "full")
+                  .sort((a, b) => a.date.localeCompare(b.date))
+                  .map((u) => (
+                    <div
+                      key={u.date}
+                      className="grid grid-cols-[1fr_2fr_auto] items-center text-sm bg-[#F0F0F0] border-b-2 border-[#C7C7C7] p-1"
+                    >
+                      <span className="font-medium">{u.date}</span>
+                      <span>{u.note}</span>
+                      <Trash2 className="w-4 h-4 text-red-600 cursor-pointer justify-self-end" />
+                    </div>
+                  ))}
+              </div>
+            </ScrollArea>
+          </div>
 
-          <div className="grid grid-cols-2 gap-4 mt-6">
-            {/* Full Day Table */}
-            <div>
-              <h3 className="font-semibold mb-2">Full-Day Unavailability</h3>
-              <ScrollArea className="h-32 border rounded-md">
-                <div className="p-2 space-y-2">
-                  {unavailability
-                    .filter(u => u.type === "full")
-                    .sort((a, b) => a.date.localeCompare(b.date))
-                    .map(u => (
-                      <div key={u.date} className="flex justify-between items-center text-sm">
-                        <span>{u.date} - {u.note}</span>
-                        <Trash2 className="w-4 h-4 text-red-600 cursor-pointer" />
-                      </div>
-                    ))}
-                </div>
-              </ScrollArea>
-            </div>
-
-            {/* Partial Day Table */}
-            <div>
-              <h3 className="font-semibold mb-2">Partial-Day Unavailability</h3>
-              <ScrollArea className="h-32 border rounded-md">
-                <div className="p-2 space-y-2">
-                  {unavailability
-                    .filter(u => u.type === "partial")
-                    .sort((a, b) => a.date.localeCompare(b.date))
-                    .map(u => (
-                      <div key={u.date} className="flex justify-between items-center text-sm">
-                        <span>
-                          {u.date} {u.opening}-{u.closing} - {u.note}
-                        </span>
-                        <Trash2 className="w-4 h-4 text-red-600 cursor-pointer" />
-                      </div>
-                    ))}
-                </div>
-              </ScrollArea>
-            </div>
+          {/* Partial Day Table */}
+          <div>
+            <h3 className="font-semibold mb-2">Partial-Day Unv</h3>
+            <ScrollArea className="h-32 border rounded-md bg-[#F0F0F0]">
+              <div className="p-2 space-y-2">
+                {unavailability
+                  .filter((u) => u.type === "partial")
+                  .sort((a, b) => a.date.localeCompare(b.date))
+                  .map((u) => (
+                    <div
+                      key={u.date}
+                      className="grid grid-cols-[1fr_1fr_2fr_auto] items-center text-sm bg-[#F0F0F0] border-b-2 border-[#C7C7C7] p-1"
+                    >
+                      <span className="font-medium">{u.date}</span>
+                      <span>{u.opening} - {u.closing}</span>
+                      <span>{u.note}</span>
+                      <Trash2 className="w-4 h-4 text-red-600 cursor-pointer justify-self-end" />
+                    </div>
+                  ))}
+              </div>
+            </ScrollArea>
           </div>
         </CardContent>
       </Card>
