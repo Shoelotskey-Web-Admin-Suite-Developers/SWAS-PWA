@@ -52,8 +52,8 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
                 {opDropdown && (
                   <div className="dropdown-menu">
                     <div className='dropdown-items'>
-                      <div className='dropdown-item'><a href="" onClick={e => { e.preventDefault(); setActivePage('operations') }}>Operations</a></div>
-                      <div className='dropdown-item'><a href="" onClick={e => { e.preventDefault(); setActivePage('payment') }}>Payment & Pickup</a></div>
+                      <div className='dropdown-item' onClick={e => { e.preventDefault(); setActivePage('operations') }}><a href="">Operations</a></div>
+                      <div className='dropdown-item' onClick={e => { e.preventDefault(); setActivePage('payment') }}><a href="">Payment & Pickup</a></div>
                     </div>
                   </div>
                 )}
@@ -67,9 +67,9 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
                 {dbDropdown && (
                   <div className="dropdown-menu">
                     <div className='dropdown-items'>
-                      <div className='dropdown-item'><a href="" onClick={e => { e.preventDefault(); setActivePage('central-view') }}>Central View</a></div>
-                      <div className='dropdown-item'><a href="" onClick={e => { e.preventDefault(); setActivePage('customer-information') }}>Customer Information</a></div>
-                      <div className='dropdown-item'><a href="" onClick={e => { e.preventDefault(); setActivePage('branches') }}>Branches</a></div>
+                      <div className='dropdown-item' onClick={e => { e.preventDefault(); setActivePage('central-view') }}><a href="">Central View</a></div>
+                      <div className='dropdown-item' onClick={e => { e.preventDefault(); setActivePage('customer-information') }}><a href="">Customer Information</a></div>
+                      <div className='dropdown-item' onClick={e => { e.preventDefault(); setActivePage('branches') }}><a href="">Branches</a></div>
                     </div>
                   </div>
                 )}
@@ -85,8 +85,8 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
                 {userDropdown && (
                   <div className="dropdown-menu">
                     <div className='dropdown-items'>
-                      <div className='dropdown-item'><a href="" onClick={e => { e.preventDefault(); setActivePage('appointments') }}>Appointments</a></div>
-                      <div className='dropdown-item'><a href="" onClick={e => { e.preventDefault(); setActivePage('announcements') }}>Announcements</a></div>
+                      <div className='dropdown-item' onClick={e => { e.preventDefault(); setActivePage('appointments') }}><a href="">Appointments</a></div>
+                      <div className='dropdown-item' onClick={e => { e.preventDefault(); setActivePage('announcements') }}><a href="">Announcements</a></div>
                     </div>
                   </div>
                 )}
@@ -111,8 +111,8 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
                   {opDropdown && (
                     <div className="dropdown-menu">
                       <div className='dropdown-items'>
-                        <div className='dropdown-item'><a href="" onClick={e => { e.preventDefault(); setActivePage('operations'); setIsOpen(false); }}>Operations</a></div>
-                        <div className='dropdown-item'><a href="" onClick={e => { e.preventDefault(); setActivePage('payment'); setIsOpen(false); }}>Payment & Pickup</a></div>
+                        <div className='dropdown-item' onClick={e => { e.preventDefault(); setActivePage('operations'); setIsOpen(false); }}><a href="">Operations</a></div>
+                        <div className='dropdown-item' onClick={e => { e.preventDefault(); setActivePage('payment'); setIsOpen(false); }}><a href="">Payment & Pickup</a></div>
                       </div>
                     </div>
                   )}
