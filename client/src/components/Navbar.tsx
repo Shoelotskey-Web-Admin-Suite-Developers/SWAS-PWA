@@ -3,6 +3,8 @@ import React, { useEffect, useState } from 'react'
 import swasLogo from '@/assets/images/SWAS-Logo-Small.png'
 import NotifIcon from '@/components/icons/NotifIcon'
 import { useDropdownHandlers } from '@/hooks/useDropdownHandlers'
+import { NotifSheet } from "@/components/NotifSheet"
+
 
 type NavbarProps = {
   activePage: 'serviceRequest' | 'operations' | 'payment' | 'central-view' | 'customer-information' | 'branches' | 'analytics' | 'appointments' | 'announcements'
@@ -93,7 +95,7 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
               </div>
             </li>
 
-            <li><a href=""><NotifIcon /></a></li>
+            <li><NotifSheet><a href="#"><NotifIcon /></a></NotifSheet></li>
           </ul>
         </div>
 
@@ -119,7 +121,7 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
                 </div>
               </li>
 
-              <li><a href=""><NotifIcon /></a></li>
+              <li><NotifSheet><a href="#"><NotifIcon /></a></NotifSheet></li>
 
               <li>
                 <div className={`burger-icon ${isOpen ? 'open' : ''}`} onClick={toggleMenu}>
@@ -172,7 +174,7 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
 
         <div className='navBar-contents-p2-mobile'>
           <ul>
-            <li><a href=""><NotifIcon /></a></li>
+            <li><NotifSheet><a href="#"><NotifIcon /></a></NotifSheet></li>
             <li>
               <div className={`burger-icon ${isOpen ? 'open' : ''}`} onClick={toggleMenu}>
                 <div className="line"></div>

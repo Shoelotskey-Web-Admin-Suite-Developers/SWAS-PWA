@@ -314,3 +314,27 @@ button:focus-visible {
     @apply bg-background text-foreground;
   }
 }
+
+/* Custom tiny scrollbar */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;   /* really small */
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: #a0aec0; /* Tailwind gray-400 */
+  border-radius: 9999px;
+}
+
+.scrollbar-thin:hover::-webkit-scrollbar-thumb {
+  background-color: #718096; /* Tailwind gray-500 */
+}
+
+/* Firefox support */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #a0aec0 transparent;
+}
