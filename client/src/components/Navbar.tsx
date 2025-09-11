@@ -1,3 +1,4 @@
+import '@/styles/components/navBar.css'
 import React, { useEffect, useState } from 'react'
 import swasLogo from '@/assets/images/SWAS-Logo-Small.png'
 import NotifIcon from '@/components/icons/NotifIcon'
