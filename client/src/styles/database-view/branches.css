@@ -70,7 +70,7 @@
   display: table;
   width: 100%;
   table-layout: fixed;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid #C7C7C7;
 }
 
 .branches-table td {
@@ -88,8 +88,8 @@
 }
 
 /* === Branches Table Columns === */
-.branches-col-id { width: 10%; }
-.branches-col-name { width:20%; }
+.branches-col-id { width: 15%; }
+.branches-col-name { width:15%; }
 .branches-col-location { width:20%; }
 .branches-col-action {
   width: 50%;

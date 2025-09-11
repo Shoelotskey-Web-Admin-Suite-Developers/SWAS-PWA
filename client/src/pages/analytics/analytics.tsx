@@ -139,7 +139,7 @@ function Analytics() {
             <TopCustomers />
           </div>
         </div>
-
+        <hr className="mt-4" />
       </div>
     </>
   )

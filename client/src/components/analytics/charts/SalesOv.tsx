@@ -19,6 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { format as formatDate } from "date-fns"
+import { cn } from "@/lib/utils"
 
 export const description = "A simple area chart"
 
@@ -177,6 +178,37 @@ export function SalesOverTime({ selectedBranches }: ChartLineLinearProps) {
                 disabled={(date) => {
                   const dateStr = formatDate(date, "yyyy-MM-dd")
                   return !rawData.some((d) => d.date === dateStr)
+                }}
+                components={{
+                  DayButton: ({ day, modifiers, className, ...props }) => {
+                    const date = "date" in day ? day.date : day
+                    const formatted = formatDate(date, "yyyy-MM-dd")
+
+                    const isStart = startDate && formatted === startDate
+                    const isEnd = endDate && formatted === endDate
+                    const inRange =
+                      startDate && endDate && formatted > startDate && formatted < endDate
+
+                    const isOutside = modifiers.outside || day.outside
+
+                    return (
+                      <button
+                        className={cn(
+                          "h-full w-full text-sm p-0 flex items-center justify-center rounded relative",
+                          className,
+                          isOutside ? "opacity-70" : "opacity-100",
+                          isStart || isEnd
+                            ? "bg-[#CE1616] text-white" // start/end
+                            : inRange
+                            ? "bg-red-200 text-black" // in-between range
+                            : "bg-white text-black"
+                        )}
+                        {...props}
+                      >
+                        {date.getDate()}
+                      </button>
+                    )
+                  },
                 }}
               />
             </PopoverContent>

@@ -301,6 +301,8 @@ export default function Appointments() {
           </div>
         </CardContent>
       </Card>
+
+      <hr className="mt-2" />
     </div>
   )
 }

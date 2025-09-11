@@ -3,12 +3,16 @@
 import { useState } from "react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { format, isBefore, isAfter, isSameDay, eachDayOfInterval } from "date-fns"
 import type { DateRange } from "react-day-picker"
+import { EditAnnouncementDialog, type Announcement as AnnType } from "@/components/user-management/EditAnnouncementDialog"
+import { EditPromoDialog} from "@/components/user-management/EditPromoDialog"
+import { cn } from "@/lib/utils"
 
 type Announcement = {
   id: number
@@ -25,7 +29,6 @@ type Promo = {
 }
 
 export default function Announcements() {
-  // Dummy data
   const [announcements, setAnnouncements] = useState<Announcement[]>([
     {
       id: 1,
@@ -50,19 +53,21 @@ export default function Announcements() {
     },
   ])
 
-  // Form states
   const [newTitle, setNewTitle] = useState("")
   const [newDescription, setNewDescription] = useState("")
+  const [editingAnnouncement, setEditingAnnouncement] = useState<AnnType | null>(null)
+  const [isEditOpen, setIsEditOpen] = useState(false)
   const [promoTitle, setPromoTitle] = useState("")
   const [promoDescription, setPromoDescription] = useState("")
-  const [promoDates, setPromoDates] = useState<Date[]>([]) // included dates
+  const [promoDates, setPromoDates] = useState<Date[]>([])
   const [promoRange, setPromoRange] = useState<DateRange | undefined>()
+  const [editingPromo, setEditingPromo] = useState<Promo | null>(null)
+  const [isEditPromoOpen, setIsEditPromoOpen] = useState(false)
 
-  // 🔹 Group continuous dates into ranges
+
   const groupContinuousDays = (dates: Date[]): string => {
     if (dates.length === 0) return ""
     const sorted = [...dates].sort((a, b) => a.getTime() - b.getTime())
-
     const groups: Date[][] = []
     let currentGroup: Date[] = [sorted[0]]
 
@@ -96,7 +101,6 @@ export default function Announcements() {
       .join(", ")
   }
 
-  // Add announcement
   const handleAddAnnouncement = () => {
     if (!newTitle || !newDescription) return alert("Fill out all fields")
     setAnnouncements([
@@ -116,7 +120,6 @@ export default function Announcements() {
     setNewDescription("")
   }
 
-  // Handle calendar clicks
   const handleDayClick = (day: Date) => {
     const from = promoRange?.from
     const to = promoRange?.to
@@ -167,7 +170,6 @@ export default function Announcements() {
     }
   }
 
-  // Add promo
   const handleAddPromo = () => {
     if (!promoTitle || promoDates.length === 0 || !promoDescription)
       return alert("Fill out all fields")
@@ -188,10 +190,9 @@ export default function Announcements() {
   }
 
   return (
-    <div className="min-h-screen p-6 flex flex-col justify-between gap-8">
+    <div className="p-6 flex flex-col justify-between gap-8" style={{ minHeight: "calc(100dvh - 77px)" }}>
       {/* Announcements Section */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-1">
-        {/* Create first on mobile */}
         <Card className="order-1 md:order-2 h-fit">
           <CardHeader>
             <CardTitle className="text-lg font-bold"><h1>Create Announcement</h1></CardTitle>
@@ -200,9 +201,10 @@ export default function Announcements() {
             <Label>Title</Label>
             <Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} />
             <Label>Description</Label>
-            <Input
+            <Textarea
               value={newDescription}
               onChange={(e) => setNewDescription(e.target.value)}
+              rows={4}
             />
             <Button
               className="bg-[#CE1616] hover:bg-red-500 text-white w-full mt-5 extra-bold"
@@ -232,7 +234,8 @@ export default function Announcements() {
                   <Button
                     size="sm"
                     className="border-2 border-[#CE1616] bg-white hover:bg-red-200 text-[#CE1616] extra-bold"
-                    onClick={() => alert(`Edit announcement: ${a.id}`)}
+                    onClick={() => {setEditingAnnouncement(a)
+                      setIsEditOpen(true)}}
                   >
                     Edit
                   </Button>
@@ -243,9 +246,17 @@ export default function Announcements() {
         </Card>
       </div>
 
+      {/* Edit Announcement Dialog */}
+      {editingAnnouncement && (
+        <EditAnnouncementDialog
+          open={isEditOpen}
+          onOpenChange={(open) => setIsEditOpen(open)}
+          announcement={editingAnnouncement}
+        />
+      )}
+
       {/* Promos Section */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-1">
-        {/* Create first on mobile */}
         <Card className="order-1 md:order-2 h-fit">
           <CardHeader>
             <CardTitle><h1>Create Promo Notice</h1></CardTitle>
@@ -263,11 +274,29 @@ export default function Announcements() {
                     : "Select dates"}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent align="start" className="p-2 space-y-3">
+              <PopoverContent align="start" className="p-2 space-y-3 w-[282px]">
                 <Calendar
                   mode="single"
                   selected={promoRange?.from ?? undefined}
                   onDayClick={handleDayClick}
+                  components={{
+                    DayButton: ({ day, modifiers, className, ...props }) => {
+                      const date = "date" in day ? day.date : day
+                      const isOutside = modifiers.outside
+                      return (
+                        <button
+                          className={cn(
+                            "h-full w-full text-sm p-0 flex items-center justify-center rounded relative bg-white",
+                            className,
+                            isOutside ? "opacity-50 text-black" : "text-black"
+                          )}
+                          {...props}
+                        >
+                          {date.getDate()}
+                        </button>
+                      )
+                    },
+                  }}
                   modifiers={{
                     inRange: (d: Date) => {
                       if (!promoRange?.from || !promoRange?.to) return false
@@ -296,9 +325,10 @@ export default function Announcements() {
             </Popover>
 
             <Label>Description</Label>
-            <Input
+            <Textarea
               value={promoDescription}
               onChange={(e) => setPromoDescription(e.target.value)}
+              rows={4}
             />
 
             <Button
@@ -329,7 +359,10 @@ export default function Announcements() {
                   <Button
                     size="sm"
                     className="border-2 border-[#CE1616] bg-white hover:bg-red-200 text-[#CE1616] extra-bold"
-                    onClick={() => alert(`Edit promo: ${p.id}`)}
+                    onClick={() => {
+                      setEditingPromo(p)
+                      setIsEditPromoOpen(true)
+                    }}
                   >
                     Edit
                   </Button>
@@ -338,6 +371,17 @@ export default function Announcements() {
             ))}
           </CardContent>
         </Card>
+
+        {editingPromo && (
+          <EditPromoDialog
+            open={isEditPromoOpen}
+            onOpenChange={setIsEditPromoOpen}
+            promo={editingPromo}
+            onSave={(updated) => setPromos(prev => prev.map(p => p.id === updated.id ? updated : p))}
+            onDelete={(id) => setPromos(prev => prev.filter(p => p.id !== id))}
+          />
+        )}
+
       </div>
     </div>
   )
