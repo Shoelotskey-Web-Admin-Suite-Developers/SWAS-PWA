@@ -14,7 +14,7 @@ import OpPickup from '@/pages/operations/operations-sub-tab/OpPickup'
 
 export default function Operations() {
   const [activeIndex, setActiveIndex] = useState(0);
-  const [showAdminUpper, setShowAdminUpper] = useState(true);
+  const [showAdminUpper, setShowAdminUpper] = useState(false);
   const [fillHeight, setFillHeight] = useState("455px");
 
   const calculateFillHeight = () => {
@@ -22,14 +22,15 @@ export default function Operations() {
     const width = window.innerWidth;
 
     if (showAdminUpper) {
-      if (width <= 535) height = "365px";
-      else if (width <= 639) height = "385px";
-      else if (width <= 1088) height = "415px";
+      if (width <= 534) height = "365px";
+      else if (width <= 638) height = "385px";
+      else if (width <= 898) height = "415px";
+      else if (width <= 1088) height = "440px";
     } else {
-      if (width <= 535) height = "460px";
-      else if (width <= 639) height = "420px";
-      else if (width <= 1088) height = "380px";
-      else height = "360px";
+      if (width <= 534) height = "250px";
+      else if (width <= 638) height = "270px";
+      else if (width <= 1088) height = "290px";
+      else height = "300px";
     }
 
     setFillHeight(height);
