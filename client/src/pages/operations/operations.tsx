@@ -14,7 +14,7 @@ import OpPickup from '@/pages/operations/operations-sub-tab/OpPickup'
 
 export default function Operations() {
   const [activeIndex, setActiveIndex] = useState(0);
-  const [showAdminUpper, setShowAdminUpper] = useState(false);
+  const [showAdminUpper, setShowAdminUpper] = useState(true);
   const [fillHeight, setFillHeight] = useState("455px");
 
   const calculateFillHeight = () => {
