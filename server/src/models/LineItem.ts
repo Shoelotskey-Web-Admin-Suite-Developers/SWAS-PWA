@@ -40,4 +40,4 @@ const LineItemSchema: Schema = new Schema<ILineItem>(
   }
 );
 
-export const LineItem = mongoose.model<ILineItem>("LineItem", LineItemSchema);
+export const LineItem = mongoose.model<ILineItem>("LineItem", LineItemSchema, "line_items");
