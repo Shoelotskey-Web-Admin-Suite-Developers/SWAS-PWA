@@ -1,48 +1,61 @@
-import { useState } from 'react'
-import SWAS_Logo from '@/assets/images/SWAS-Logo-Large.png'
-import BG_PATTERN from '@/assets/images/bg-pattern.png'
-import '@/styles/login.css'
+import { useState } from "react";
+import SWAS_Logo from "@/assets/images/SWAS-Logo-Large.png";
+import BG_PATTERN from "@/assets/images/bg-pattern.png";
+import "@/styles/login.css";
 
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
+} from "@/components/ui/select";
 
-import { BRANCH_OPTIONS } from '@/constants/branches'
+import { BRANCH_OPTIONS } from "@/constants/branches";
+import { loginUser } from "@/utils/api/auth"; // 🔑 import login API
 
 function Login() {
   const [form, setForm] = useState({
-    branch: '',
-    userId: '',
-    password: '',
-  })
-  const [loading, setLoading] = useState(false)
+    branch: "",
+    userId: "",
+    password: "",
+  });
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (key: keyof typeof form, value: string) => {
-    setForm((prev) => ({ ...prev, [key]: value }))
-  }
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
     if (!form.branch) {
-      alert("Please select a branch")
-      return
+      alert("Please select a branch");
+      return;
     }
 
-    setLoading(true)
+    setLoading(true);
 
-    const payload = { ...form }
-    console.log('Logging in with:', payload)
+    try {
+      const data = await loginUser(form.userId, form.password);
 
-    setTimeout(() => setLoading(false), 1000)
-  }
+      // Store token and user info in localStorage
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user_id", data.user.user_id);
+      localStorage.setItem("branch_id", data.user.branch_id);
+      localStorage.setItem("position", data.user.position);
 
+      alert("Login successful!");
+      // TODO: redirect to dashboard or main app page
+      // navigate("/dashboard");
+    } catch (err: any) {
+      alert(err.message || "Login failed");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div
@@ -56,9 +69,9 @@ function Login() {
           </div>
 
           <div className="input-wrapper">
-            <InputField label="Choose Branch" >
+            <InputField label="Choose Branch">
               <Select
-                onValueChange={(val) => handleChange('branch', val)}
+                onValueChange={(val) => handleChange("branch", val)}
                 value={form.branch}
               >
                 <SelectTrigger id="branch">
@@ -78,7 +91,7 @@ function Login() {
               <Input
                 id="userId"
                 value={form.userId}
-                onChange={(e) => handleChange('userId', e.target.value)}
+                onChange={(e) => handleChange("userId", e.target.value)}
                 required
               />
             </InputField>
@@ -88,29 +101,29 @@ function Login() {
                 id="password"
                 type="password"
                 value={form.password}
-                onChange={(e) => handleChange('password', e.target.value)}
+                onChange={(e) => handleChange("password", e.target.value)}
                 required
               />
             </InputField>
 
             <button className="login-submit" type="submit" disabled={loading}>
-              {loading ? 'Logging in...' : 'LOG IN'}
+              {loading ? "Logging in..." : "LOG IN"}
             </button>
           </div>
         </div>
       </form>
     </div>
-  )
+  );
 }
 
-export default Login
+export default Login;
 
 // 🔁 Reusable field wrapper
 type InputFieldProps = {
-  label: string
-  htmlFor?: string
-  children: React.ReactNode
-}
+  label: string;
+  htmlFor?: string;
+  children: React.ReactNode;
+};
 
 function InputField({ label, htmlFor, children }: InputFieldProps) {
   return (
@@ -118,5 +131,5 @@ function InputField({ label, htmlFor, children }: InputFieldProps) {
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
     </div>
-  )
+  );
 }
