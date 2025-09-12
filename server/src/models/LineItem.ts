@@ -34,9 +34,6 @@ const LineItemSchema: Schema = new Schema<ILineItem>(
     latest_update: { type: Date, default: Date.now },
     before_img: { type: String, default: null },
     after_img: { type: String, default: null },
-  },
-  {
-    timestamps: true, // optional: creates createdAt & updatedAt
   }
 );
 
