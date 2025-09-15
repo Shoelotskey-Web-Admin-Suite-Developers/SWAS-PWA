@@ -5,20 +5,15 @@ import "@/styles/login.css";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
-import { BRANCH_OPTIONS } from "@/constants/branches";
 import { loginUser } from "@/utils/api/auth"; // 🔑 import login API
 
-function Login() {
+// ✅ Accept onLogin prop from App.tsx
+type LoginProps = {
+  onLogin: (user: { user_id: string; branch_id: string; position: string }) => void;
+};
+
+function Login({ onLogin }: LoginProps) {
   const [form, setForm] = useState({
-    branch: "",
     userId: "",
     password: "",
   });
@@ -30,26 +25,19 @@ function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!form.branch) {
-      alert("Please select a branch");
-      return;
-    }
-
     setLoading(true);
 
     try {
       const data = await loginUser(form.userId, form.password);
 
       // Store token and user info in localStorage
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user_id", data.user.user_id);
-      localStorage.setItem("branch_id", data.user.branch_id);
-      localStorage.setItem("position", data.user.position);
+      sessionStorage.setItem("token", data.token);
+      sessionStorage.setItem("user_id", data.user.user_id);
+      sessionStorage.setItem("branch_id", data.user.branch_id);
+      sessionStorage.setItem("position", data.user.position);
 
       alert("Login successful!");
-      // TODO: redirect to dashboard or main app page
-      // navigate("/dashboard");
+      onLogin(data.user); // ✅ notify App.tsx so it shows the main app
     } catch (err: any) {
       alert(err.message || "Login failed");
     } finally {
@@ -69,24 +57,6 @@ function Login() {
           </div>
 
           <div className="input-wrapper">
-            <InputField label="Choose Branch">
-              <Select
-                onValueChange={(val) => handleChange("branch", val)}
-                value={form.branch}
-              >
-                <SelectTrigger id="branch">
-                  <SelectValue placeholder="Select a branch" />
-                </SelectTrigger>
-                <SelectContent>
-                  {BRANCH_OPTIONS.map(({ value, label }) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </InputField>
-
             <InputField label="User ID" htmlFor="userId">
               <Input
                 id="userId"

@@ -1,17 +1,17 @@
-import '@/App.css';
-import '@/index.css';
-import { useState, useEffect } from 'react';
-import Navbar from '@/components/Navbar';
-import SRM from '@/pages/srm';
-import Operations from '@/pages/operations/operations';
-import Payment from '@/pages/operations/payment';
-import CentralView from '@/pages/database-view/CentralView';
-import CustomerInformation from '@/pages/database-view/CustomerInformation';
-import Branches from '@/pages/database-view/Branches';
-import Analytics from '@/pages/analytics/analytics';
-import Appointments from '@/pages/user-management/appointments';
-import Announcements from '@/pages/user-management/announcements';
-import Login from '@/pages/auth/login';
+import '@/App.css'
+import '@/index.css'
+import { useState, useEffect } from 'react'
+import Navbar from '@/components/Navbar'
+import SRM from '@/pages/srm'
+import Operations from '@/pages/operations/operations'
+import Payment from '@/pages/operations/payment'
+import CentralView from '@/pages/database-view/CentralView'
+import CustomerInformation from '@/pages/database-view/CustomerInformation'
+import Branches from '@/pages/database-view/Branches'
+import Analytics from '@/pages/analytics/analytics'
+import Appointments from '@/pages/user-management/appointments'
+import Announcements from '@/pages/user-management/announcements'
+import Login from '@/pages/auth/login'
 
 function App() {
   // ───────────── STATES ─────────────
@@ -25,55 +25,67 @@ function App() {
     | 'analytics'
     | 'appointments'
     | 'announcements'
-  >('serviceRequest');
+  >('serviceRequest')
 
   const [user, setUser] = useState<{
-    user_id: string;
-    branch_id: string;
-    position: string;
-  } | null>(null);
+    user_id: string
+    branch_id: string
+    position: string
+  } | null>(null)
 
   // ───────────── AUTO-LOGIN ─────────────
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token')
     if (token) {
-      const user_id = localStorage.getItem('user_id');
-      const branch_id = localStorage.getItem('branch_id');
-      const position = localStorage.getItem('position');
+      const user_id = sessionStorage.getItem('user_id')
+      const branch_id = sessionStorage.getItem('branch_id')
+      const position = sessionStorage.getItem('position')
 
       if (user_id && branch_id && position) {
-        setUser({ user_id, branch_id, position });
+        setUser({ user_id, branch_id, position })
       } else {
-        // Token exists but info missing → logout
-        localStorage.clear();
+        handleLogout()
       }
     }
-  }, []);
+  }, [])
+
+  // ───────────── HANDLERS ─────────────
+  const handleLogout = () => {
+    sessionStorage.clear()
+    setUser(null)
+  }
+
+  // ───────────── PAGES MAP (no JSX.Element typing) ─────────────
+  const pages = {
+    serviceRequest: <SRM />,
+    operations: <Operations />,
+    payment: <Payment />,
+    'central-view': <CentralView />,
+    'customer-information': <CustomerInformation />,
+    branches: <Branches />,
+    analytics: <Analytics />,
+    appointments: <Appointments />,
+    announcements: <Announcements />,
+  }
 
   // ───────────── CONDITIONAL RENDER ─────────────
-  if (!user) return <Login />; // show login if not logged in
+  if (!user) {
+    return <Login onLogin={(userData) => setUser(userData)} />
+  }
 
   return (
     <div className="h-screen flex flex-col">
-      {/* Navbar stays fixed */}
       <div className="shrink-0">
-        <Navbar activePage={activePage} setActivePage={setActivePage} />
+        <Navbar
+          activePage={activePage}
+          setActivePage={setActivePage}
+          onLogout={handleLogout}
+        />
       </div>
 
-      {/* Main content scrolls independently */}
-      <div className="flex-1 overflow-y-auto">
-        {activePage === 'serviceRequest' && <SRM />}
-        {activePage === 'operations' && <Operations />}
-        {activePage === 'payment' && <Payment />}
-        {activePage === 'central-view' && <CentralView />}
-        {activePage === 'customer-information' && <CustomerInformation />}
-        {activePage === 'branches' && <Branches />}
-        {activePage === 'analytics' && <Analytics />}
-        {activePage === 'appointments' && <Appointments />}
-        {activePage === 'announcements' && <Announcements />}
-      </div>
+      <div className="flex-1 overflow-y-auto">{pages[activePage]}</div>
     </div>
-  );
+  )
 }
 
-export default App;
+export default App

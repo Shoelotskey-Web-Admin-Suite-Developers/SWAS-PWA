@@ -29,7 +29,7 @@ const DUMMY_CUSTOMERS: Customer[] = [
   {
     id: '000001',
     name: 'Juan Dela Cruz',
-    birthdate: '1990-05-12',
+    birthdate: '2000-01-01',
     address: '123 Mabini St, Manila',
     email: 'juan@example.com',
     phone: '09171234567',
@@ -37,7 +37,7 @@ const DUMMY_CUSTOMERS: Customer[] = [
   {
     id: '000002',
     name: 'Maria Clara',
-    birthdate: '1995-02-20',
+    birthdate: '2000-02-20',
     address: '456 Rizal Ave, Quezon City',
     email: 'maria@example.com',
     phone: '09181234567',
@@ -49,9 +49,6 @@ function todayISODate(): string {
 }
 
 /* --- Pricing data --- */
-/* NOTE: Make sure the strings in `serviceOptions` and `additionalOptions`
-   match the `services` / `addons` name fields (case-insensitive) so prices resolve.
-*/
 const serviceOptions = ['Basic Cleaning', 'Minor Reglue', 'Full Reglue']
 const additionalOptions = [
   'Unyellowing',

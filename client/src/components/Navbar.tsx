@@ -9,9 +9,10 @@ import { NotifSheet } from "@/components/NotifSheet"
 type NavbarProps = {
   activePage: 'serviceRequest' | 'operations' | 'payment' | 'central-view' | 'customer-information' | 'branches' | 'analytics' | 'appointments' | 'announcements'
   setActivePage: React.Dispatch<React.SetStateAction<'serviceRequest' | 'operations' | 'payment' | 'central-view' | 'customer-information' | 'branches' | 'analytics' | 'appointments' | 'announcements'>>
+  onLogout: () => void
 }
 
-export default function Navbar({ activePage, setActivePage }: NavbarProps) {
+export default function Navbar({ activePage, setActivePage, onLogout }: NavbarProps) {
   const [opDropdown, setOpDropdown] = useState(false)
   const [dbDropdown, setDbDropdown] = useState(false)
   const [userDropdown, setUserDropdown] = useState(false)
@@ -36,7 +37,7 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
         <div className='navBar-contents-p1'>
           <img src={swasLogo} alt="SWAS Logo" />
           <div className='nav-BranchName'><h3>Branch Name</h3></div>
-          <a href=""><h4 className='regular'>Log Out</h4></a>
+          <a onClick={onLogout} href=""><h4 className='regular'>Log Out</h4></a>
         </div>
 
         <div className='navBar-contents-p2'>
@@ -238,7 +239,7 @@ export default function Navbar({ activePage, setActivePage }: NavbarProps) {
                       </div>
                     </li>
 
-                    <li><a href="">Log Out</a></li>
+                    <li><a onClick={onLogout} href="">Log Out</a></li>
                   </ul>
                 </div>
               )}
