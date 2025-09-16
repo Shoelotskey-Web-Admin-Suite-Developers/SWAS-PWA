@@ -31,7 +31,7 @@ export const login = async (req: Request, res: Response) => {
 
     // Generate JWT
     const token = jwt.sign(
-      { user_id: user.user_id, position: user.position, branch_id: user.branch_id },
+      { user_id: user.user_id, branch_id: user.branch_id },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRES_IN }
     );
@@ -41,7 +41,6 @@ export const login = async (req: Request, res: Response) => {
       token,
       user: {
         user_id: user.user_id,
-        position: user.position,
         branch_id: user.branch_id,
       },
     });

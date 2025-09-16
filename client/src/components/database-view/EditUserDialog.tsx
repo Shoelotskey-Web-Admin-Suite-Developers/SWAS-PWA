@@ -12,11 +12,12 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Trash2, Eye, EyeOff } from "lucide-react"
+import { deleteUser } from "@/utils/api/deleteUser"
+import { editUser } from "@/utils/api/editUser"
 
 export type UserRow = {
   userId: string
-  branchId: number
-  position: "Branch Admin" | "Branch Staff"
+  branchId: string
 }
 
 export function EditUserDialog({
@@ -24,11 +25,15 @@ export function EditUserDialog({
   onOpenChange,
   user,
   branchIds,
+  onUserDeleted,
+  onUserEdited,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   user: UserRow
-  branchIds: number[]
+  branchIds: string[]
+  onUserDeleted: (userId: string) => void
+  onUserEdited: (updatedUser: UserRow) => void
 }) {
   const [form, setForm] = React.useState<UserRow>(user)
   const [newPassword, setNewPassword] = React.useState("")
@@ -44,7 +49,7 @@ export function EditUserDialog({
     setShowConfirmPassword(false)
   }, [user])
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (newPassword || confirmPassword) {
       if (newPassword !== confirmPassword) {
         alert("Passwords do not match!")
@@ -52,12 +57,42 @@ export function EditUserDialog({
       }
     }
 
-    console.log("Save user", {
-      ...form,
-      ...(newPassword ? { password: newPassword } : {}),
-    })
+    try {
+      const updatedData: { branch_id?: string; password?: string } = {
+        branch_id: form.branchId,
+      }
 
-    onOpenChange(false)
+      if (newPassword) updatedData.password = newPassword
+
+      const updatedUser = await editUser(form.userId, updatedData)
+
+      alert("User updated successfully")
+
+      // Update parent state
+      onUserEdited({
+        userId: updatedUser.user.user_id,
+        branchId: updatedUser.user.branch_id,
+      })
+
+      onOpenChange(false)
+    } catch (err) {
+      console.error(err)
+      alert("Failed to update user")
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!confirm(`Are you sure you want to delete ${form.userId}?`)) return
+
+    try {
+      await deleteUser(form.userId)
+      alert("User deleted successfully")
+      onUserDeleted(form.userId)
+      onOpenChange(false)
+    } catch (err) {
+      alert("Failed to delete user")
+      console.error(err)
+    }
   }
 
   return (
@@ -68,9 +103,7 @@ export function EditUserDialog({
           <Button
             className="bg-transparent hover:bg-[#CE1616] active:bg-[#E64040] text-black hover:text-white extra-bold"
             size="icon"
-            onClick={() => {
-              console.log("Delete user", form.userId)
-            }}
+            onClick={handleDelete}
           >
             <Trash2 className="w-10 h-10" />
           </Button>
@@ -86,19 +119,19 @@ export function EditUserDialog({
         <hr className="section-divider p-0 m-0" />
         <div>
           <h3 className="font-semibold">User Information</h3>
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
             <div>
               <Label>User ID</Label>
               <Input
                 value={form.userId}
-                onChange={(e) => setForm({ ...form, userId: e.target.value })}
+                disabled
               />
             </div>
             <div>
               <Label>Branch ID</Label>
               <Select
                 value={form.branchId.toString()}
-                onValueChange={(val) => setForm({ ...form, branchId: parseInt(val) })}
+                onValueChange={(val) => setForm({ ...form, branchId: val })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select branch" />
@@ -109,23 +142,6 @@ export function EditUserDialog({
                       {id}
                     </SelectItem>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Position</Label>
-              <Select
-                value={form.position}
-                onValueChange={(val) =>
-                  setForm({ ...form, position: val as "Branch Admin" | "Branch Staff" })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select position" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Branch Admin">Branch Admin</SelectItem>
-                  <SelectItem value="Branch Staff">Branch Staff</SelectItem>
                 </SelectContent>
               </Select>
             </div>

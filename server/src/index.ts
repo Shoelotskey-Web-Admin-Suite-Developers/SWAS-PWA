@@ -5,6 +5,9 @@ import dotenv from "dotenv";
 
 // Import routes
 import authRoutes from "./routes/auth";
+import announcementRoutes from "./routes/announcementRoutes";
+import branchRoutes from "./routes/branchRoutes";
+import userRoutes from "./routes/userRoutes";
 
 dotenv.config();
 
@@ -13,6 +16,9 @@ const app: Application = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use("/api/announcements", announcementRoutes);
+app.use("/api/branches", branchRoutes);
+app.use("/api", userRoutes);
 
 // Test route
 app.get("/", (req: Request, res: Response) => {

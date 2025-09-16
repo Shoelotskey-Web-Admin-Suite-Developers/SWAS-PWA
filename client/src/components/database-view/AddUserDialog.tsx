@@ -6,16 +6,16 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "../ui/label"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "../ui/select"
-import { Eye, EyeOff } from "lucide-react" // 👀 Using lucide icons
+import { Eye, EyeOff } from "lucide-react"
 
 interface AddUserDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  branchIds: number[]
+  branchIds: string[]
+  defaultBranchId?: string | null
   onAddUser: (
     userId: string,
-    branchId: number,
-    position: "Branch Admin" | "Branch Staff",
+    branchId: string,
     password: string
   ) => void
 }
@@ -25,21 +25,26 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({
   onOpenChange,
   branchIds,
   onAddUser,
+  defaultBranchId,
 }) => {
   const [userId, setUserId] = React.useState("")
-  const [branchId, setBranchId] = React.useState<number>(branchIds[0] || 0)
-  const [position, setPosition] = React.useState<"Branch Admin" | "Branch Staff">("Branch Staff")
+  const [branchId, setBranchId] = React.useState<string>(defaultBranchId || branchIds[0] || "")
   const [password, setPassword] = React.useState("")
-  const [showPassword, setShowPassword] = React.useState(false) // 🔑 toggle
+  const [showPassword, setShowPassword] = React.useState(false)
+
+  // Reset values when dialog opens
+  React.useEffect(() => {
+    if (open) {
+      setUserId("")
+      setBranchId(defaultBranchId || branchIds[0] || "")
+      setPassword("")
+      setShowPassword(false)
+    }
+  }, [open, defaultBranchId, branchIds])
 
   const handleSubmit = () => {
-    if (!userId || !branchId || !position || !password) return
-    onAddUser(userId, branchId, position, password)
-    setUserId("")
-    setBranchId(branchIds[0] || 0)
-    setPosition("Branch Staff")
-    setPassword("")
-    setShowPassword(false)
+    if (!userId || !branchId || !password) return
+    onAddUser(userId, branchId, password)
     onOpenChange(false)
   }
 
@@ -51,25 +56,27 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({
         </DialogHeader>
 
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+          {/* User ID */}
           <div>
             <Label>User ID</Label>
             <Input
-              placeholder="User ID"
+              placeholder="Branch@Pos-Name/Identifier"
               value={userId}
               onChange={(e) => setUserId(e.target.value)}
               className="bg-white text-black placeholder-gray-400"
             />
           </div>
 
+          {/* Branch ID */}
           <div>
             <Label>Branch ID</Label>
-            <Select value={branchId.toString()} onValueChange={(val) => setBranchId(Number(val))}>
+            <Select value={branchId} onValueChange={(val) => setBranchId(val)}>
               <SelectTrigger className="bg-white text-black">
                 <SelectValue placeholder="Select Branch" />
               </SelectTrigger>
               <SelectContent>
                 {branchIds.map((id) => (
-                  <SelectItem key={id} value={id.toString()}>
+                  <SelectItem key={id} value={id}>
                     {id}
                   </SelectItem>
                 ))}
@@ -77,28 +84,11 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({
             </Select>
           </div>
 
-          <div>
-            <Label>Position</Label>
-            <Select
-              value={position}
-              onValueChange={(val) =>
-                setPosition(val as "Branch Admin" | "Branch Staff")
-              }
-            >
-              <SelectTrigger className="bg-white text-black">
-                <SelectValue placeholder="Select Position" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Branch Admin">Branch Admin</SelectItem>
-                <SelectItem value="Branch Staff">Branch Staff</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="relative">
+          {/* Password (spans full width now) */}
+          <div className="relative sm:col-span-2">
             <Label>Password</Label>
             <Input
-              type={showPassword ? "text" : "password"} // 🔄 toggle type
+              type={showPassword ? "text" : "password"}
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -114,6 +104,7 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({
           </div>
         </div>
 
+        {/* Actions */}
         <div className="mt-4 flex justify-end gap-2">
           <Button
             variant="outline"

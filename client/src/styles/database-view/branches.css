@@ -78,9 +78,6 @@
   vertical-align: middle;
   text-align: center;
 }
-.branches-table td:last-child {
-  text-align: right;
-}
 
 /* Hover */
 .branches-row:hover {
@@ -88,12 +85,11 @@
 }
 
 /* === Branches Table Columns === */
-.branches-col-id { width: 15%; }
-.branches-col-name { width:15%; }
-.branches-col-location { width:20%; }
+.branches-col-id { width: 30%; }
+.branches-col-name { width:25%; }
+.branches-col-location { width:25%; }
 .branches-col-action {
-  width: 50%;
-  text-align: right;
+  width: 20%;
 }
 .branches-col-action button {
   min-width: 90px;
@@ -115,7 +111,6 @@
 /* === Users Table Columns === */
 .users-col-id { width: 35%; }
 .users-col-branch { width: 15%; }
-.users-col-position { width: 25%; }
 .users-col-action {
   width: 25%;
   text-align: right;

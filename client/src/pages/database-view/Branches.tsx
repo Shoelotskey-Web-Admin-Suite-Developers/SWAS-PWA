@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Table,
@@ -12,72 +12,98 @@ import {
 } from "@/components/ui/table"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import "@/styles/database-view/branches.css"
-import { EditBranchDialog } from "@/components/database-view/EditBranchDialog"
 import { EditUserDialog } from "@/components/database-view/EditUserDialog"
 import { AddUserDialog } from "@/components/database-view/AddUserDialog"
-import { AddBranchDialog } from "@/components/database-view/AddBranchDialog"
+import { getBranches } from "@/utils/api/getBranches"
+import { getUsers, User as APIUser } from "@/utils/api/getUser"
+import { addUser } from "@/utils/api/addUser"
 
 type Branch = {
-  id: number
-  name: string
+  branch_id: string
+  branch_name: string
   location: string
 }
 
 type User = {
   id: string
-  branchId: number
-  position: "Branch Admin" | "Branch Staff"
+  branchId: string
 }
 
 export default function Branches() {
-  const [branches, setBranches] = useState<Branch[]>([
-    { id: 1, name: "ADMIN", location: "Location" },
-    { id: 2, name: "SM Valenzuela", location: "Valenzuela City" },
-    { id: 3, name: "Valenzuela", location: "Valenzuela City" },
-    { id: 4, name: "SM Grand", location: "Caloocan" },
-    { id: 5, name: "SM Grand", location: "Caloocan" },
-    { id: 6, name: "SM Grand", location: "Caloocan" },
-    { id: 7, name: "SM Grand", location: "Caloocan" },
-    { id: 8, name: "SM Grand", location: "Caloocan" },
-    { id: 9, name: "SM Grand", location: "Caloocan" },
-    { id: 10, name: "SM Grand", location: "Caloocan" },
-    { id: 11, name: "SM Grand", location: "Caloocan" },
-  ])
-
-  const [users, setUsers] = useState<User[]>([
-    { id: "adminSMVAL@JUy", branchId: 1, position: "Branch Admin" },
-    { id: "staffSMVAL@RChing", branchId: 1, position: "Branch Staff" },
-    { id: "adminSMGrand@Xy", branchId: 2, position: "Branch Admin" },
-    { id: "staffSMGrand@Zz", branchId: 2, position: "Branch Staff" },
-  ])
-
-  const [selectedBranchId, setSelectedBranchId] = useState<number | null>(null)
-  const [editingBranch, setEditingBranch] = useState<Branch | null>(null)
+  const [branches, setBranches] = useState<Branch[]>([])
+  const [users, setUsers] = useState<User[]>([])
+  const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null)
   const [editingUser, setEditingUser] = useState<User | null>(null)
-  const [addBranchOpen, setAddBranchOpen] = useState(false)
   const [addUserOpen, setAddUserOpen] = useState(false)
 
-  const selectedBranch = branches.find((b) => b.id === selectedBranchId)
+  useEffect(() => {
+    async function fetchBranches() {
+      const token = sessionStorage.getItem("token")
+      if (!token) return
+
+      try {
+        const data = await getBranches()
+        setBranches(data)
+      } catch (err) {
+        console.error("Error fetching branches:", err)
+      }
+    }
+    fetchBranches()
+  }, [])
+
+  useEffect(() => {
+    async function fetchUsers() {
+      try {
+        const data: APIUser[] = await getUsers()
+        const mappedUsers: User[] = data.map(u => ({
+          id: u.user_id,
+          branchId: u.branch_id,
+        }))
+        setUsers(mappedUsers)
+      } catch (err) {
+        console.error("Failed to fetch users:", err)
+      }
+    }
+
+    fetchUsers()
+  }, [])
+
+  const selectedBranch = branches.find((b) => b.branch_id === selectedBranchId)
   const filteredUsers = users.filter((u) => u.branchId === selectedBranchId)
 
-  // Handlers for adding
-  const handleAddBranch = (name: string, location: string) => {
-    const newBranch: Branch = {
-      id: branches.length + 1,
-      name,
-      location,
+  // Add User handler
+  const handleAddUser = async (userId: string, branchId: string, password?: string) => {
+    try {
+      const newUser = await addUser({ userId, branchId, password: password! })
+
+      const mappedUser: User = {
+        id: newUser.user.user_id,
+        branchId: newUser.user.branch_id,
+      }
+
+      setUsers((prev) => [...prev, mappedUser])
+    } catch (err) {
+      console.error("Failed to add user:", err)
+      if (err instanceof Error) {
+        alert(`Could not add user: ${err.message}`)
+      } else {
+        alert("Could not add user: Unknown error")
+      }
     }
-    setBranches([...branches, newBranch])
   }
 
-  const handleAddUser = (
-    userId: string,
-    branchId: number,
-    position: "Branch Admin" | "Branch Staff",
-    password?: string
-  ) => {
-    const newUser: User & { password?: string } = { id: userId, branchId, position, password }
-    setUsers([...users, newUser])
+  // Delete User handler
+  const handleUserDeleted = (userId: string) => {
+    setUsers((prev) => prev.filter((u) => u.id !== userId))
+  }
+
+  // Edit User handler
+  const handleUserEdited = (updatedUser: User) => {
+    setUsers((prev) =>
+      prev.map((u) =>
+        u.id === updatedUser.id ? { ...u, branchId: updatedUser.branchId } : u
+      )
+    )
   }
 
   return (
@@ -88,9 +114,6 @@ export default function Branches() {
           <CardTitle>
             <h1 className="mt-3">Branches</h1>
           </CardTitle>
-          <Button className="extra-bold" onClick={() => setAddBranchOpen(true)}>
-            Add Branch
-          </Button>
         </CardHeader>
 
         <CardContent className="branch-card-contents">
@@ -108,45 +131,36 @@ export default function Branches() {
                     <h5>Location</h5>
                   </TableHead>
                   <TableHead className="branches-col-action text-black">
-                    <h5 className="text-right pr-[5.5rem]">Action</h5>
+                    <h5>Action</h5>
                   </TableHead>
                 </TableRow>
               </TableHeader>
 
               <TableBody>
                 {branches.map((branch) => (
-                  <TableRow key={branch.id} className="branches-row">
+                  <TableRow key={branch.branch_id} className="branches-row">
                     <TableCell className="branches-col-id text-center">
-                      <small className="bold">{branch.id}</small>
+                      <small className="bold">{branch.branch_id}</small>
                     </TableCell>
                     <TableCell className="branches-col-name">
-                      <small>{branch.name}</small>
+                      <small>{branch.branch_name}</small>
                     </TableCell>
                     <TableCell className="branches-col-location">
                       <small>{branch.location}</small>
                     </TableCell>
                     <TableCell className="branches-col-action">
-                      <div className="flex gap-2 justify-end">
-                        <Button
-                          className="bg-[#CE1616] hover:bg-[#E64040] text-white extra-bold"
-                          size="sm"
-                          onClick={() => setEditingBranch(branch)}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          className={`branches-btn extra-bold ${
-                            selectedBranchId === branch.id ? "branches-btn-active" : ""
-                          }`}
-                          variant={selectedBranchId === branch.id ? "default" : "outline"}
-                          size="sm"
-                          onClick={() =>
-                            setSelectedBranchId(selectedBranchId === branch.id ? null : branch.id)
-                          }
-                        >
-                          View Users
-                        </Button>
-                      </div>
+                      <Button
+                        className={`branches-btn extra-bold ${
+                          selectedBranchId === branch.branch_id ? "branches-btn-active" : ""
+                        }`}
+                        variant={selectedBranchId === branch.branch_id ? "default" : "outline"}
+                        size="sm"
+                        onClick={() =>
+                          setSelectedBranchId(selectedBranchId === branch.branch_id ? null : branch.branch_id)
+                        }
+                      >
+                        View Users
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -161,7 +175,7 @@ export default function Branches() {
         <CardHeader className="flex flex-row justify-between pb-0">
           <CardTitle>
             <h1 className="mt-3">
-              {selectedBranch ? `Users in ${selectedBranch.name}` : "Select a Branch"}
+              {selectedBranch ? `Users in ${selectedBranch.branch_name}` : "Select a Branch"}
             </h1>
           </CardTitle>
           {selectedBranch && (
@@ -184,11 +198,8 @@ export default function Branches() {
                       <TableHead className="users-col-branch text-center text-black">
                         <h5>Branch ID</h5>
                       </TableHead>
-                      <TableHead className="users-col-position text-center text-black">
-                        <h5>Position</h5>
-                      </TableHead>
                       <TableHead className="users-col-action text-black">
-                        <h5 className="text-right pr-[0.3rem]">Action</h5>
+                        <h5>Action</h5>
                       </TableHead>
                     </TableRow>
                   </TableHeader>
@@ -201,9 +212,6 @@ export default function Branches() {
                         </TableCell>
                         <TableCell className="users-col-branch text-center">
                           <small>{user.branchId}</small>
-                        </TableCell>
-                        <TableCell className="users-col-position text-center">
-                          <small>{user.position}</small>
                         </TableCell>
                         <TableCell className="users-col-action">
                           <Button
@@ -229,43 +237,34 @@ export default function Branches() {
       </Card>
 
       {/* Dialogs */}
-      {editingBranch && (
-        <EditBranchDialog
-          open={!!editingBranch}
-          onOpenChange={(open) => !open && setEditingBranch(null)}
-          branch={{
-            branchId: editingBranch.id.toString(),
-            branchName: editingBranch.name,
-            location: editingBranch.location,
-          }}
-        />
-      )}
-
       {editingUser && (
         <EditUserDialog
           open={!!editingUser}
           onOpenChange={(open) => !open && setEditingUser(null)}
           user={{
-            userId: editingUser.id,
+            userId: editingUser.id, // map id -> userId
             branchId: editingUser.branchId,
-            position: editingUser.position,
           }}
-          branchIds={branches.map((b) => b.id)}
+          branchIds={branches.map((b) => b.branch_id)}
+          onUserDeleted={handleUserDeleted}
+          onUserEdited={(updatedUserRow) => {
+            // map back to User type for state
+            handleUserEdited({
+              id: updatedUserRow.userId,
+              branchId: updatedUserRow.branchId,
+            })
+          }}
         />
       )}
 
-      <AddBranchDialog
-        open={addBranchOpen}
-        onOpenChange={setAddBranchOpen}
-        onAddBranch={handleAddBranch}
-      />
 
       {selectedBranch && (
         <AddUserDialog
           open={addUserOpen}
           onOpenChange={setAddUserOpen}
-          branchIds={branches.map((b) => b.id)}
+          branchIds={branches.map((b) => b.branch_id)}
           onAddUser={handleAddUser}
+          defaultBranchId={selectedBranchId}
         />
       )}
     </div>
