@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -15,10 +15,11 @@ import { EditPromoDialog} from "@/components/user-management/EditPromoDialog"
 import { cn } from "@/lib/utils"
 
 type Announcement = {
-  id: number
-  title: string
-  description: string
-  date: string
+  _id: string   // from MongoDB
+  announcement_id: string
+  announcement_title: string
+  announcement_description: string
+  announcement_date: string
 }
 
 type Promo = {
@@ -29,21 +30,6 @@ type Promo = {
 }
 
 export default function Announcements() {
-  const [announcements, setAnnouncements] = useState<Announcement[]>([
-    {
-      id: 1,
-      title: "📦 New Drop-off Hours for Warehouse",
-      description: "We've updated our warehouse drop-off times.",
-      date: "June 8, 2025",
-    },
-    {
-      id: 2,
-      title: "⏰ Early Closing Notice",
-      description: "Branches will close earlier than usual.",
-      date: "June 7, 2025",
-    },
-  ])
-
   const [promos, setPromos] = useState<Promo[]>([
     {
       id: 1,
@@ -53,10 +39,13 @@ export default function Announcements() {
     },
   ])
 
+  const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [newTitle, setNewTitle] = useState("")
   const [newDescription, setNewDescription] = useState("")
   const [editingAnnouncement, setEditingAnnouncement] = useState<AnnType | null>(null)
+  const [isPosting, setIsPosting] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
+
   const [promoTitle, setPromoTitle] = useState("")
   const [promoDescription, setPromoDescription] = useState("")
   const [promoDates, setPromoDates] = useState<Date[]>([])
@@ -101,23 +90,52 @@ export default function Announcements() {
       .join(", ")
   }
 
-  const handleAddAnnouncement = () => {
-    if (!newTitle || !newDescription) return alert("Fill out all fields")
-    setAnnouncements([
-      {
-        id: Date.now(),
-        title: newTitle,
-        description: newDescription,
-        date: new Date().toLocaleDateString("en-US", {
-          month: "long",
-          day: "numeric",
-          year: "numeric",
+  useEffect(() => {
+    const fetchAnnouncements = async () => {
+      try {
+        const res = await fetch("http://192.168.254.109:5000/api/announcements")
+        if (!res.ok) throw new Error("Failed to fetch announcements")
+
+        const data = await res.json()
+        setAnnouncements(data.announcements)
+      } catch (err) {
+        console.error("Error fetching announcements:", err)
+      }
+    }
+
+    fetchAnnouncements()
+  }, [])
+
+  // ✅ Add new announcement
+  const handleAddAnnouncement = async () => {
+    if (!newTitle || !newDescription) {
+      alert("To create an announcement, fill out title and description.")
+      return
+    }
+
+    setIsPosting(true) // ✅ start loading
+    try {
+      const res = await fetch("http://192.168.254.109:5000/api/announcements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          announcement_title: newTitle,
+          announcement_description: newDescription,
         }),
-      },
-      ...announcements,
-    ])
-    setNewTitle("")
-    setNewDescription("")
+      })
+
+      if (!res.ok) throw new Error("Failed to post announcement")
+
+      const data = await res.json()
+      setAnnouncements((prev) => [data.announcement, ...prev])
+      setNewTitle("")
+      setNewDescription("")
+    } catch (err) {
+      console.error("Error posting announcement:", err)
+      alert("Something went wrong while posting.")
+    } finally {
+      setIsPosting(false) // ✅ stop loading
+    }
   }
 
   const handleDayClick = (day: Date) => {
@@ -191,11 +209,13 @@ export default function Announcements() {
 
   return (
     <div className="p-6 flex flex-col justify-between gap-8" style={{ minHeight: "calc(100dvh - 77px)" }}>
-      {/* Announcements Section */}
+      {/* Create Announcement Form */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-1">
         <Card className="order-1 md:order-2 h-fit">
           <CardHeader>
-            <CardTitle className="text-lg font-bold"><h1>Create Announcement</h1></CardTitle>
+            <CardTitle className="text-lg font-bold">
+              <h1>Create Announcement</h1>
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <Label>Title</Label>
@@ -207,50 +227,63 @@ export default function Announcements() {
               rows={4}
             />
             <Button
-              className="bg-[#CE1616] hover:bg-red-500 text-white w-full mt-5 extra-bold"
+              className="bg-[#CE1616] hover:bg-red-500 text-white w-full mt-5 extra-bold disabled:opacity-50"
               onClick={handleAddAnnouncement}
+              disabled={isPosting} // ✅ disable while posting
             >
-              Post Announcement
+              {isPosting ? "Posting Announcement..." : "Post Announcement"}
             </Button>
           </CardContent>
         </Card>
 
+        {/* Current Announcements */}
         <Card className="order-2 md:order-1 md:col-span-2">
           <CardHeader>
-            <CardTitle className="text-xl font-bold"><h1>Current Announcements</h1></CardTitle>
+            <CardTitle className="text-xl font-bold">Current Announcements</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {announcements.map((a) => (
-              <Card
-                key={a.id}
-                className="rounded-xl p-4 flex flex-col justify-between shadow-sm border"
-              >
-                <div className="flex flex-col gap-2">
-                  <span className="text-xs text-gray-500">{a.date}</span>
-                  <h3 className="font-semibold text-base">{a.title}</h3>
-                  <p className="text-sm text-gray-700">{a.description}</p>
-                </div>
-                <div className="flex justify-end mt-4">
-                  <Button
-                    size="sm"
-                    className="border-2 border-[#CE1616] bg-white hover:bg-red-200 text-[#CE1616] extra-bold"
-                    onClick={() => {setEditingAnnouncement(a)
-                      setIsEditOpen(true)}}
-                  >
-                    Edit
-                  </Button>
-                </div>
-              </Card>
-            ))}
+            {announcements.length === 0 ? (
+              <p className="text-gray-500">No announcements yet.</p>
+            ) : (
+              announcements.map((a) => (
+                <Card
+                  key={a._id}
+                  className="rounded-xl p-4 flex flex-col justify-between shadow-sm border"
+                >
+                  <div className="flex flex-col gap-2">
+                    <span className="text-xs text-gray-500">
+                      {new Date(a.announcement_date).toLocaleDateString("en-US", {
+                        month: "long",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </span>
+                    <h3 className="font-semibold text-base">{a.announcement_title}</h3>
+                    <p className="text-sm text-gray-700">{a.announcement_description}</p>
+                  </div>
+                  <div className="flex justify-end mt-4">
+                    <Button
+                      size="sm"
+                      className="border-2 border-[#CE1616] bg-white hover:bg-red-200 text-[#CE1616] extra-bold"
+                      onClick={() => {
+                        setEditingAnnouncement(a)
+                        setIsEditOpen(true)
+                      }}
+                    >
+                      Edit
+                    </Button>
+                  </div>
+                </Card>
+              ))
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Edit Announcement Dialog */}
       {editingAnnouncement && (
         <EditAnnouncementDialog
           open={isEditOpen}
-          onOpenChange={(open) => setIsEditOpen(open)}
+          onOpenChange={setIsEditOpen}
           announcement={editingAnnouncement}
         />
       )}

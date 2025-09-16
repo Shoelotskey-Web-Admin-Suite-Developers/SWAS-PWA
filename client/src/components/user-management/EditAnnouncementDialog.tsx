@@ -13,24 +13,31 @@ import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Trash2 } from "lucide-react"
 
+// ✅ Match backend fields
 export type Announcement = {
-  id: number
-  title: string
-  description: string
-  date: string
+  _id: string   // MongoDB ID
+  announcement_id: string
+  announcement_title: string
+  announcement_description: string
+  announcement_date: string
 }
 
 export function EditAnnouncementDialog({
   open,
   onOpenChange,
   announcement,
+  onSave,
+  onDelete,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   announcement: Announcement
+  onSave?: (updated: Announcement) => void
+  onDelete?: (id: string) => void
 }) {
   const [form, setForm] = React.useState<Announcement>(announcement)
 
+  // Reset form when a different announcement is opened
   React.useEffect(() => {
     setForm(announcement)
   }, [announcement])
@@ -44,7 +51,7 @@ export function EditAnnouncementDialog({
             className="bg-transparent hover:bg-[#CE1616] active:bg-[#E64040] text-black hover:text-white extra-bold"
             size="icon"
             onClick={() => {
-              console.log("Delete Announcement", form.id)
+              if (onDelete) onDelete(form._id)
             }}
           >
             <Trash2 className="w-10 h-10" />
@@ -63,23 +70,32 @@ export function EditAnnouncementDialog({
         <div className="space-y-4">
           <div>
             <Label>Date Posted</Label>
-            <Input value={form.date} disabled />
+            <Input
+              value={new Date(form.announcement_date).toLocaleDateString("en-US", {
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+              })}
+              disabled
+            />
           </div>
 
           <div>
             <Label>Title</Label>
             <Input
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              value={form.announcement_title}
+              onChange={(e) =>
+                setForm({ ...form, announcement_title: e.target.value })
+              }
             />
           </div>
 
           <div>
             <Label>Description</Label>
             <Textarea
-              value={form.description}
+              value={form.announcement_description}
               onChange={(e) =>
-                setForm({ ...form, description: e.target.value })
+                setForm({ ...form, announcement_description: e.target.value })
               }
               rows={4}
             />
@@ -98,7 +114,7 @@ export function EditAnnouncementDialog({
           <Button
             className="bg-red-600 hover:bg-red-500 text-white extra-bold"
             onClick={() => {
-              console.log("Save announcement", form)
+              if (onSave) onSave(form)
               onOpenChange(false)
             }}
           >

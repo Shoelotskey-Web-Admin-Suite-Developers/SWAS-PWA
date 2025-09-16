@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 
 // Import routes
 import authRoutes from "./routes/auth";
-import announcementRoutes from "./routes/announcementRoutes";
+import announcementRoutes from "./routes/announcementsRoutes"; // 👈 add this
 import branchRoutes from "./routes/branchRoutes";
 import userRoutes from "./routes/userRoutes";
 
