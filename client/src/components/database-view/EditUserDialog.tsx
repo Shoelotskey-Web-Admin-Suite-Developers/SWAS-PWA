@@ -131,7 +131,7 @@ export function EditUserDialog({
               <Label>Branch ID</Label>
               <Select
                 value={form.branchId.toString()}
-                onValueChange={(val) => setForm({ ...form, branchId: val })}
+                disabled
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select branch" />

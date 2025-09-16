@@ -85,11 +85,11 @@
 }
 
 /* === Branches Table Columns === */
-.branches-col-id { width: 30%; }
-.branches-col-name { width:25%; }
-.branches-col-location { width:25%; }
+.branches-col-id { width: 27%; }
+.branches-col-name { width:27%; }
+.branches-col-location { width:21%; }
 .branches-col-action {
-  width: 20%;
+  width: 25%;
 }
 .branches-col-action button {
   min-width: 90px;
@@ -109,10 +109,10 @@
 }
 
 /* === Users Table Columns === */
-.users-col-id { width: 35%; }
-.users-col-branch { width: 15%; }
+.users-col-id { width: 30%; }
+.users-col-branch { width: 40%; }
 .users-col-action {
-  width: 25%;
+  width: 30%;
   text-align: right;
 }
 
