@@ -1,4 +1,5 @@
-// utils/api/addUser.ts
+const BASE_URL = import.meta.env.VITE_API_BASE_URL
+
 export async function addUser({
   userId,
   branchId,
@@ -11,7 +12,7 @@ export async function addUser({
   const token = sessionStorage.getItem("token")
   if (!token) throw new Error("No token found")
 
-  const res = await fetch("http://localhost:5000/api/users", {
+  const res = await fetch(`${BASE_URL}/api/users`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

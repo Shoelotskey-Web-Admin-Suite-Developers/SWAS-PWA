@@ -1,10 +1,12 @@
 // utils/api/deleteUser.ts
+const BASE_URL = import.meta.env.VITE_API_BASE_URL
+
 export const deleteUser = async (userId: string) => {
   try {
     const token = sessionStorage.getItem("token");
     if (!token) throw new Error("No token found");
 
-    const res = await fetch(`http://localhost:5000/api/users/${userId}`, {
+    const res = await fetch(`${BASE_URL}/api/users/${userId}`, {
       method: "DELETE",
       headers: {
         "Authorization": `Bearer ${token}`,
