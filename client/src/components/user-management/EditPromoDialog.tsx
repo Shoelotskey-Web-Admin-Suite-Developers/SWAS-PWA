@@ -12,62 +12,41 @@ import type { DateRange } from "react-day-picker"
 import { Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
+// API utils
+import { editPromo } from "@/utils/api/editPromo"
+import { deletePromo } from "@/utils/api/deletePromo"
+
 export type Promo = {
-  id: number
-  title: string
-  description: string
-  duration: string
+  promo_id: string
+  promo_title: string
+  promo_description: string
+  promo_duration: string       // the display string from backend
+  promo_dates?: string[]       // raw ISO dates from backend
 }
 
 type EditPromoDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   promo: Promo
-  onSave: (updated: Promo) => void
-  onDelete?: (id: number) => void
+  onSave?: () => void
+  onDelete?: () => void
 }
 
 export function EditPromoDialog({ open, onOpenChange, promo, onSave, onDelete }: EditPromoDialogProps) {
-  const [title, setTitle] = useState(promo.title)
-  const [description, setDescription] = useState(promo.description)
+  const [title, setTitle] = useState(promo.promo_title)
+  const [description, setDescription] = useState(promo.promo_description)
   const [dates, setDates] = useState<Date[]>([])
   const [range, setRange] = useState<DateRange>()
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    setTitle(promo.title)
-    setDescription(promo.description)
+    setTitle(promo.promo_title)
+    setDescription(promo.promo_description)
 
-    const parseDuration = (duration: string): Date[] => {
-      if (!duration) return []
-      const ranges = duration.split(",").map(p => p.trim())
-      const dates: Date[] = []
-
-      let i = 0
-      while (i < ranges.length) {
-        const part = ranges[i]
-        if (part.includes("–")) {
-          const [startStr, endStr] = part.split("–").map(p => p.trim())
-          const yearPart = ranges[i + 1]
-          const year = parseInt(yearPart, 10)
-          if (!year) break
-
-          const month = startStr.split(" ")[0]
-          const start = new Date(`${startStr}, ${year}`)
-          const end = new Date(`${month} ${endStr}, ${year}`)
-          dates.push(...eachDayOfInterval({ start, end }))
-          i += 2
-        } else {
-          const date = new Date(part)
-          dates.push(date)
-          i += 1
-        }
-      }
-
-      return dates
-    }
-
-    const parsedDates = parseDuration(promo.duration)
+    // Convert ISO string array to Date[]
+    const parsedDates = promo.promo_dates?.map(d => new Date(d)) ?? []
     setDates(parsedDates)
+
     if (parsedDates.length > 0) {
       setRange({ from: parsedDates[0], to: parsedDates[parsedDates.length - 1] })
     } else {
@@ -121,13 +100,11 @@ export function EditPromoDialog({ open, onOpenChange, promo, onSave, onDelete }:
         setDates([])
         return
       }
-
       if (isBefore(day, from)) {
         setRange({ from: day, to: undefined })
         setDates([day])
         return
       }
-
       const interval = eachDayOfInterval({ start: from, end: day })
       setRange({ from, to: day })
       setDates(interval)
@@ -140,13 +117,11 @@ export function EditPromoDialog({ open, onOpenChange, promo, onSave, onDelete }:
         setDates([])
         return
       }
-
       if (isBefore(day, from) || isAfter(day, to)) {
         setRange({ from: day, to: undefined })
         setDates([day])
         return
       }
-
       setDates(prev => {
         const exists = prev.some(d => isSameDay(d, day))
         return exists ? prev.filter(d => !isSameDay(d, day)) : [...prev, day].sort((a, b) => a.getTime() - b.getTime())
@@ -154,15 +129,40 @@ export function EditPromoDialog({ open, onOpenChange, promo, onSave, onDelete }:
     }
   }
 
-  const handleSave = () => {
-    if (!title || !description) return alert("Fill out all fields")
-    onSave({ ...promo, title, description, duration: groupContinuousDays(dates) })
-    onOpenChange(false)
-  }
+  const handleSave = async () => {
+    if (!title || !description || dates.length === 0) {
+      return alert("Fill out all fields");
+    }
 
-  const handleDelete = () => {
-    if (onDelete) onDelete(promo.id)
-    onOpenChange(false)
+    setLoading(true);
+    try {
+      await editPromo(
+        promo.promo_id,  // promo ID
+        title,           // updated title
+        description,     // updated description
+        dates            // send Date[] directly
+      );
+
+      onSave?.();
+      onOpenChange(false);
+    } catch (err) {
+      console.error("Failed to update promo:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setLoading(true)
+    try {
+      await deletePromo(promo.promo_id)
+      onDelete?.()
+      onOpenChange(false)
+    } catch (err) {
+      console.error("Failed to delete promo:", err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -173,6 +173,7 @@ export function EditPromoDialog({ open, onOpenChange, promo, onSave, onDelete }:
           <Button
             className="bg-transparent hover:bg-[#CE1616] active:bg-[#E64040] text-black hover:text-white extra-bold"
             size="icon"
+            disabled={loading}
             onClick={handleDelete}
           >
             <Trash2 className="w-10 h-10" />
@@ -259,12 +260,12 @@ export function EditPromoDialog({ open, onOpenChange, promo, onSave, onDelete }:
 
         <DialogFooter className="flex justify-between">
           {onDelete && (
-            <Button variant="outline" className="border extra-bold" onClick={() => onOpenChange(false)}>
+            <Button variant="outline" className="border extra-bold" disabled={loading} onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
           )}
-          <Button className="bg-[#CE1616] hover:bg-red-500 text-white extra-bold" onClick={handleSave}>
-            Save Changes
+          <Button className="bg-[#CE1616] hover:bg-red-500 text-white extra-bold" disabled={loading} onClick={handleSave}>
+            {loading ? "Saving..." : "Save Changes"}
           </Button>
         </DialogFooter>
       </DialogContent>
