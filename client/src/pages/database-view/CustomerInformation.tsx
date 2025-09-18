@@ -26,6 +26,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 
 import { getCustomers } from "@/utils/api/getCustomers" // 👈 your API util
 import { exportCSV } from "@/utils/exportCSV"
+import { deleteAllCustomers } from "@/utils/api/deleteAllCustomers";
+
 
 /* ----------------------------- types ----------------------------- */
 export type CustomerStatus = "Active" | "Stored"
@@ -194,11 +196,22 @@ export default function CustomerInformation() {
                 Export Records
               </DropdownMenuItem>
               <DropdownMenuItem
-                className="text-red-600"
-                onClick={() => console.log("Delete clicked")}
-              >
-                Delete Records
-              </DropdownMenuItem>
+              className="text-red-600"
+              onClick={async () => {
+                if (!confirm("Are you sure you want to delete all customers? This cannot be undone.")) return;
+
+                try {
+                  await deleteAllCustomers();
+                  setRows([]); // clear frontend state
+                  alert("All customers deleted successfully");
+                } catch (err) {
+                  console.error(err);
+                  alert("Failed to delete customers. See console for details.");
+                }
+              }}
+            >
+              Delete Records
+            </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

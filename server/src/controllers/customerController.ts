@@ -30,6 +30,17 @@ export const deleteCustomer = async (req: Request, res: Response): Promise<void>
   }
 };
 
+// Delete all customers
+export const deleteAllCustomers = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await Customer.deleteMany({});
+    res.status(200).json({ message: `${result.deletedCount} customers deleted successfully` });
+  } catch (error) {
+    res.status(500).json({ message: "Error deleting all customers", error });
+  }
+};
+
+
 // Update customer by cust_id
 export const updateCustomer = async (req: Request, res: Response): Promise<void> => {
   try {
