@@ -8,11 +8,17 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
+import { toast } from 'sonner'
 import { format, isBefore, isAfter, isSameDay, eachDayOfInterval } from "date-fns"
 import type { DateRange } from "react-day-picker"
 import { EditAnnouncementDialog, type Announcement as AnnType } from "@/components/user-management/EditAnnouncementDialog"
 import { EditPromoDialog} from "@/components/user-management/EditPromoDialog"
 import { cn } from "@/lib/utils"
+
+import { getAnnouncements } from "@/utils/api/getAnnouncement"
+import { addAnnouncement } from "@/utils/api/addAnnouncement"
+import { getPromos } from "@/utils/api/getPromo"
+import { addPromo } from "@/utils/api/addPromo"
 
 type Announcement = {
   _id: string   // from MongoDB
@@ -23,22 +29,17 @@ type Announcement = {
 }
 
 type Promo = {
-  id: number
-  title: string
-  description: string
-  duration: string
-}
+  _id: string;
+  promo_id: string;
+  promo_title: string;
+  promo_description?: string | null;
+  promo_dates: string[];
+  promo_duration: string;
+  branch_id: string;
+};
+
 
 export default function Announcements() {
-  const [promos, setPromos] = useState<Promo[]>([
-    {
-      id: 1,
-      title: "🔥 Promo Alert – Rainy Day Discount",
-      description: "Enjoy discounts during rainy days.",
-      duration: "June 1–15, 2025",
-    },
-  ])
-
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [newTitle, setNewTitle] = useState("")
   const [newDescription, setNewDescription] = useState("")
@@ -46,6 +47,7 @@ export default function Announcements() {
   const [isPosting, setIsPosting] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
 
+  const [promos, setPromos] = useState<Promo[]>([])
   const [promoTitle, setPromoTitle] = useState("")
   const [promoDescription, setPromoDescription] = useState("")
   const [promoDates, setPromoDates] = useState<Date[]>([])
@@ -90,51 +92,40 @@ export default function Announcements() {
       .join(", ")
   }
 
+  const fetchAnnouncements = async () => {
+    const data = await getAnnouncements()
+    setAnnouncements(data)
+  }
+
+  const fetchPromos = async () => {
+    const data = await getPromos();
+    setPromos(data);
+  };
+
   useEffect(() => {
-    const fetchAnnouncements = async () => {
-      try {
-        const res = await fetch("http://192.168.254.109:5000/api/announcements")
-        if (!res.ok) throw new Error("Failed to fetch announcements")
-
-        const data = await res.json()
-        setAnnouncements(data.announcements)
-      } catch (err) {
-        console.error("Error fetching announcements:", err)
-      }
-    }
-
     fetchAnnouncements()
+    fetchPromos()
   }, [])
 
   // ✅ Add new announcement
   const handleAddAnnouncement = async () => {
     if (!newTitle || !newDescription) {
-      alert("To create an announcement, fill out title and description.")
-      return
-    }
+    toast.error("To create an announcement, fill out title and description.")
+    return
+  }
 
-    setIsPosting(true) // ✅ start loading
+
+    setIsPosting(true)
     try {
-      const res = await fetch("http://192.168.254.109:5000/api/announcements", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          announcement_title: newTitle,
-          announcement_description: newDescription,
-        }),
-      })
-
-      if (!res.ok) throw new Error("Failed to post announcement")
-
-      const data = await res.json()
-      setAnnouncements((prev) => [data.announcement, ...prev])
+      const announcement = await addAnnouncement(newTitle, newDescription)
+      setAnnouncements((prev) => [announcement, ...prev])
       setNewTitle("")
       setNewDescription("")
-    } catch (err) {
-      console.error("Error posting announcement:", err)
-      alert("Something went wrong while posting.")
+      toast.success("Announcement posted!")
+    } catch {
+      toast.error("Something went wrong while posting.")
     } finally {
-      setIsPosting(false) // ✅ stop loading
+      setIsPosting(false)
     }
   }
 
@@ -188,24 +179,31 @@ export default function Announcements() {
     }
   }
 
-  const handleAddPromo = () => {
-    if (!promoTitle || promoDates.length === 0 || !promoDescription)
-      return alert("Fill out all fields")
+  const handleAddPromo = async () => {
+    if (!promoTitle || promoDates.length === 0) {
+      return toast.error("To create a promo notice, fill out all fields first.");
+    }
 
-    setPromos([
-      {
-        id: Date.now(),
-        title: promoTitle,
-        description: promoDescription,
-        duration: groupContinuousDays(promoDates),
-      },
-      ...promos,
-    ])
-    setPromoTitle("")
-    setPromoDescription("")
-    setPromoDates([])
-    setPromoRange(undefined)
-  }
+    try {
+      // Convert Date[] to ISO string[]
+      const dateStrings = promoDates.map((d) => d.toISOString());
+
+      const newPromo = await addPromo(
+        promoTitle,
+        promoDescription,
+        dateStrings // now a string[]
+      );
+
+      setPromos((prev) => [newPromo, ...prev]);
+      setPromoTitle("");
+      setPromoDescription("");
+      setPromoDates([]);
+      setPromoRange(undefined);
+      toast.success("Promo Notice updated!")
+    } catch {
+      toast.error("Something went wrong while posting the promo.");
+    }
+  };
 
   return (
     <div className="p-6 flex flex-col justify-between gap-8" style={{ minHeight: "calc(100dvh - 77px)" }}>
@@ -239,7 +237,7 @@ export default function Announcements() {
         {/* Current Announcements */}
         <Card className="order-2 md:order-1 md:col-span-2">
           <CardHeader>
-            <CardTitle className="text-xl font-bold">Current Announcements</CardTitle>
+            <CardTitle className="text-xl font-bold"><h1>Current Announcements</h1></CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {announcements.length === 0 ? (
@@ -258,8 +256,8 @@ export default function Announcements() {
                         year: "numeric",
                       })}
                     </span>
-                    <h3 className="font-semibold text-base">{a.announcement_title}</h3>
-                    <p className="text-sm text-gray-700">{a.announcement_description}</p>
+                    <h3 className="font-semibold text-base truncate">{a.announcement_title}</h3>
+                    <p className="text-sm text-gray-700 line-clamp-2">{a.announcement_description}</p>
                   </div>
                   <div className="flex justify-end mt-4">
                     <Button
@@ -285,8 +283,18 @@ export default function Announcements() {
           open={isEditOpen}
           onOpenChange={setIsEditOpen}
           announcement={editingAnnouncement}
+          onSave={async () => {
+            await fetchAnnouncements()
+            toast.success("Announcement updated!")
+          }}
+          onDelete={async () => {
+            await fetchAnnouncements()
+            toast.success("Announcement deleted!")
+          }}
         />
       )}
+
+
 
       {/* Promos Section */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-1">
@@ -379,14 +387,11 @@ export default function Announcements() {
           </CardHeader>
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {promos.map((p) => (
-              <Card
-                key={p.id}
-                className="rounded-xl p-4 flex flex-col justify-between shadow-sm border"
-              >
+              <Card key={p.promo_id} className="rounded-xl p-4 flex flex-col justify-between shadow-sm border">
                 <div className="flex flex-col gap-2">
-                  <span className="text-xs text-gray-500">{p.duration}</span>
-                  <h3 className="font-semibold text-base">{p.title}</h3>
-                  <p className="text-sm text-gray-700">{p.description}</p>
+                  <span className="text-xs text-gray-500">{p.promo_duration}</span>
+                  <h3 className="font-semibold text-base">{p.promo_title}</h3>
+                  <p className="text-sm text-gray-700">{p.promo_description}</p>
                 </div>
                 <div className="flex justify-end mt-4">
                   <Button
@@ -409,12 +414,21 @@ export default function Announcements() {
           <EditPromoDialog
             open={isEditPromoOpen}
             onOpenChange={setIsEditPromoOpen}
-            promo={editingPromo}
-            onSave={(updated) => setPromos(prev => prev.map(p => p.id === updated.id ? updated : p))}
-            onDelete={(id) => setPromos(prev => prev.filter(p => p.id !== id))}
+            promo={{
+              ...editingPromo,
+              promo_description: editingPromo.promo_description ?? "", // ✅ fallback to empty string
+              promo_dates: editingPromo.promo_dates ?? [] // optional: ensure dates array exists
+            }}
+            onSave={async () => {
+              await fetchPromos(); // reload updated list
+              toast.success("Promo Notice updated!")
+            }}
+            onDelete={async () => {
+              await fetchPromos(); // reload after delete
+              toast.success("Promo Notice deleted!")
+            }}
           />
         )}
-
       </div>
     </div>
   )

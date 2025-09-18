@@ -13,9 +13,12 @@ import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Trash2 } from "lucide-react"
 
-// ✅ Match backend fields
+// API utils
+import { editAnnouncement } from "@/utils/api/editAnnouncement"
+import { deleteAnnouncement } from "@/utils/api/deleteAnnouncement"
+
 export type Announcement = {
-  _id: string   // MongoDB ID
+  _id: string
   announcement_id: string
   announcement_title: string
   announcement_description: string
@@ -26,21 +29,53 @@ export function EditAnnouncementDialog({
   open,
   onOpenChange,
   announcement,
-  onSave,
-  onDelete,
+  onSave,   // 🔹 now used only as a trigger to refresh
+  onDelete, // 🔹 same
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   announcement: Announcement
-  onSave?: (updated: Announcement) => void
-  onDelete?: (id: string) => void
+  onSave?: () => void   // 🔹 no params, just tells parent "refresh now"
+  onDelete?: () => void
 }) {
   const [form, setForm] = React.useState<Announcement>(announcement)
+  const [loading, setLoading] = React.useState(false)
 
-  // Reset form when a different announcement is opened
+  // Reset form when announcement changes
   React.useEffect(() => {
     setForm(announcement)
   }, [announcement])
+
+  const handleSave = async () => {
+    setLoading(true)
+    try {
+      await editAnnouncement(
+        form.announcement_id,              // 🔹 use announcement_id instead of _id
+        form.announcement_title,
+        form.announcement_description
+      )
+      onSave?.()             
+      onOpenChange(false)
+    } catch (err) {
+      console.error("Failed to update announcement:", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    setLoading(true)
+    try {
+      await deleteAnnouncement(form.announcement_id) // 🔹 use announcement_id
+      onDelete?.()           
+      onOpenChange(false)
+    } catch (err) {
+      console.error("Failed to delete announcement:", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -50,9 +85,8 @@ export function EditAnnouncementDialog({
           <Button
             className="bg-transparent hover:bg-[#CE1616] active:bg-[#E64040] text-black hover:text-white extra-bold"
             size="icon"
-            onClick={() => {
-              if (onDelete) onDelete(form._id)
-            }}
+            disabled={loading}
+            onClick={handleDelete}
           >
             <Trash2 className="w-10 h-10" />
           </Button>
@@ -66,7 +100,7 @@ export function EditAnnouncementDialog({
 
         <hr className="my-3 border-gray-300" />
 
-        {/* Announcement Fields */}
+        {/* Fields */}
         <div className="space-y-4">
           <div>
             <Label>Date Posted</Label>
@@ -82,6 +116,7 @@ export function EditAnnouncementDialog({
 
           <div>
             <Label>Title</Label>
+            
             <Input
               value={form.announcement_title}
               onChange={(e) =>
@@ -107,18 +142,17 @@ export function EditAnnouncementDialog({
           <Button
             className="extra-bold border"
             variant="outline"
+            disabled={loading}
             onClick={() => onOpenChange(false)}
           >
             Cancel
           </Button>
           <Button
             className="bg-red-600 hover:bg-red-500 text-white extra-bold"
-            onClick={() => {
-              if (onSave) onSave(form)
-              onOpenChange(false)
-            }}
+            disabled={loading}
+            onClick={handleSave}
           >
-            Save
+            {loading ? "Saving..." : "Save"}
           </Button>
         </div>
       </DialogContent>

@@ -13,6 +13,8 @@ import Appointments from '@/pages/user-management/appointments'
 import Announcements from '@/pages/user-management/announcements'
 import Login from '@/pages/auth/login'
 
+import { Toaster } from 'sonner'
+
 function App() {
   // ───────────── STATES ─────────────
   const [activePage, setActivePage] = useState<
@@ -70,7 +72,9 @@ function App() {
 
   // ───────────── CONDITIONAL RENDER ─────────────
   if (!user) {
-    return <Login onLogin={(userData) => setUser(userData)} />
+    return (
+      <Login onLogin={(userData) => setUser(userData)} />
+    )
   }
 
   return (
@@ -84,6 +88,14 @@ function App() {
       </div>
 
       <div className="flex-1 overflow-y-auto">{pages[activePage]}</div>
+      <Toaster
+        position="top-center"
+        richColors
+        toastOptions={{
+          style: { top: '60px' } // offset below navbar height
+        }}
+      />
+
     </div>
   )
 }
