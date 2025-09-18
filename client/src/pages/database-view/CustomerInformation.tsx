@@ -24,11 +24,14 @@ import { Button } from "@/components/ui/button"
 import { MoreVertical } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 
+import { getCustomers } from "@/utils/api/getCustomers" // 👈 your API util
+import { exportCSV } from "@/utils/exportCSV"
+
 /* ----------------------------- types ----------------------------- */
 export type CustomerStatus = "Active" | "Stored"
 
 export type CustomerRow = {
-  id: number
+  id: string
   name: string
   birthday: string
   address: string
@@ -40,111 +43,12 @@ export type CustomerRow = {
   totalServices: number
 }
 
-/* ----------------------------- dummy data ----------------------------- */
-const INITIAL_CUSTOMERS: CustomerRow[] = [
-  {
-    id: 1,
-    name: "John Michael Cruz",
-    birthday: "1995-03-21",
-    address: "123 Sampaguita St., Manila",
-    email: "jmcruz95@gmail.com",
-    contact: "09181112233",
-    balance: 150,
-    status: "Active",
-    currentServiceCount: 1,
-    totalServices: 3,
-  },
-  {
-    id: 2,
-    name: "Angela Dela Peña",
-    birthday: "2000-08-15",
-    address: "56 Santolan Ave, Quezon City",
-    email: "angeladp@gmail.com",
-    contact: "09453334444",
-    balance: 0,
-    status: "Stored",
-    currentServiceCount: 0,
-    totalServices: 5,
-  },
-  {
-    id: 3,
-    name: "Marco Reyes",
-    birthday: "1998-12-01",
-    address: "87 Mabini St., Caloocan",
-    email: "marco.reyes98@yahoo.com",
-    contact: "09395556677",
-    balance: 600,
-    status: "Active",
-    currentServiceCount: 2,
-    totalServices: 6,
-  },
-  {
-    id: 4,
-    name: "Marco Reyes",
-    birthday: "1998-12-01",
-    address: "87 Mabini St., Caloocan",
-    email: "marco.reyes98@yahoo.com",
-    contact: "09395556677",
-    balance: 600,
-    status: "Active",
-    currentServiceCount: 2,
-    totalServices: 6,
-  },
-  {
-    id: 5,
-    name: "Marco Reyes",
-    birthday: "1998-12-01",
-    address: "87 Mabini St., Caloocan",
-    email: "marco.reyes98@yahoo.com",
-    contact: "09395556677",
-    balance: 600,
-    status: "Active",
-    currentServiceCount: 2,
-    totalServices: 6,
-  },
-  {
-    id: 6,
-    name: "Marco Reyes",
-    birthday: "1998-12-01",
-    address: "87 Mabini St., Caloocan",
-    email: "marco.reyes98@yahoo.com",
-    contact: "09395556677",
-    balance: 600,
-    status: "Active",
-    currentServiceCount: 2,
-    totalServices: 6,
-  },
-  {
-    id: 7,
-    name: "Marco Reyes",
-    birthday: "1998-12-01",
-    address: "87 Mabini St., Caloocan",
-    email: "marco.reyes98@yahoo.com",
-    contact: "09395556677",
-    balance: 600,
-    status: "Active",
-    currentServiceCount: 2,
-    totalServices: 6,
-  },
-  {
-    id: 8,
-    name: "Marco Reyes",
-    birthday: "1998-12-01",
-    address: "87 Mabini St., Caloocan",
-    email: "marco.reyes98@yahoo.com",
-    contact: "09395556677",
-    balance: 600,
-    status: "Active",
-    currentServiceCount: 2,
-    totalServices: 6,
-  },
-]
-
 /* ----------------------------- component ----------------------------- */
 type SortKey = "name" | "birthday" | "balance" | "totalServices"
 
 export default function CustomerInformation() {
-  const [rows] = React.useState<CustomerRow[]>(INITIAL_CUSTOMERS)
+  const [rows, setRows] = React.useState<CustomerRow[]>([])
+  const [loading, setLoading] = React.useState(true)
 
   // filters
   const [search, setSearch] = React.useState("")
@@ -154,6 +58,37 @@ export default function CustomerInformation() {
   const [sortOrder, setSortOrder] = React.useState<"asc" | "desc">("asc")
   const [showFilters, setShowFilters] = React.useState(false)
 
+  /* ----------------------------- fetch customers ----------------------------- */
+  React.useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const data = await getCustomers()
+
+        const mapped: CustomerRow[] = data.map((c: any, idx: number) => ({
+          id: c.cust_id, // you can replace with c.cust_id if you prefer
+          name: c.cust_name,
+          birthday: c.cust_bdate ? new Date(c.cust_bdate).toISOString().split("T")[0] : "",
+          address: c.cust_address || "",
+          email: c.cust_email || "",
+          contact: c.cust_contact || "",
+          balance: 0, // placeholder, not in schema
+          status: "Active", // placeholder, not in schema
+          currentServiceCount: 0, // placeholder, not in schema
+          totalServices: c.total_services || 0,
+        }))
+
+        setRows(mapped)
+      } catch (err) {
+        console.error("Error fetching customers:", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
+
+  /* ----------------------------- filtering & sorting ----------------------------- */
   const filtered = React.useMemo(() => {
     let data = [...rows]
 
@@ -198,6 +133,7 @@ export default function CustomerInformation() {
 
   const tableRows: CustomerTableRow[] = filtered.map((c) => ({ ...c }))
 
+  /* ----------------------------- render ----------------------------- */
   return (
     <div className="ci-wrap">
       <div className="ci-header">
@@ -254,7 +190,7 @@ export default function CustomerInformation() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40">
-              <DropdownMenuItem onClick={() => console.log("Export clicked")}>
+              <DropdownMenuItem onClick={() => exportCSV(filtered)}>
                 Export Records
               </DropdownMenuItem>
               <DropdownMenuItem
@@ -288,7 +224,10 @@ export default function CustomerInformation() {
 
           <div className="w-[20%] ci-width-half-767 ci-width-full-465">
             <Label>Has Balance</Label>
-            <Select value={hasBalance || "none"} onValueChange={(v) => setHasBalance(v === "none" ? "" : (v as "yes" | "no"))}>
+            <Select
+              value={hasBalance || "none"}
+              onValueChange={(v) => setHasBalance(v === "none" ? "" : (v as "yes" | "no"))}
+            >
               <SelectTrigger className="ci-select">
                 <SelectValue placeholder="Select an option" />
               </SelectTrigger>
@@ -346,7 +285,7 @@ export default function CustomerInformation() {
 
       {/* Table */}
       <div className="ci-table">
-        <CustomerTable rows={tableRows} />
+        {loading ? <p>Loading customers...</p> : <CustomerTable rows={tableRows} />}
       </div>
     </div>
   )

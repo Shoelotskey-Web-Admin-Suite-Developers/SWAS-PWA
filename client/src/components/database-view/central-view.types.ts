@@ -43,7 +43,7 @@ export type TxStatusDates = Record<string, string | null>
 
 /* ----------------------------- customer types ----------------------------- */
 export type CustomerRow = {
-  id: number
+  id: string
   name: string
   birthday: string
   address: string

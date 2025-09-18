@@ -8,6 +8,7 @@ import authRoutes from "./routes/auth";
 import announcementRoutes from "./routes/announcementsRoutes"; // 👈 add this
 import branchRoutes from "./routes/branchRoutes";
 import userRoutes from "./routes/userRoutes";
+import customerRoutes from "./routes/customerRoutes";
 
 dotenv.config();
 
@@ -19,6 +20,7 @@ app.use(express.json());
 app.use("/api/announcements", announcementRoutes);
 app.use("/api/branches", branchRoutes);
 app.use("/api", userRoutes);
+app.use("/api/customers", customerRoutes);
 
 // Test route
 app.get("/", (req: Request, res: Response) => {

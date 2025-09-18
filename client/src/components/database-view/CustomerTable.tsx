@@ -21,7 +21,9 @@ interface CustomerTableProps {
 }
 
 export function CustomerTable({ rows }: CustomerTableProps) {
-  const [openRow, setOpenRow] = React.useState<number | null>(null)
+  // local state mirrors props so we can mutate (delete/edit) locally
+  const [customers, setCustomers] = React.useState<CustomerRow[]>(rows)
+  const [openRow, setOpenRow] = React.useState<string | null>(null)
   const [hiddenCols, setHiddenCols] = React.useState<Record<string, boolean>>({})
   const [selectedCustomer, setSelectedCustomer] = React.useState<CustomerRow | null>(null)
 
@@ -37,6 +39,10 @@ export function CustomerTable({ rows }: CustomerTableProps) {
     { key: "totalServices", label: "Total Services", hiddenBelow: 1369 },
   ]
 
+  // sync when parent rows prop changes
+  React.useEffect(() => {
+    setCustomers(rows)
+  }, [rows])
 
   React.useEffect(() => {
     const updateHiddenCols = () => {
@@ -52,8 +58,20 @@ export function CustomerTable({ rows }: CustomerTableProps) {
     return () => window.removeEventListener("resize", updateHiddenCols)
   }, [])
 
-  const toggleRow = (id: number) => {
+  const toggleRow = (id: string) => {
     setOpenRow(openRow === id ? null : id)
+  }
+
+  // called by EditCustomerDialog after successful deletion
+  const handleCustomerDeleted = (id: string) => {
+    setCustomers((prev) => prev.filter((c) => c.id !== id))
+    // ensure dialog closes (dialog also calls onOpenChange(false) so this is extra-safety)
+    setSelectedCustomer(null)
+  }
+
+  // called by EditCustomerDialog after successful edit/save
+  const handleCustomerEdited = (updated: CustomerRow) => {
+    setCustomers((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
   }
 
   return (
@@ -76,9 +94,8 @@ export function CustomerTable({ rows }: CustomerTableProps) {
         </TableHeader>
 
         <TableBody className="ci-body">
-          {rows.map((r) => {
+          {customers.map((r) => {
             const hasHiddenCols = fields.some((f) => hiddenCols[f.key])
-
             return (
               <React.Fragment key={r.id}>
                 <TableRow
@@ -103,7 +120,8 @@ export function CustomerTable({ rows }: CustomerTableProps) {
                         e.stopPropagation()
                         setSelectedCustomer(r)
                       }}
-                    >Edit
+                    >
+                      Edit
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -138,7 +156,9 @@ export function CustomerTable({ rows }: CustomerTableProps) {
           onOpenChange={(open) => {
             if (!open) setSelectedCustomer(null)
           }}
-          customer={selectedCustomer}   // no mapping needed
+          customer={selectedCustomer}
+          onCustomerDeleted={handleCustomerDeleted}
+          onCustomerEdited={handleCustomerEdited}
         />
       )}
     </div>
