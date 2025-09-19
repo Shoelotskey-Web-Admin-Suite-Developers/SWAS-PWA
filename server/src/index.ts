@@ -11,6 +11,7 @@ import userRoutes from "./routes/userRoutes";
 import promoRoutes from "./routes/promoRoutes"; // 👈 added promo routes
 import unavailabilityRoutes from "./routes/unavailabilityRoutes"; // 👈 added unavailability routes
 import customerRoutes from "./routes/customerRoutes";
+import lineItemRoutes from "./routes/lineItemRoutes";
 
 dotenv.config();
 
@@ -27,6 +28,7 @@ app.use("/api", userRoutes);
 app.use("/api/promos", promoRoutes); // 👈 register promo routes
 app.use("/api/unavailability", unavailabilityRoutes); // 👈 register unavailability routes
 app.use("/api/customers", customerRoutes);
+app.use("/line-items", lineItemRoutes);
 
 // Test route
 app.get("/", (req: Request, res: Response) => {
