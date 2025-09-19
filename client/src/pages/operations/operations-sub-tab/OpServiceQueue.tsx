@@ -11,6 +11,7 @@ import {
 import MarkAsReadyModal from "@/components/operations/modals/OpSQModal";
 import { getLineItems } from "@/utils/api/getLineItems";
 import { editLineItemStatus } from "@/utils/api/editLineItemStatus";
+import { useLineItemUpdates } from "@/hooks/useLineItemUpdates";
 
 type Branch = "Valenzuela" | "SM Valenzuela" | "SM Grand";
 type Location = "Branch" | "Hub" | "To Branch" | "To Hub";
@@ -36,31 +37,63 @@ export default function OpServiceQueue() {
   const [expanded, setExpanded] = useState<string[]>([]);
   const [windowWidth, setWindowWidth] = useState<number>(window.innerWidth);
   const [modalOpen, setModalOpen] = useState(false);
+  
+  const { changes } = useLineItemUpdates();
 
-  // Fetch line items from API
+  // Fetch line items from API -- Initial fetch
   useEffect(() => {
     const fetchData = async () => {
       const data = await getLineItems("Queued");
-
-      const mappedRows: Row[] = data.map((item: any) => ({
-        lineItemId: item.line_item_id, // updated
-        date: new Date(item.latest_update),
-        customer: item.cust_id,
-        shoe: item.shoes,
-        service: item.service_id,
-        branch: item.branch_id as Branch,
-        Location: item.current_location as Location,
-        status: item.current_status,
-        isRush: item.priority === "Rush",
-        dueDate: item.due_date ? new Date(item.due_date) : new Date(),
-        updated: new Date(item.latest_update),
-      }));
-
-      setRows(mappedRows);
+      setRows(mapItems(data));
     };
-
     fetchData();
   }, []);
+
+  // Handle realtime DB changes
+  useEffect(() => {
+    if (!changes) return;
+
+    if (changes.fullDocument) {
+      const item = changes.fullDocument;
+
+      if (item.current_status === "Queued") {
+        // Add or update item
+        setRows((prev) => {
+          const exists = prev.find((r) => r.lineItemId === item.line_item_id);
+          if (exists) {
+            // Update existing
+            return prev.map((r) =>
+              r.lineItemId === item.line_item_id ? mapItem(item) : r
+            );
+          }
+          // Insert new queued item
+          return [...prev, mapItem(item)];
+        });
+      } else {
+        // Remove item if it's no longer queued
+        setRows((prev) =>
+          prev.filter((r) => r.lineItemId !== item.line_item_id)
+        );
+      }
+    }
+  }, [changes]);
+
+  // --- helpers ---
+  const mapItem = (item: any): Row => ({
+    lineItemId: item.line_item_id,
+    date: new Date(item.latest_update),
+    customer: item.cust_id,
+    shoe: item.shoes,
+    service: item.service_id,
+    branch: item.branch_id as Branch,
+    Location: item.current_location as Location,
+    status: item.current_status,
+    isRush: item.priority === "Rush",
+    dueDate: item.due_date ? new Date(item.due_date) : new Date(),
+    updated: new Date(item.latest_update),
+  });
+
+  const mapItems = (items: any[]): Row[] => items.map(mapItem);
 
   // Handle window resize
   useEffect(() => {
