@@ -13,6 +13,8 @@ import promoRoutes from "./routes/promoRoutes";
 import unavailabilityRoutes from "./routes/unavailabilityRoutes";
 import customerRoutes from "./routes/customerRoutes";
 import lineItemRoutes from "./routes/lineItemRoutes";
+import appointmentsRoutes from "./routes/appointmentsRoutes"
+import serviceRoutes from "./routes/serviceRoutes";
 import { initSocket } from "./socket";
 
 dotenv.config();
@@ -39,6 +41,8 @@ app.use("/api/promos", promoRoutes);
 app.use("/api/unavailability", unavailabilityRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/line-items", lineItemRoutes);
+app.use("/api/appointments", appointmentsRoutes);
+app.use("/api/services", serviceRoutes);
 
 // Test route
 app.get("/", (req: Request, res: Response) => {

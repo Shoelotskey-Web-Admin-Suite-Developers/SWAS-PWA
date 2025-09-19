@@ -1,10 +1,19 @@
 // src/routes/customerRoutes.ts
 import { Router } from "express";
-import { getCustomers, deleteCustomer, updateCustomer, deleteAllCustomers } from "../controllers/customerController";
+import { 
+  getCustomers, 
+  getCustomerById, 
+  getCustomerByNameAndBdate, 
+  deleteCustomer, 
+  updateCustomer, 
+  deleteAllCustomers 
+} from "../controllers/customerController";
 
 const router = Router();
 
 router.get("/", getCustomers);
+router.get("/search/by-name-birthday", getCustomerByNameAndBdate);
+router.get("/:cust_id", getCustomerById);
 router.put("/:cust_id", updateCustomer);
 router.delete("/:cust_id", deleteCustomer);
 

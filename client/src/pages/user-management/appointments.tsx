@@ -8,14 +8,27 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Calendar } from "@/components/ui/calendar"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogFooter,
+} from "@/components/ui/alert-dialog"
 import { Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 // API imports
 import { addUnavailability } from "@/utils/api/addUnavailability"
+import { cancelAppointmentOnUnavailability } from "@/utils/api/editAppointmentOnUnavailability"
+import { getCustomerName } from "@/utils/api/getCustomerName";
 import { getUnavailabilityWhole } from "@/utils/api/getUnavailabilityFullDay"
 import { getUnavailabilityPartial } from "@/utils/api/getUnavailabilityPartialDay"
 import { deleteUnavailability } from "@/utils/api/deleteUnavailability"
+import { getAppointmentsApproved } from "@/utils/api/getAppointmentsApproved";
 
 // Types
 interface Appointment {
@@ -41,35 +54,10 @@ export default function Appointments() {
   const [opening, setOpening] = useState("09:00")
   const [closing, setClosing] = useState("17:00")
 
-  const [appointments] = useState<Record<string, Appointment[]>>({
-    "2025-09-07": [
-      { id: 1, name: "Angela Dela Peña", time: "09:30" },
-      { id: 2, name: "Kevin Tan", time: "10:00" },
-      { id: 3, name: "Katrina Bayani", time: "10:30" },
-      { id: 4, name: "Bianca Cruz", time: "10:30" },
-    ],
-    "2025-09-08": [
-      { id: 5, name: "Mark Reyes", time: "11:00" },
-      { id: 6, name: "Lara Santos", time: "12:00" },
-      { id: 7, name: "John Smith", time: "13:30" },
-    ],
-    "2025-09-09": [
-      { id: 8, name: "John Doe", time: "09:00" },
-      { id: 9, name: "Alice Lim", time: "14:00" },
-    ],
-    "2025-09-15": [{ id: 10, name: "Mary Johnson", time: "10:00" }],
-    "2025-09-20": [
-      { id: 11, name: "David Lee", time: "09:30" },
-      { id: 12, name: "Sophia Cruz", time: "11:00" },
-      { id: 13, name: "Michael Tan", time: "13:00" },
-      { id: 14, name: "Rachel Lim", time: "15:00" },
-    ],
-    "2025-09-21": [
-      { id: 15, name: "John Doe", time: "09:00" },
-      { id: 16, name: "Eva Santos", time: "10:30" },
-    ],
-    "2025-09-22": [{ id: 17, name: "Paul Reyes", time: "11:00" }],
-  })
+  const [showCancelDialog, setShowCancelDialog] = useState(false)
+  const [pendingUnavailability, setPendingUnavailability] = useState<any>(null)
+
+  const [appointments, setAppointments] = useState<Record<string, Appointment[]>>({});
 
   const [unavailability, setUnavailability] = useState<Unavailability[]>([])
 
@@ -77,48 +65,94 @@ export default function Appointments() {
   const fetchUnavailability = async () => {
     try {
       const whole: Unavailability[] = (await getUnavailabilityWhole()).map((u: any) => ({
-      id: u.unavailability_id, // use unavailability_id for delete
-      date: u.date_unavailable?.split("T")[0] || "",
-      note: u.note || "",
-      type: "full" as const,
-    }));
+        id: u.unavailability_id,
+        date: u.date_unavailable?.split("T")[0] || "",
+        note: u.note || "",
+        type: "full" as const,
+      }))
 
-    const partial: Unavailability[] = (await getUnavailabilityPartial()).map((u: any) => ({
-      id: u.unavailability_id, // use unavailability_id for delete
-      date: u.date_unavailable?.split("T")[0] || "",
-      note: u.note || "",
-      opening: u.time_start || "",
-      closing: u.time_end || "",
-      type: "partial" as const,
-    }));
+      const partial: Unavailability[] = (await getUnavailabilityPartial()).map((u: any) => ({
+        id: u.unavailability_id,
+        date: u.date_unavailable?.split("T")[0] || "",
+        note: u.note || "",
+        opening: u.time_start || "",
+        closing: u.time_end || "",
+        type: "partial" as const,
+      }))
 
       setUnavailability([...whole, ...partial])
     } catch (err) {
       console.error("Failed to fetch unavailability:", err)
     }
   }
+  
+  const fetchAppointments = async () => {
+    try {
+      const data = await getAppointmentsApproved();
+      const formatted: Record<string, Appointment[]> = {};
+
+      // Prepare a cache so we don't fetch the same customer multiple times
+      const customerCache: Record<string, string> = {};
+
+      for (const appt of data) {
+        const dateStr = appt.date_for_inquiry?.split("T")[0] || "";
+        if (!formatted[dateStr]) formatted[dateStr] = [];
+
+        // Get customer name from cache or API
+        let custName = customerCache[appt.cust_id];
+        if (!custName) {
+          custName = await getCustomerName(appt.cust_id);
+          customerCache[appt.cust_id] = custName || appt.cust_id; // fallback to id if name not found
+        }
+
+        formatted[dateStr].push({
+          id: appt.appointment_id,
+          name: custName,
+          time: appt.time_start,
+        });
+      }
+
+      setAppointments(formatted);
+    } catch (err) {
+      console.error("Failed to fetch appointments:", err);
+    }
+  };
 
   useEffect(() => {
-    fetchUnavailability()
-  }, [])
+    fetchUnavailability(); // existing unavailability fetch
+    fetchAppointments();   // fetch approved appointments
+  }, []);
 
-  // Generate time slots
-  const generateTimeSlots = () => {
-    const slots: string[] = []
-    let start = 10 * 60
-    let end = 21 * 60
-    while (start < end) {
-      const h = Math.floor(start / 60)
-      const m = start % 60
-      const next = start + 30
-      const h2 = Math.floor(next / 60)
-      const m2 = next % 60
-      slots.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")} - ${String(h2).padStart(2, "0")}:${String(m2).padStart(2, "0")}`)
-      start = next
-    }
-    return slots
+  // Convert 24-hour time to 12-hour AM/PM
+  const formatAMPM = (hour: number, minute: number) => {
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const h = hour % 12 === 0 ? 12 : hour % 12;
+    return `${h}:${minute.toString().padStart(2, "0")} ${ampm}`;
   }
-  const timeSlots = generateTimeSlots()
+
+  // Generate time slots in AM/PM
+  const generateTimeSlots = () => {
+    const slots: string[] = [];
+    const slots24: string[] = [];
+    let start = 6 * 60;
+    const end = 22 * 60;
+
+    while (start < end) {
+      const h = Math.floor(start / 60);
+      const m = start % 60;
+      const next = start + 30;
+      const h2 = Math.floor(next / 60);
+      const m2 = next % 60;
+
+      slots.push(`${formatAMPM(h, m)} - ${formatAMPM(h2, m2)}`);
+      slots24.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+      start = next;
+    }
+
+    return { slots, slots24 };
+  }
+
+  const { slots: timeSlots, slots24: timeSlots24 } = generateTimeSlots();
 
   // Helper to round a time string to nearest 30 minutes
   const roundTo30Min = (time: string) => {
@@ -148,15 +182,18 @@ export default function Appointments() {
 
     if (hasPartial) {
       // partial + appointments
-      if (apptCount > 0) return "bg-red-500 text-white opacity-60" // red with opacity
-      return "bg-white text-gray-500 opacity-60" // partial only
+      if (apptCount === 0) return "bg-white text-black opacity-60"; // only partial
+      if (apptCount > 0 && apptCount <= 3) return "bg-red-100 text-black opacity-60";
+      if (apptCount > 3 && apptCount <= 6) return "bg-red-300 text-black opacity-60";
+      if (apptCount > 6) return "bg-red-500 text-white";
+      return "bg-white text-gray-500 opacity-60"; // fallback for partial only
     }
 
     // normal appointment colors
-    if (apptCount === 0) return "bg-white text-black"
-    if (apptCount === 1) return "bg-red-100 text-black"
-    if (apptCount === 2) return "bg-red-300 text-black"
-    return "bg-red-500 text-white"
+    if (apptCount === 0) return "bg-white text-black";
+    if (apptCount > 0 && apptCount <= 3) return "bg-red-100 text-black";
+    if (apptCount > 3 && apptCount <= 6) return "bg-red-300 text-black";
+    return "bg-red-500 text-white"; // more than 6
   }
 
 
@@ -168,60 +205,68 @@ export default function Appointments() {
 
   // Add unavailability handler
   const handleAddUnavailability = async () => {
-    if (!inputDate) return;
-    const dateStr = new Date(inputDate).toISOString().split("T")[0];
-    const type = availabilityType === "whole" ? "Full Day" : "Partial Day";
+    if (!inputDate) return
+    const dateStr = new Date(inputDate).toISOString().split("T")[0]
+    const type = availabilityType === "whole" ? "Full Day" : "Partial Day"
 
-    // Check if whole day already exists
-    const hasFullDay = unavailability.some(u => u.date === dateStr && u.type === "full");
-    if (type === "Full Day" && hasFullDay) {
-      alert("Cannot add: Whole day unavailability already exists for this date.");
-      return;
-    }
+    // Check if any appointments exist on that day
+    const affectedAppointments = appointments[dateStr]?.length || 0
 
-    // Check if partial overlaps
-    if (type === "Partial Day") {
-      const newStart = opening;
-      const newEnd = closing;
-
-      // If full day exists, block partial too
-      if (hasFullDay) {
-        alert("Cannot add partial hours: Whole day unavailability already exists for this date.");
-        return;
-      }
-
-      const overlapping = unavailability
-        .filter(u => u.date === dateStr && u.type === "partial")
-        .some(u => {
-          const existingStart = u.opening || "00:00";
-          const existingEnd = u.closing || "23:59";
-          return !(newEnd <= existingStart || newStart >= existingEnd); // overlap check
-        });
-
-      if (overlapping) {
-        alert("Cannot add partial hours: Time range overlaps with existing partial unavailability.");
-        return;
-      }
-    }
-
-    // If all good, proceed to add
-    try {
-      await addUnavailability(
-        dateStr,
+    // If appointments exist, show alert dialog
+    if (affectedAppointments > 0) {
+      setPendingUnavailability({
+        date: dateStr,
         type,
-        type === "Partial Day" ? opening : undefined,
-        type === "Partial Day" ? closing : undefined,
-        note
+        opening: type === "Partial Day" ? opening : undefined,
+        closing: type === "Partial Day" ? closing : undefined,
+        note,
+      })
+      setShowCancelDialog(true)
+      return
+    }
+
+    // No affected appointments, just add
+    await addUnavailability(dateStr, type, type === "Partial Day" ? opening : undefined, type === "Partial Day" ? closing : undefined, note)
+    fetchUnavailability()
+    setNote("")
+    setOpening("09:00")
+    setClosing("17:00")
+  }
+
+  const handleConfirmCancelAppointments = async () => {
+    if (!pendingUnavailability) return;
+
+    try {
+      // 1️⃣ Cancel affected appointments
+      await cancelAppointmentOnUnavailability({
+        date_unavailable: pendingUnavailability.date,
+        type: pendingUnavailability.type,
+        time_start: pendingUnavailability.opening,
+        time_end: pendingUnavailability.closing,
+      });
+
+      // 2️⃣ Add the unavailability
+      await addUnavailability(
+        pendingUnavailability.date,
+        pendingUnavailability.type,
+        pendingUnavailability.opening,
+        pendingUnavailability.closing,
+        pendingUnavailability.note
       );
 
+      // 3️⃣ Refresh UI
+      await fetchUnavailability();
+      await fetchAppointments(); // 🔹 Refresh appointments to update calendar/time slots
+      setPendingUnavailability(null);
+      setShowCancelDialog(false);
       setNote("");
       setOpening("09:00");
       setClosing("17:00");
-      fetchUnavailability();
     } catch (err) {
-      console.error("Failed to add unavailability:", err);
+      console.error("Failed to add unavailability and cancel appointments:", err);
     }
-  };
+  }
+
 
   // Delete unavailability handler
   const handleDeleteUnavailability = async (unv: Unavailability) => {
@@ -290,10 +335,12 @@ export default function Appointments() {
         <CardContent>
           <ScrollArea className="h-[300px]">
             <div className="space-y-2">
-              {timeSlots.map((slot) => {
+              {timeSlots.map((slot, idx) => {
+                const slotStart24 = timeSlots24[idx];
                 const todaysAppointments = appointments[toLocalDateString(calendarDate!)]?.filter(a =>
-                  slot.startsWith(a.time)
+                  a.time === slotStart24
                 ) || []
+
                 return (
                   <div
                     key={slot}
@@ -416,6 +463,36 @@ export default function Appointments() {
           </div>
         </CardContent>
       </Card>
+
+      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              <h3>Appointments Will Be Affected</h3>
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              <p>
+                Adding this unavailability will cancel affected existing appointments on this day.
+                Customers will be notified.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              <h5 className="extra-bold">Cancel</h5>
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-[#CE1616] hover:bg-[#b31212] text-white"
+              onClick={() => {
+                handleConfirmCancelAppointments();
+                setShowCancelDialog(false); // close dialog after confirm
+              }}
+            >
+              <h5 className="extra-bold">Continue</h5>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+</AlertDialog>
     </div>
   )
 }

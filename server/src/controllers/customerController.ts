@@ -12,6 +12,61 @@ export const getCustomers = async (req: Request, res: Response): Promise<void> =
   }
 };
 
+// Get customer by ID
+export const getCustomerById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { cust_id } = req.params;
+
+    const customer = await Customer.findOne({ cust_id });
+
+    if (!customer) {
+      res.status(404).json({ message: "Customer not found" });
+      return;
+    }
+
+    res.status(200).json(customer);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching customer", error });
+  }
+};
+
+// Get customer by name and birthday
+export const getCustomerByNameAndBdate = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { cust_name, cust_bdate } = req.query;
+
+    if (!cust_name || !cust_bdate) {
+      res.status(400).json({ message: "cust_name and cust_bdate are required" });
+      return;
+    }
+
+    // Parse birthday string into a Date range
+    const birthdate = new Date(cust_bdate as string);
+    const startOfDay = new Date(birthdate);
+    startOfDay.setUTCHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(birthdate);
+    endOfDay.setUTCHours(23, 59, 59, 999);
+
+    // Search by case-insensitive name + birthdate within day range
+    const customer = await Customer.findOne({
+      cust_name: { $regex: new RegExp(`^${cust_name}$`, "i") },
+      cust_bdate: { $gte: startOfDay, $lte: endOfDay },
+    });
+
+    if (!customer) {
+      res.status(404).json({ message: "Customer not found" });
+      return;
+    }
+
+    res.status(200).json(customer);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching customer by name and birthday", error });
+  }
+};
+
+
+
 // Delete customer by cust_id
 export const deleteCustomer = async (req: Request, res: Response): Promise<void> => {
   try {

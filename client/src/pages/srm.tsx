@@ -8,6 +8,10 @@ import { Switch } from '@/components/ui/switch'
 import { Card, CardContent } from '@/components/ui/card'
 import '@/styles/srm.css'
 
+// API Import
+import { getServices, IService } from "@/utils/api/getServices";
+import { getCustomerByNameAndBdate } from "@/utils/api/getCustByNameAndBdate";
+
 type Customer = {
   id: string
   name: string
@@ -48,46 +52,6 @@ function todayISODate(): string {
   return new Date().toISOString().slice(0, 10) // YYYY-MM-DD
 }
 
-/* --- Pricing data --- */
-const serviceOptions = ['Basic Cleaning', 'Minor Reglue', 'Full Reglue']
-const additionalOptions = [
-  'Unyellowing',
-  'Minor Retouch',
-  'Minor Restoration',
-  'Additional Layer',
-  'Color Retouch (2 colors)',
-  'Color Retouch (3 colors)',
-]
-
-const services = [
-  { name: 'Basic Cleaning', price: 325 },
-  { name: 'Minor Reglue', price: 450 },
-  { name: 'Full Reglue', price: 575 },
-]
-
-const addons = [
-  { name: 'Unyellowing', price: 125 },
-  { name: 'Minor Retouch', price: 125 },
-  { name: 'Minor Restoration', price: 225 },
-  { name: 'Additional Layer', price: 575 },
-  { name: 'Color Retouch (2 colors)', price: 600 },
-  { name: 'Color Retouch (3 colors)', price: 700 },
-]
-
-const serviceDurations: Record<string, number> = {
-  'Basic Cleaning': 10,
-  'Minor Reglue': 25,
-  'Full Reglue': 25,
-  'Unyellowing': 0,
-  'Minor Retouch': 0,
-  'Minor Restoration': 15,
-  'Additional Layer': 25,
-  'Color Retouch (2 colors)': 25,
-  'Color Retouch (3 colors)': 25,
-};
-
-
-
 const RUSH_FEE = 150 // default rush fee (change as required)
 // Rush reduces the total by these many days
 const RUSH_REDUCTION_DAYS = 2;
@@ -102,17 +66,27 @@ export default function SRM() {
   const [useCustomDate, setUseCustomDate] = useState(false)
   const [customDate, setCustomDate] = useState<string>(todayISODate())
   const [modeOfPayment, setModeOfPayment] = useState<'cash' | 'gcash' | 'bank' | 'other'>('cash')
-  const [paymentType, setPaymentType] = useState<'full' | 'half' | 'custom'>(
-    'full'
-  )
+  const [paymentType, setPaymentType] = useState<'full' | 'half' | 'custom'>('full')
   const [amountDueNow, setAmountDueNow] = useState(0);
   const [customerPaid, setCustomerPaid] = useState(0);
   const [change, setChange] = useState(0);
   const [balance, setBalance] = useState(0);
   const [applyDiscount, setApplyDiscount] = useState(false)
-  const [discountType, setDiscountType] = useState<'percent' | 'fixed'>(
-    'percent'
-  )
+  const [discountType, setDiscountType] = useState<'percent' | 'fixed'>('percent')
+
+  // Services
+  const [services, setServices] = useState<IService[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const servicesData = await getServices(); // already an array
+      setServices(servicesData);
+    };
+    fetchData();
+  }, []);
+
+  const serviceOptions = services.filter(s => s.service_type === "Service");
+  const additionalOptions = services.filter(s => s.service_type === "Additional");
 
   // Customer form fields (controlled)
   const [name, setName] = useState<string>('')
@@ -169,37 +143,36 @@ export default function SRM() {
     const n = name.trim();
     const b = birthdate.trim();
 
-    // If either is empty, reset and skip
     if (!n || !b) {
-      setCustomerId('NEW');
+      setCustomerId("NEW");
       return;
     }
 
-    // Setup debounce timer
-    const handler = setTimeout(() => {
-      const found = DUMMY_CUSTOMERS.find(
-        (c) => c.birthdate === b && c.name.toLowerCase() === n.toLowerCase()
-      );
+    const handler = setTimeout(async () => {
+      try {
+        const found = await getCustomerByNameAndBdate(n, b); // call backend
 
-      if (found) {
-        setAddress(found.address);
-        setEmail(found.email);
-        setPhone(found.phone);
-        setCustomerId(found.id);
-        if (customerType === 'new') {
-          setCustomerType('old');
+        if (found) {
+          setAddress(found.cust_address || "");
+          setEmail(found.cust_email || "");
+          setPhone(found.cust_contact || "");
+          setCustomerId(found.cust_id);
+          if (customerType === "new") {
+            setCustomerType("old");
+          }
+        } else {
+          setCustomerId("NEW");
+          if (customerType === "old") {
+            alert("Old customer not found. Please check the entered name and birthdate.");
+          }
         }
-      } else {
-        setCustomerId('NEW');
-        if (customerType === 'old') {
-          alert("Old customer not found. Please check the entered name and birthdate.");
-        }
+      } catch (err) {
+        console.error("Error fetching customer:", err);
+        setCustomerId("NEW");
       }
-    }, 2000); // 500ms debounce delay
+    }, 1000); // debounce delay
 
-    // Cleanup previous timer on input change
     return () => clearTimeout(handler);
-
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [name, birthdate]);
 
@@ -211,20 +184,24 @@ export default function SRM() {
     }
   }, [customerType])
 
-  // --- Step 1: Discount input state (string so user can type) ---
   const [discountValue, setDiscountValue] = useState<string>('0')
 
-  // --- Helper lookups for prices ---
+  // --- Helper lookups for prices and duration---
   const findServicePrice = (serviceName: string) => {
-    const s = services.find(
-      (x) => x.name.toLowerCase() === serviceName.toLowerCase()
-    )
-    return s ? s.price : 0
-  }
+  const s = services.find(x => x.service_name === serviceName);
+  return s ? s.service_base_price : 0;
+  };
+
   const findAddonPrice = (addonName: string) => {
-    const a = addons.find((x) => x.name.toLowerCase() === addonName.toLowerCase())
-    return a ? a.price : 0
-  }
+    const a = services.find(x => x.service_name === addonName);
+    return a ? a.service_base_price : 0;
+  };
+
+  const getDuration = (serviceName: string) => {
+    const s = services.find(x => x.service_name === serviceName);
+    return s ? s.service_duration : 0;
+  };
+
 
   // --- Compute per-shoe totals and overall totals ---
   const perShoeTotals = useMemo(() => {
@@ -285,12 +262,11 @@ export default function SRM() {
 
       // Add service durations
       (shoe.services || []).forEach(svc => {
-        shoeDays += serviceDurations[svc] || 0;
+        shoeDays += getDuration(svc);
       });
 
-      // Add additional durations
       (shoe.additionals || []).forEach(add => {
-        shoeDays += serviceDurations[add] || 0;
+        shoeDays += getDuration(add);
       });
 
       // Apply rush reduction
@@ -528,12 +504,12 @@ export default function SRM() {
                       <Label>Service Needed</Label>
                       <div className="checkbox-grid">
                         {serviceOptions.map((srv) => (
-                          <div className="checkbox-item" key={srv}>
+                          <div className="checkbox-item" key={srv.service_id}>
                             <Checkbox
-                              checked={shoe.services.includes(srv)}
-                              onCheckedChange={() => toggleArrayValue(i, 'services', srv)}
+                              checked={shoe.services.includes(srv.service_name)}
+                              onCheckedChange={() => toggleArrayValue(i, "services", srv.service_name)}
                             />
-                            <Label>{srv}</Label>
+                            <Label>{srv.service_name}</Label>
                           </div>
                         ))}
                       </div>
@@ -543,12 +519,12 @@ export default function SRM() {
                       <Label>Additional</Label>
                       <div className="checkbox-grid">
                         {additionalOptions.map((add) => (
-                          <div className="checkbox-item" key={add}>
+                          <div className="checkbox-item" key={add.service_id}>
                             <Checkbox
-                              checked={shoe.additionals.includes(add)}
-                              onCheckedChange={() => toggleArrayValue(i, 'additionals', add)}
+                              checked={shoe.additionals.includes(add.service_name)}
+                              onCheckedChange={() => toggleArrayValue(i, "additionals", add.service_name)}
                             />
-                            <Label>{add}</Label>
+                            <Label>{add.service_name}</Label>
                           </div>
                         ))}
                       </div>
