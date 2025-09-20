@@ -11,42 +11,38 @@ import '@/styles/srm.css'
 // API Import
 import { getServices, IService } from "@/utils/api/getServices";
 import { getCustomerByNameAndBdate } from "@/utils/api/getCustByNameAndBdate";
+import { addServiceRequest} from "@/utils/api/addServiceRequest";
 
-type Customer = {
-  id: string
-  name: string
-  birthdate: string // "YYYY-MM-DD"
-  address: string
-  email: string
-  phone: string
+interface LineItemInput {
+  priority: "Rush" | "Normal";
+  shoes: string;
+  current_location?: "Hub" | "Branch";
+  due_date?: string;
+  services: { service_id: string; quantity: number }[];
+}
+
+interface ServiceRequestPayload {
+  cust_name: string;
+  cust_bdate?: string;
+  cust_address?: string;
+  cust_email?: string;
+  cust_contact?: string;
+  lineItems: LineItemInput[];
+  received_by: string;
+  total_amount: number;
+  discount_amount: number;
+  amount_paid: number;
+  payment_status: "NP" | "PARTIAL" | "PAID";
+  payment_mode: "Cash" | "Card" | "GCash" | "Other";
 }
 
 type Shoe = {
-  model: string
-  services: string[]
-  additionals: string[]
-  rush: 'yes' | 'no'
+  model: string;
+  services: string[]; // selected service ids (standard services)
+  // additionals stored as map service_id -> quantity
+  additionals: Record<string, number>;
+  rush: 'yes' | 'no';
 }
-
-// Dummy customer DB (front-end only)
-const DUMMY_CUSTOMERS: Customer[] = [
-  {
-    id: '000001',
-    name: 'Juan Dela Cruz',
-    birthdate: '2000-01-01',
-    address: '123 Mabini St, Manila',
-    email: 'juan@example.com',
-    phone: '09171234567',
-  },
-  {
-    id: '000002',
-    name: 'Maria Clara',
-    birthdate: '2000-02-20',
-    address: '456 Rizal Ave, Quezon City',
-    email: 'maria@example.com',
-    phone: '09181234567',
-  },
-]
 
 function todayISODate(): string {
   return new Date().toISOString().slice(0, 10) // YYYY-MM-DD
@@ -65,6 +61,34 @@ export default function SRM() {
   const [customerType, setCustomerType] = useState<'new' | 'old'>('new')
   const [useCustomDate, setUseCustomDate] = useState(false)
   const [customDate, setCustomDate] = useState<string>(todayISODate())
+  const [services, setServices] = useState<IService[]>([]);
+
+  
+
+  const serviceById = useMemo(() => {
+    const map = new Map<string, IService>();
+    for (const s of services) map.set(s.service_id, s);
+    return map;
+  }, [services]);
+
+  // Lookup price by service_id
+  const findServicePrice = (serviceId: string) => {
+    const s = serviceById.get(serviceId);
+    return s ? s.service_base_price : 0;
+  };
+
+  // Lookup addon price by service_id (same as above but explicit)
+  const findAddonPrice = (serviceId: string) => {
+    const a = serviceById.get(serviceId);
+    return a ? a.service_base_price : 0;
+  };
+
+  // Lookup duration by service_id
+  const getDuration = (serviceId: string) => {
+    const s = serviceById.get(serviceId);
+    return s ? s.service_duration : 0;
+  };
+
   const [modeOfPayment, setModeOfPayment] = useState<'cash' | 'gcash' | 'bank' | 'other'>('cash')
   const [paymentType, setPaymentType] = useState<'full' | 'half' | 'custom'>('full')
   const [amountDueNow, setAmountDueNow] = useState(0);
@@ -74,8 +98,8 @@ export default function SRM() {
   const [applyDiscount, setApplyDiscount] = useState(false)
   const [discountType, setDiscountType] = useState<'percent' | 'fixed'>('percent')
 
-  // Services
-  const [services, setServices] = useState<IService[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -104,7 +128,7 @@ export default function SRM() {
     {
       model: '',
       services: [],
-      additionals: [],
+      additionals: {},
       rush: 'no',
     },
   ])
@@ -112,7 +136,7 @@ export default function SRM() {
   const handleShoeChange = (
     index: number,
     field: keyof Shoe,
-    value: string | string[]
+    value: string | string[] | Record<string, number>
   ) => {
     const updated = [...shoes]
     ;(updated[index] as any)[field] = value
@@ -121,22 +145,68 @@ export default function SRM() {
 
   const toggleArrayValue = (
     index: number,
-    field: 'services' | 'additionals',
+    field: 'services',
     value: string
   ) => {
     const updated = [...shoes]
     const currentArr = updated[index][field]
-    if (currentArr.includes(value)) {
-      updated[index][field] = currentArr.filter((v) => v !== value)
+    if ((currentArr as string[]).includes(value)) {
+      updated[index][field] = (currentArr as string[]).filter((v) => v !== value)
     } else {
-      updated[index][field] = [...currentArr, value]
+      updated[index][field] = [...(currentArr as string[]), value]
     }
     setShoes(updated)
   }
 
   const addShoe = () => {
-    setShoes([...shoes, { model: '', services: [], additionals: [], rush: 'no' }])
+    setShoes([...shoes, { model: '', services: [], additionals: {}, rush: 'no' }])
   }
+
+  // Toggle checkbox for additionals
+  const toggleAdditional = (
+    shoeIndex: number,
+    serviceId: string,
+    checked: boolean,
+    quantity: number = 1
+  ) => {
+    const updated = [...shoes];
+    if (checked) {
+      // set quantity (default 1)
+      updated[shoeIndex].additionals = {
+        ...updated[shoeIndex].additionals,
+        [serviceId]: Math.max(1, Math.floor(quantity)),
+      };
+    } else {
+      // remove entry
+      const { [serviceId]: _, ...rest } = updated[shoeIndex].additionals;
+      updated[shoeIndex].additionals = rest;
+    }
+    setShoes(updated);
+  };
+
+  // Update quantity of additional
+  const updateAdditionalQuantity = (
+    shoeIndex: number,
+    serviceId: string,
+    newQuantity: number
+  ) => {
+    const updated = [...shoes];
+    if (newQuantity <= 0) {
+      const { [serviceId]: _, ...rest } = updated[shoeIndex].additionals;
+      updated[shoeIndex].additionals = rest;
+    } else {
+      updated[shoeIndex].additionals = {
+        ...updated[shoeIndex].additionals,
+        [serviceId]: Math.max(1, Math.floor(newQuantity)),
+      };
+    }
+    setShoes(updated);
+  };
+
+  // Get current quantity of a specific additional (default 1 if selected)
+  const getAdditionalQuantity = (shoe: Shoe, serviceId: string) =>
+    shoe.additionals[serviceId] ?? 1;
+
 
   // --- Auto-search logic (kept as you had it) ---
   useEffect(() => {
@@ -186,39 +256,22 @@ export default function SRM() {
 
   const [discountValue, setDiscountValue] = useState<string>('0')
 
-  // --- Helper lookups for prices and duration---
-  const findServicePrice = (serviceName: string) => {
-  const s = services.find(x => x.service_name === serviceName);
-  return s ? s.service_base_price : 0;
-  };
-
-  const findAddonPrice = (addonName: string) => {
-    const a = services.find(x => x.service_name === addonName);
-    return a ? a.service_base_price : 0;
-  };
-
-  const getDuration = (serviceName: string) => {
-    const s = services.find(x => x.service_name === serviceName);
-    return s ? s.service_duration : 0;
-  };
-
-
   // --- Compute per-shoe totals and overall totals ---
   const perShoeTotals = useMemo(() => {
     return shoes.map((shoe) => {
       const serviceTotal = (shoe.services || []).reduce(
-        (sum, sname) => sum + findServicePrice(sname),
+        (sum, serviceId) => sum + findServicePrice(serviceId),
         0
-      )
-      const addonTotal = (shoe.additionals || []).reduce(
-        (sum, aname) => sum + findAddonPrice(aname),
+      );
+      const addonTotal = Object.entries(shoe.additionals || {}).reduce(
+        (sum, [addonId, qty]) => sum + findAddonPrice(addonId) * (qty || 1),
         0
-      )
-      const rushTotal = shoe.rush === 'yes' ? RUSH_FEE : 0
-      const shoeTotal = serviceTotal + addonTotal + rushTotal
-      return { serviceTotal, addonTotal, rushTotal, shoeTotal }
-    })
-  }, [shoes])
+      );
+      const rushTotal = shoe.rush === 'yes' ? RUSH_FEE : 0;
+      const shoeTotal = serviceTotal + addonTotal + rushTotal;
+      return { serviceTotal, addonTotal, rushTotal, shoeTotal };
+    });
+  }, [shoes, serviceById]);
 
 
   const totalBill = useMemo(
@@ -255,37 +308,40 @@ export default function SRM() {
   );
 
 
+
   // Calculate estimated completion date PER shoe
+  // --- Calculate estimated completion date PER shoe (formatted only) ---
   const perShoeEstimatedDates = useMemo(() => {
     return shoes.map((shoe) => {
       let shoeDays = 0;
 
-      // Add service durations
-      (shoe.services || []).forEach(svc => {
-        shoeDays += getDuration(svc);
+      // Sum durations of selected services
+      (shoe.services || []).forEach((svcId) => {
+        shoeDays += getDuration(svcId);
       });
 
-      (shoe.additionals || []).forEach(add => {
-        shoeDays += getDuration(add);
+      // Sum durations of selected additionals (multiply by quantity)
+      Object.entries(shoe.additionals || {}).forEach(([addId, qty]) => {
+        shoeDays += getDuration(addId) * (qty || 1);
       });
 
-      // Apply rush reduction
-      if (shoe.rush === 'yes') {
+      // Apply rush reduction if applicable
+      if (shoe.rush === "yes") {
         shoeDays = Math.max(1, shoeDays - RUSH_REDUCTION_DAYS);
       }
 
-      // Calculate completion date for this shoe
-      const startDate = new Date(serviceRequestDate);
-      startDate.setDate(startDate.getDate() + shoeDays);
+      // Compute estimated completion date
+      const estDate = new Date(useCustomDate ? customDate : todayISODate());
+      estDate.setDate(estDate.getDate() + shoeDays);
 
-      // Format MM/DD/YYYY
-      const month = String(startDate.getMonth() + 1).padStart(2, '0');
-      const day = String(startDate.getDate()).padStart(2, '0');
-      const year = startDate.getFullYear();
+      // Format as MM/DD/YYYY
+      const month = String(estDate.getMonth() + 1).padStart(2, "0");
+      const day = String(estDate.getDate()).padStart(2, "0");
+      const year = estDate.getFullYear();
 
       return `${month}/${day}/${year}`;
     });
-  }, [shoes, serviceRequestDate]);
+  }, [shoes, customDate, useCustomDate, serviceById]);
 
 
 
@@ -311,52 +367,75 @@ export default function SRM() {
     setAmountDueNow(num);
   };
 
-  const handleConfirmServiceRequest = () => {
-  // --- 1. Validate required fields ---
-  if (!name.trim() || !birthdate.trim() || !address.trim() || !phone.trim()) {
-    alert("Please fill in all customer details.");
-    return;
-  }
+  const handleConfirmServiceRequest = async () => {
+    // --- 1. Validate required fields ---
+    if (!name.trim() || !birthdate.trim() || !address.trim() || !phone.trim()) {
+      alert("Please fill in all customer details.");
+      return;
+    }
 
-  if (!receivedBy.trim()) {
-    alert("Please enter 'Received By' name.");
-    return;
-  }
+    if (!receivedBy.trim()) {
+      alert("Please enter 'Received By' name.");
+      return;
+    }
 
-  if (shoes.length === 0 || shoes.some(shoe => !shoe.model.trim() || shoe.services.length === 0)) {
-    alert("Please provide at least one shoe with a model name and at least one service.");
-    return;
-  }
+    if (shoes.length === 0 || shoes.some(shoe => !shoe.model.trim() || shoe.services.length === 0)) {
+      alert("Please provide at least one shoe with a model name and at least one service.");
+      return;
+    }
 
-  // --- 2. Save new customer (dummy) ---
-  let customerRecord = { id: customerId, name, birthdate, address, email, phone };
-  if (customerId === "NEW") {
-    const newId = String(DUMMY_CUSTOMERS.length + 1).padStart(6, "0");
-    customerRecord.id = newId;
-    DUMMY_CUSTOMERS.push({ ...customerRecord });
-    console.log("New customer added:", customerRecord);
-  }
+    // --- 2. Prepare line items ---
+    const lineItems: LineItemInput[] = shoes.map((shoe) => {
+      const svcObjs = shoe.services.map(id => ({ service_id: id, quantity: 1 }));
+      const addObjs = Object.entries(shoe.additionals).map(([id, qty]) => ({ service_id: id, quantity: qty }));
 
-  // --- 3. Create service request record ---
-  const serviceRequest = {
-    customerId: customerRecord.id,
-    serviceRequestDate,
-    shoes,
-    totalSales,
-    amountDueNow,
-    customerPaid,
-    change,
-    balance,
-    receivedBy,
-    modeOfPayment,
-  };
+      return {
+        priority: (shoe.rush === "yes" ? "Rush" : "Normal") as "Rush" | "Normal",
+        shoes: shoe.model,
+        current_location: "Branch",
+        due_date: '', // optional
+        services: [...svcObjs, ...addObjs],
+      };
+    });
 
-  console.log("Service Request Saved:", serviceRequest);
-    // --- 4. Feedback to user ---
-    alert("Service request confirmed successfully!");
 
-    // Optional: reset form
-    // resetForm();
+    const paymentMap: Record<string, "Cash" | "Card" | "GCash" | "Other"> = {
+      cash: "Cash",
+      gcash: "GCash",
+      bank: "Card",
+      other: "Other",
+    };
+
+    // --- 3. Prepare service request payload ---
+    const requestPayload: ServiceRequestPayload = {
+      cust_name: name,
+      cust_bdate: birthdate || undefined,
+      cust_address: address || undefined,
+      cust_email: email || undefined,
+      cust_contact: phone || undefined,
+      lineItems,
+      received_by: receivedBy,
+      total_amount: totalSales,
+      discount_amount: discountAmount,
+      amount_paid: customerPaid,
+      payment_status:
+        customerPaid >= totalSales ? "PAID" : customerPaid > 0 ? "PARTIAL" : "NP",
+      payment_mode: paymentMap[modeOfPayment],
+    };
+
+    try {
+      setSubmitting(true);
+      const result = await addServiceRequest(requestPayload as any);
+      console.log("Service request created:", result);
+      alert("Service request confirmed successfully!");
+
+      // Optional: reset form if needed
+    } catch (err: any) {
+      console.error(err);
+      alert(err?.message || "Failed to create service request.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -504,31 +583,68 @@ export default function SRM() {
                       <Label>Service Needed</Label>
                       <div className="checkbox-grid">
                         {serviceOptions.map((srv) => (
-                          <div className="checkbox-item" key={srv.service_id}>
-                            <Checkbox
-                              checked={shoe.services.includes(srv.service_name)}
-                              onCheckedChange={() => toggleArrayValue(i, "services", srv.service_name)}
-                            />
-                            <Label>{srv.service_name}</Label>
-                          </div>
-                        ))}
+                            <div className="checkbox-item" key={srv.service_id}>
+                              <Checkbox
+                                checked={shoe.services.includes(srv.service_id)}
+                                onCheckedChange={() => toggleArrayValue(i, "services", srv.service_id)}
+                              />
+                              <Label>{srv.service_name}</Label>
+                            </div>
+                          ))}
                       </div>
                     </div>
 
                     <div>
-                      <Label>Additional</Label>
-                      <div className="checkbox-grid">
-                        {additionalOptions.map((add) => (
-                          <div className="checkbox-item" key={add.service_id}>
+                    <Label>Additional</Label>
+                    <div className="checkbox-grid">
+                      {additionalOptions.map((add) => {
+                        const quantity = getAdditionalQuantity(shoe, add.service_id);
+                        const checked = Object.prototype.hasOwnProperty.call(shoe.additionals, add.service_id);
+
+                        // Only "Additional Layer" shows increment/decrement controls
+                        const isLayer = add.service_name === 'Additional Layer';
+
+                        return (
+                          <div className="checkbox-item flex items-center gap-2" key={add.service_id}>
                             <Checkbox
-                              checked={shoe.additionals.includes(add.service_name)}
-                              onCheckedChange={() => toggleArrayValue(i, "additionals", add.service_name)}
+                              checked={checked}
+                              onCheckedChange={(val) =>
+                                toggleAdditional(i, add.service_id, !!val, quantity)
+                              }
                             />
                             <Label>{add.service_name}</Label>
+                            {checked && (
+                              <div className="flex items-center ml-2">
+                                {isLayer ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => updateAdditionalQuantity(i, add.service_id, Math.max(1, quantity - 1))}
+                                      className="w-5 h-8 flex px-4 items-center justify-center bg-gray-200 rounded"
+                                    >
+                                      <small className="text-sm">-</small>
+                                    </button>
+                                    <span className="px-2">{quantity}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => updateAdditionalQuantity(i, add.service_id, quantity + 1)}
+                                      className="w-5 h-8 flex px-4 items-center justify-center bg-gray-200 rounded"
+                                    >
+                                      <span className="text-sm">+</span>
+                                    </button>
+                                  </>
+                                ) : (
+                                  // For non-layer additionals, show quantity only (no +/-)
+                                  <span className="px-2"></span>
+                                )}
+                              </div>
+                            )}
                           </div>
-                        ))}
-                      </div>
+                        );
+                      })}
                     </div>
+                  </div>
+
 
                     <div className="pr-[2rem]">
                       <Label>Rush</Label>
@@ -724,19 +840,25 @@ export default function SRM() {
                   <div className="summary-service-entry mb-5" key={i}>
                     <p className="font-medium">{shoe.model || 'Unnamed Shoe'}</p>
 
-                    {shoe.services.map((srv) => (
-                      <div key={srv} className="pl-10 flex justify-between">
-                        <p>{srv}</p>
-                        <p className="text-right">{formatCurrency(findServicePrice(srv))}</p>
-                      </div>
-                    ))}
+                    {shoe.services.map((srvId) => {
+                      const svc = serviceById.get(srvId);
+                      return (
+                        <div key={srvId} className="pl-10 flex justify-between">
+                          <p>{svc ? svc.service_name : srvId}</p>
+                          <p className="text-right">{formatCurrency(svc ? svc.service_base_price : 0)}</p>
+                        </div>
+                      );
+                    })}
 
-                    {shoe.additionals.map((add) => (
-                      <div key={add} className="pl-10 flex justify-between">
-                        <p>{add}</p>
-                        <p className="text-right">{formatCurrency(findAddonPrice(add))}</p>
-                      </div>
-                    ))}
+                    {Object.entries(shoe.additionals).map(([addId, qty]) => {
+                      const addon = serviceById.get(addId);
+                      return (
+                        <div key={`${addId}-${i}`} className="pl-10 flex justify-between">
+                          <p>{addon ? addon.service_name : addId} {qty > 1 ? ` x${qty}` : ''}</p>
+                          <p className="text-right">{formatCurrency((addon ? addon.service_base_price : 0) * qty)}</p>
+                        </div>
+                      );
+                    })}
 
                     {shoe.rush === 'yes' && (
                       <div className="pl-10 flex justify-between text-red-600">
@@ -782,9 +904,13 @@ export default function SRM() {
                 {/* Since Amount Due / Payments not implemented yet, show total sales as current balance */}
                 <h2>{formatCurrency(balance)}</h2>
               </div>
-              <Button className="w-full p-8 mt-4 button-lg bg-[#22C55E] hover:bg-[#1E9A50]" onClick={handleConfirmServiceRequest}>
-                Confirm Service Request
-              </Button>
+                <Button
+                  disabled={submitting}
+                  className="w-full p-8 mt-4 button-lg bg-[#22C55E] hover:bg-[#1E9A50]"
+                  onClick={handleConfirmServiceRequest}
+                >
+                  {submitting ? "Submitting..." : "Confirm Service Request"}
+                </Button>
             </div>
           </CardContent>
         </Card>
