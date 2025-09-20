@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { getBranchType } from '@/utils/api/getBranchType';
 import '@/styles/operations/operations.css'
 import BranchStorage from '@/components/BranchStorage'
 import OperationsNav from '@/components/OperationsNav'
@@ -16,6 +17,18 @@ export default function Operations() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [showAdminUpper, setShowAdminUpper] = useState(true);
   const [fillHeight, setFillHeight] = useState("455px");
+  const [branchType, setBranchType] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Fetch branch type on mount
+    getBranchType().then(type => {
+      setBranchType(type);
+
+      // Set showAdminUpper based on type
+      if (type === "A") setShowAdminUpper(true);
+      else setShowAdminUpper(false);
+    });
+  }, []);
 
   const calculateFillHeight = () => {
     let height = "455px";
@@ -50,11 +63,59 @@ export default function Operations() {
     };
   }, [showAdminUpper]); // recalc if showAdminUpper changes
 
+  // Tab content filtering logic
+  const getTabContent = () => {
+    if (branchType === "A") {
+      // Show all tabs
+      return [
+        <OpServiceQueue key={0} />,
+        <OpReadyDelivery key={1} />,
+        <OpBranchDelivery key={2} />,
+        <OpWarehouse key={3} />,
+        <OpReturnBranch key={4} />,
+        <OpInStore key={5} />,
+        <OpPickup key={6} />
+      ][activeIndex];
+    }
+    if (branchType === "B") {
+      // Show 0, 1, 4, 5, 6
+      const tabs = [
+        <OpServiceQueue key={0} />,
+        <OpReadyDelivery key={1} />,
+        null, // 2 hidden
+        null, // 3 hidden
+        <OpReturnBranch key={4} />,
+        <OpInStore key={5} />,
+        <OpPickup key={6} />
+      ];
+      return tabs[activeIndex];
+    }
+    if (branchType === "W") {
+      // Show 2, 3 (and 4 as read-only later)
+      const tabs = [
+        null, // 0 hidden
+        null, // 1 hidden
+        <OpBranchDelivery key={2} />,
+        <OpWarehouse key={3} />,
+        null, // 4 hidden for now
+        null, // 5 hidden
+        null  // 6 hidden
+      ];
+      return tabs[activeIndex];
+    }
+    // Default: show nothing
+    return null;
+  };
+
+  const getVisibleTabs = () => {
+    if (branchType === "A") return [0, 1, 2, 3, 4, 5, 6];
+    if (branchType === "B") return [0, 1, 4, 5, 6];
+    if (branchType === "W") return [2, 3]; // add 4 later for read-only
+    return [];
+  };
+
   return (
-    <div 
-    className='main-div'
-    style={{ "--fillheight": fillHeight } as React.CSSProperties}
-    >
+    <div className='main-div' style={{ "--fillheight": fillHeight } as React.CSSProperties}>
       {showAdminUpper && ( // conditional rendering
         <div className='admin-upper'>
           <BranchStorage />
@@ -64,17 +125,12 @@ export default function Operations() {
       <div className='main-content'>
         <Card className='rounded-3xl main-card'>
           <CardContent>
-            <OperationsNav onChange={setActiveIndex} />
-
-            {/* Render tab content dynamically */}
+            <OperationsNav
+              onChange={setActiveIndex}
+              visibleTabs={getVisibleTabs()}
+            />
             <div className="tab-content">
-              {activeIndex === 0 && <div><OpServiceQueue /></div>}
-              {activeIndex === 1 && <div><OpReadyDelivery /></div>}
-              {activeIndex === 2 && <div><OpBranchDelivery /></div>}
-              {activeIndex === 3 && <div><OpWarehouse /></div>}
-              {activeIndex === 4 && <div><OpReturnBranch /></div>}
-              {activeIndex === 5 && <div><OpInStore /></div>}
-              {activeIndex === 6 && <div><OpPickup /></div>}
+              {getTabContent()}
             </div>
           </CardContent>
         </Card>

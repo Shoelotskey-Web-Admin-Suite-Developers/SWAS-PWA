@@ -7,7 +7,7 @@ export interface IBranch extends Document {
   branch_name: string; // Human-readable branch name
   location: string; // e.g., "Valenzuela, NCR"
   branch_code: string; // e.g., VAL, SMV
-  type: "H" | "B"; // Hub or Branch
+  type: "H" | "B" | "W"; // Hub or Branch
 }
 
 const BranchSchema: Schema = new Schema<IBranch>(
@@ -17,7 +17,7 @@ const BranchSchema: Schema = new Schema<IBranch>(
     branch_name: { type: String, required: true, maxlength: 100 }, // NEW
     location: { type: String, required: true, maxlength: 100 },
     branch_code: { type: String, required: true, unique: true, maxlength: 20 },
-    type: { type: String, enum: ["H", "B"], required: true },
+    type: { type: String, enum: ["H", "B", "W"], required: true },
   }
   // no timestamps
 );

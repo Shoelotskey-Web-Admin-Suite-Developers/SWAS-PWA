@@ -20,7 +20,7 @@ export async function getLineItems(status: string) {
 
   const data = await res.json();
 
-  if (currentBranchId === "SWAS-SUPERADMIN") {
+  if (currentBranchId === "SWAS-SUPERADMIN" || "HUBV-W-NCR") {
     // Super admin → return all line items
     return data;
   } else {

@@ -22,16 +22,22 @@ const navItems = [
 
 type OperationsNavProps = {
   onChange?: (index: number) => void;
+  visibleTabs?: number[]; // Add this prop
 };
 
-export default function OperationsNav({ onChange }: OperationsNavProps) {
+export default function OperationsNav({ onChange, visibleTabs }: OperationsNavProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const [highlightStyle, setHighlightStyle] = useState({ left: 0, width: 0 });
 
+  // Filter navItems based on visibleTabs
+  const filteredNavItems = visibleTabs
+    ? navItems.filter((_, idx) => visibleTabs.includes(idx))
+    : navItems;
+
   const handleClick = (index: number) => {
     setActiveIndex(index);
-    if (onChange) onChange(index);
+    if (onChange) onChange(visibleTabs ? visibleTabs[index] : index);
   };
 
   useEffect(() => {
@@ -59,7 +65,7 @@ export default function OperationsNav({ onChange }: OperationsNavProps) {
     const observer = new ResizeObserver(() => updateHighlight());
     if (containerRef.current) observer.observe(containerRef.current);
     return () => observer.disconnect();
-  }, [activeIndex]);
+  }, [activeIndex, filteredNavItems.length]);
 
   return (
     <div className="main-wrapper">
@@ -71,7 +77,7 @@ export default function OperationsNav({ onChange }: OperationsNavProps) {
               className="highlight-bar"
               style={{ left: highlightStyle.left, width: highlightStyle.width }}
             />
-            {navItems.map((item, index) => (
+            {filteredNavItems.map((item, index) => (
               <div
                 key={index}
                 className={`card-item ${index === activeIndex ? "active" : ""}`}
