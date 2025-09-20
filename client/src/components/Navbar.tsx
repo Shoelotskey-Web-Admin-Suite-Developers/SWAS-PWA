@@ -4,7 +4,7 @@ import swasLogo from '@/assets/images/SWAS-Logo-Small.png'
 import NotifIcon from '@/components/icons/NotifIcon'
 import { useDropdownHandlers } from '@/hooks/useDropdownHandlers'
 import { NotifSheet } from "@/components/NotifSheet"
-
+import { getBranchNameForNavbar } from "@/utils/api/getBranchName"
 
 type NavbarProps = {
   activePage: 'serviceRequest' | 'operations' | 'payment' | 'central-view' | 'customer-information' | 'branches' | 'analytics' | 'appointments' | 'announcements'
@@ -24,7 +24,17 @@ export default function Navbar({ activePage, setActivePage, onLogout }: NavbarPr
   const [isOpen, setIsOpen] = useState(false)
   const toggleMenu = () => setIsOpen(prev => !prev)
 
-    // Close all dropdowns when activePage changes
+  const [branchName, setBranchName] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function fetchBranchName() {
+      const name = await getBranchNameForNavbar()
+      setBranchName(name)
+    }
+    fetchBranchName()
+  }, [])
+
+  // Close all dropdowns when activePage changes
   useEffect(() => {
     setOpDropdown(false)
     setDbDropdown(false)
@@ -36,7 +46,7 @@ export default function Navbar({ activePage, setActivePage, onLogout }: NavbarPr
       <div className='navBar-contents'>
         <div className='navBar-contents-p1'>
           <img src={swasLogo} alt="SWAS Logo" />
-          <div className='nav-BranchName'><h3>Branch Name</h3></div>
+          <div className='nav-BranchName'><h3>{branchName ? `${branchName}` : "Branch: Loading..."}</h3></div>
           <a onClick={onLogout} href=""><h4 className='regular'>Log Out</h4></a>
         </div>
 
@@ -171,7 +181,7 @@ export default function Navbar({ activePage, setActivePage, onLogout }: NavbarPr
           <img src={swasLogo} alt="SWAS Logo" />
         </div>
 
-        <div className='nav-BranchName-mobile'><h3>Branch Name</h3></div>
+        <div className='nav-BranchName-mobile'><h3>{branchName ? `Branch: ${branchName}` : "Branch: Loading..."}</h3></div>
 
         <div className='navBar-contents-p2-mobile'>
           <ul>
