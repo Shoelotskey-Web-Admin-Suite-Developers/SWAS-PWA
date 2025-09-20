@@ -40,11 +40,31 @@ export default function OpServiceQueue() {
   
   const { changes } = useLineItemUpdates();
 
+  // --- helpers ---
+  const mapItem = (item: any): Row => ({
+    lineItemId: item.line_item_id,
+    date: new Date(item.latest_update),
+    customer: item.cust_id,
+    shoe: item.shoes,
+    service: item.service_id,
+    branch: item.branch_id as Branch,
+    Location: item.current_location as Location,
+    status: item.current_status,
+    isRush: item.priority === "Rush",
+    dueDate: item.due_date ? new Date(item.due_date) : new Date(),
+    updated: new Date(item.latest_update),
+  });
+
+  const mapItems = (items: any[]): Row[] => items.map(mapItem);
+
+  const sortByDueDate = (items: Row[]) =>
+    [...items].sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
+
   // Fetch line items from API -- Initial fetch
   useEffect(() => {
     const fetchData = async () => {
       const data = await getLineItems("Queued");
-      setRows(mapItems(data));
+      setRows(sortByDueDate(mapItems(data)));
     };
     fetchData();
   }, []);
@@ -77,23 +97,6 @@ export default function OpServiceQueue() {
       }
     }
   }, [changes]);
-
-  // --- helpers ---
-  const mapItem = (item: any): Row => ({
-    lineItemId: item.line_item_id,
-    date: new Date(item.latest_update),
-    customer: item.cust_id,
-    shoe: item.shoes,
-    service: item.service_id,
-    branch: item.branch_id as Branch,
-    Location: item.current_location as Location,
-    status: item.current_status,
-    isRush: item.priority === "Rush",
-    dueDate: item.due_date ? new Date(item.due_date) : new Date(),
-    updated: new Date(item.latest_update),
-  });
-
-  const mapItems = (items: any[]): Row[] => items.map(mapItem);
 
   // Handle window resize
   useEffect(() => {

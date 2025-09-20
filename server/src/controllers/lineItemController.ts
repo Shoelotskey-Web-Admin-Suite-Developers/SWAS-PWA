@@ -25,7 +25,7 @@ export const updateLineItemStatus = async (req: Request, res: Response) => {
   const { line_item_ids, new_status } = req.body;
 
   if (!line_item_ids || !new_status) {
-    return res.status(400).json({ message: "line_item_ids and new_status are required" });
+    return res.status(400).json({ message: "line_item=ids and new_status are required" });
   }
 
   try {
