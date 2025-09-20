@@ -385,20 +385,31 @@ export default function SRM() {
     }
 
     // --- 2. Prepare line items ---
-    const lineItems: LineItemInput[] = shoes.map((shoe) => {
-      const svcObjs = shoe.services.map(id => ({ service_id: id, quantity: 1 }));
-      const addObjs = Object.entries(shoe.additionals).map(([id, qty]) => ({ service_id: id, quantity: qty }));
+    const lineItems: LineItemInput[] = shoes.map((shoe, idx) => {
+      const svcObjs = shoe.services.map(id => ({
+        service_id: id,
+        quantity: 1,
+        is_additional: false,
+      }));
+
+      const addObjs = Object.entries(shoe.additionals).map(([id, qty]) => ({
+        service_id: id,
+        quantity: qty,
+        is_additional: true,
+      }));
+
+      const due_date = perShoeEstimatedDates[idx] || "";
 
       return {
         priority: (shoe.rush === "yes" ? "Rush" : "Normal") as "Rush" | "Normal",
         shoes: shoe.model,
         current_location: "Branch",
-        due_date: '', // optional
-        services: [...svcObjs, ...addObjs],
+        due_date,
+        services: [...svcObjs, ...addObjs], // merged
       };
     });
 
-
+    // --- 3. Prepare service request payload ---
     const paymentMap: Record<string, "Cash" | "Card" | "GCash" | "Other"> = {
       cash: "Cash",
       gcash: "GCash",
@@ -406,7 +417,6 @@ export default function SRM() {
       other: "Other",
     };
 
-    // --- 3. Prepare service request payload ---
     const requestPayload: ServiceRequestPayload = {
       cust_name: name,
       cust_bdate: birthdate || undefined,
@@ -415,11 +425,15 @@ export default function SRM() {
       cust_contact: phone || undefined,
       lineItems,
       received_by: receivedBy,
-      total_amount: totalSales,
+      total_amount: totalSales, // ✅ no discount subtraction
       discount_amount: discountAmount,
-      amount_paid: customerPaid,
+      amount_paid: amountDueNow, // ✅ from amount due now input
       payment_status:
-        customerPaid >= totalSales ? "PAID" : customerPaid > 0 ? "PARTIAL" : "NP",
+        amountDueNow >= totalSales
+          ? "PAID"
+          : amountDueNow > 0
+          ? "PARTIAL"
+          : "NP",
       payment_mode: paymentMap[modeOfPayment],
     };
 
@@ -429,7 +443,54 @@ export default function SRM() {
       console.log("Service request created:", result);
       alert("Service request confirmed successfully!");
 
-      // Optional: reset form if needed
+      // --- 4. PDF Export logic ---
+      const transactionId = result?.transaction?.transaction_id;
+      if (transactionId) {
+        const [{ exportReceiptPDF }, { getTransactionById }] = await Promise.all([
+          import("@/utils/exportReceiptPDF"),
+          import("@/utils/api/getTransactionById"),
+        ]);
+
+        const transactionData = await getTransactionById(transactionId);
+        const branch = sessionStorage.getItem("branch_id") || "Unknown Branch";
+
+        const pdfShoes = (transactionData.lineItems || []).map((li: any) => {
+          const services = (li.services || []).filter((s: any) => !s.is_additional);
+          const additionals = (li.services || []).filter((s: any) => s.is_additional);
+
+          return {
+            model: li.shoes,
+            rush: li.priority === "Rush",
+            rushFee: li.priority === "Rush" ? RUSH_FEE : 0,
+            services,
+            additionals,
+            subtotal: li.subtotal || 0,
+          };
+        });
+
+        const pdfData = {
+          transaction_id: transactionData.transaction.transaction_id,
+          cust_name: transactionData.customer.cust_name,
+          cust_id: transactionData.customer.cust_id,
+          cust_address: transactionData.customer.cust_address,
+          date_in: transactionData.transaction.date_in,
+          date_out: transactionData.transaction.date_out,
+          received_by: transactionData.transaction.received_by,
+          payment_mode: transactionData.transaction.payment_mode,
+          discountAmount: transactionData.transaction.discount_amount,
+          total_amount: transactionData.transaction.total_amount,
+          amount_paid: transactionData.transaction.amount_paid,
+          payment: customerPaid,
+          change: transactionData.transaction.change,
+          shoes: pdfShoes,
+        };
+
+        exportReceiptPDF({
+          type: "acknowledgement-receipt",
+          data: pdfData,
+          branch,
+        });
+      }
     } catch (err: any) {
       console.error(err);
       alert(err?.message || "Failed to create service request.");
@@ -437,6 +498,11 @@ export default function SRM() {
       setSubmitting(false);
     }
   };
+
+
+
+  // Cashier input state
+  const [cashier, setCashier] = useState("");
 
   return (
     <div className="srm-container">
@@ -683,6 +749,15 @@ export default function SRM() {
             <CardContent className="payment-section">
               {/* Left: Discount Section */}
               <div className="discount-section">
+                <div className="flex flex-col gap-5">
+                  <Label>Cashier</Label>
+                  <Input
+                    value={cashier}
+                    onChange={e => setCashier(e.target.value)}
+                    placeholder="Enter cashier name"
+                  />
+                </div>
+
                 <div className="flex flex-col gap-5">
                   <Label>Mode of Payment</Label>
                   <RadioGroup

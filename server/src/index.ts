@@ -13,9 +13,10 @@ import promoRoutes from "./routes/promoRoutes";
 import unavailabilityRoutes from "./routes/unavailabilityRoutes";
 import customerRoutes from "./routes/customerRoutes";
 import lineItemRoutes from "./routes/lineItemRoutes";
-import appointmentsRoutes from "./routes/appointmentsRoutes"
+import appointmentsRoutes from "./routes/appointmentsRoutes";
 import serviceRoutes from "./routes/serviceRoutes";
 import serviceRequestRoutes from "./routes/serviceRequestRoutes";
+import transactionRoutes from "./routes/transactionRoutes";
 import { initSocket } from "./socket";
 
 dotenv.config();
@@ -45,6 +46,7 @@ app.use("/line-items", lineItemRoutes);
 app.use("/api/appointments", appointmentsRoutes);
 app.use("/api/services", serviceRoutes);
 app.use("/api/service-request", serviceRequestRoutes);
+app.use("/api/transactions", transactionRoutes);
 
 // Test route
 app.get("/", (req: Request, res: Response) => {
