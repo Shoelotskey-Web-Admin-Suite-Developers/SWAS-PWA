@@ -137,6 +137,7 @@ html, body {
 .payment-card {
   width: 100%;
   align-self:flex-end;
+  margin-bottom: 1rem;
 }
 
 .payment-section {
@@ -195,7 +196,7 @@ html, body {
 
 .payment-summary {
   position: sticky;
-  top: 97px;
+  top: 77px;
   width: 100%;
   display: flex;
 }
@@ -236,7 +237,7 @@ html, body {
 
 @media (min-width: 1024px) {
   .payment-summary-body {
-    max-height: calc(65dvh - 97px);
+    max-height: calc(53dvh - 77px);
     overflow-y: auto;
   }
 }

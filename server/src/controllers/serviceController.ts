@@ -24,6 +24,32 @@ export const getAllServices = async (req: Request, res: Response) => {
   }
 };
 
+// Get single service by service_id (e.g., SERVICE-1)
+export const getServiceById = async (req: Request, res: Response) => {
+  try {
+    const { serviceId } = req.params;
+    if (!serviceId) return res.status(400).json({ error: 'serviceId param is required' });
+
+    const service = await Service.findOne({ service_id: serviceId });
+    if (!service) return res.status(404).json({ error: 'Service not found' });
+
+    return res.status(200).json({
+      service: {
+        _id: service._id,
+        service_id: service.service_id,
+        service_name: service.service_name,
+        service_type: service.service_type,
+        service_base_price: service.service_base_price,
+        service_duration: service.service_duration,
+        service_description: service.service_description,
+      },
+    });
+  } catch (err: any) {
+    console.error('Error fetching service by id:', err);
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
 // Add a new service
 export const addService = async (req: Request, res: Response) => {
   try {
