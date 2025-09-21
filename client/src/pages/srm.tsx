@@ -446,27 +446,48 @@ export default function SRM() {
       // --- 4. PDF Export logic ---
       const transactionId = result?.transaction?.transaction_id;
       if (transactionId) {
-        const [{ exportReceiptPDF }, { getTransactionById }] = await Promise.all([
+        const [{ exportReceiptPDF }, { getTransactionById }, { getBranchByBranchId }, { getServiceById }] = await Promise.all([
           import("@/utils/exportReceiptPDF"),
           import("@/utils/api/getTransactionById"),
+          import("@/utils/api/getBranchByBranchId"),
+          import("@/utils/api/getServiceById"),
         ]);
 
         const transactionData = await getTransactionById(transactionId);
-        const branch = sessionStorage.getItem("branch_id") || "Unknown Branch";
+        const branchId = sessionStorage.getItem("branch_id") || "";
+        const branchObj = branchId ? await getBranchByBranchId(branchId) : null;
+        const branch = branchObj ? branchObj.branch_name || branchObj.branch_id : branchId || "Unknown Branch";
 
-        const pdfShoes = (transactionData.lineItems || []).map((li: any) => {
-          const services = (li.services || []).filter((s: any) => !s.is_additional);
-          const additionals = (li.services || []).filter((s: any) => s.is_additional);
+        // Enrich line items: replace service ids with full service objects
+        const pdfShoes = [] as any[];
+        for (const li of (transactionData.lineItems || [])) {
+          const services = [] as any[];
+          const additionals = [] as any[];
 
-          return {
+          for (const s of (li.services || [])) {
+            const svc = await getServiceById(s.service_id);
+            const enriched = {
+              service_id: s.service_id,
+              quantity: s.quantity,
+              is_additional: !!s.is_additional,
+              service_name: svc ? svc.service_name : s.service_id,
+              service_base_price: svc ? svc.service_base_price : 0,
+              service_duration: svc ? svc.service_duration : 0,
+            };
+            if (s.is_additional) additionals.push(enriched);
+            else services.push(enriched);
+          }
+
+          pdfShoes.push({
             model: li.shoes,
             rush: li.priority === "Rush",
             rushFee: li.priority === "Rush" ? RUSH_FEE : 0,
             services,
             additionals,
             subtotal: li.subtotal || 0,
-          };
-        });
+            estimated_completion: li.due_date || "",
+          });
+        }
 
         const pdfData = {
           transaction_id: transactionData.transaction.transaction_id,
@@ -475,13 +496,13 @@ export default function SRM() {
           cust_address: transactionData.customer.cust_address,
           date_in: transactionData.transaction.date_in,
           date_out: transactionData.transaction.date_out,
-          received_by: transactionData.transaction.received_by,
+          received_by: cashier,
           payment_mode: transactionData.transaction.payment_mode,
           discountAmount: transactionData.transaction.discount_amount,
           total_amount: transactionData.transaction.total_amount,
           amount_paid: transactionData.transaction.amount_paid,
           payment: customerPaid,
-          change: transactionData.transaction.change,
+          change: change,
           shoes: pdfShoes,
         };
 
