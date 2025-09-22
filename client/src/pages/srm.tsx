@@ -7,6 +7,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Switch } from '@/components/ui/switch'
 import { Card, CardContent } from '@/components/ui/card'
 import '@/styles/srm.css'
+import { toast } from 'sonner'
 
 // API Import
 import { getServices, IService } from "@/utils/api/getServices";
@@ -230,10 +231,12 @@ export default function SRM() {
           if (customerType === "new") {
             setCustomerType("old");
           }
+          // Notify user that an existing customer was found
+          toast.success(`Customer found: ${found.cust_name || found.cust_id || ''}`)
         } else {
           setCustomerId("NEW");
           if (customerType === "old") {
-            alert("Old customer not found. Please check the entered name and birthdate.");
+            toast.error("Old customer not found. Please check the entered name and birthdate.");
           }
         }
       } catch (err) {
@@ -369,22 +372,74 @@ export default function SRM() {
 
   const handleConfirmServiceRequest = async () => {
     // --- 1. Validate required fields ---
-    if (!name.trim() || !birthdate.trim() || !address.trim() || !phone.trim()) {
-      alert("Please fill in all customer details.");
+    if (!name.trim() || !birthdate.trim() || !address.trim()) {
+      toast.error("Please fill in all customer details.")
       return;
     }
 
+    // Require at least one contact (phone or email)
+    if (!phone.trim() && !email.trim()) {
+      toast.error("Please provide at least one contact: phone number or email.")
+      return;
+    }
+
+    // If email provided, validate simple email format
+    if (email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(email.trim())) {
+        toast.error("Please enter a valid email address.")
+        return;
+      }
+    }
+
+    // ReceivedBy guard
     if (!receivedBy.trim()) {
-      alert("Please enter 'Received By' name.");
+      toast.error("Please enter 'Received By' name.")
       return;
     }
 
-    if (shoes.length === 0 || shoes.some(shoe => !shoe.model.trim() || shoe.services.length === 0)) {
-      alert("Please provide at least one shoe with a model name and at least one service.");
+    // Cashier guard (must be provided)
+    if (!cashier.trim()) {
+      toast.error("Please enter cashier name.")
       return;
+    }
+
+    if (shoes.length === 0) {
+      toast.error("Please provide at least one shoe with a model name.")
+      return;
+    }
+
+    // Validate each shoe has a model and at least one service
+    for (let i = 0; i < shoes.length; i++) {
+      const shoe = shoes[i];
+      if (!shoe.model || !shoe.model.trim()) {
+        toast.error(`Please provide a name/model for shoe #${i + 1}.`)
+        return;
+      }
+      if (!shoe.services || shoe.services.length === 0) {
+        toast.error(`Please select at least one service for shoe "${shoe.model || `#${i + 1}`}".`)
+        return;
+      }
     }
 
     // --- 2. Prepare line items ---
+    // If discount is applied, validate discountValue is a number and in valid range
+    if (applyDiscount) {
+      const parsed = parseFloat(discountValue || '')
+      if (Number.isNaN(parsed)) {
+        toast.error('Please enter a numeric discount value.')
+        return
+      }
+      if (discountType === 'percent' && (parsed < 0 || parsed > 100)) {
+        toast.error('Percent discount must be between 0 and 100.')
+        return
+      }
+      if (discountType === 'fixed' && (parsed < 0 || parsed > totalBill)) {
+        toast.error('Fixed discount must be between 0 and the total bill.')
+        return
+      }
+    }
+
     const lineItems: LineItemInput[] = shoes.map((shoe, idx) => {
       const svcObjs = shoe.services.map(id => ({
         service_id: id,
@@ -440,12 +495,12 @@ export default function SRM() {
     try {
       setSubmitting(true);
       const result = await addServiceRequest(requestPayload as any);
-      console.log("Service request created:", result);
-      alert("Service request confirmed successfully!");
+  console.log("Service request created:", result);
+  toast.success("Service request confirmed successfully!");
 
       // --- 4. PDF Export logic ---
       const transactionId = result?.transaction?.transaction_id;
-      if (transactionId) {
+    if (transactionId) {
         const [{ exportReceiptPDF }, { getTransactionById }, { getBranchByBranchId }, { getServiceById }] = await Promise.all([
           import("@/utils/exportReceiptPDF"),
           import("@/utils/api/getTransactionById"),
@@ -514,7 +569,7 @@ export default function SRM() {
       }
     } catch (err: any) {
       console.error(err);
-      alert(err?.message || "Failed to create service request.");
+      toast.error(err?.message || "Failed to create service request.");
     } finally {
       setSubmitting(false);
     }
@@ -892,8 +947,9 @@ export default function SRM() {
                     value={customerPaid}
                     onChange={(e) => setCustomerPaid(Number(e.target.value) || 0)}
                     onBlur={() => {
-                      if (customerPaid < amountDueNow) {
-                        alert('Amount paid cannot be lower than amount due now.');
+                      // Only enforce when there is an amount due now (>0)
+                      if (amountDueNow > 0 && customerPaid < amountDueNow) {
+                        toast.error('Amount paid cannot be lower than amount due now.')
                       }
                     }}
                   />

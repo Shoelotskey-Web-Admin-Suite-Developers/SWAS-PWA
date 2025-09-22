@@ -64,17 +64,27 @@ const generateCustomerId = async (branch_number: number): Promise<string> => {
 const generateTransactionId = async (branch_code: string): Promise<string> => {
   const now = new Date();
   const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  // match existing transactions with the same yearMonth and branch_code at the end
   const lastTrx = await Transaction.find({ transaction_id: new RegExp(`^${yearMonth}-\\d{5}-${branch_code}$`) })
     .sort({ transaction_id: -1 })
     .limit(1);
   const lastNumber = lastTrx[0] ? parseInt(lastTrx[0].transaction_id.split("-")[2], 10) : 0;
+  // Keep full branch_code as provided (it may contain hyphens)
   return `${yearMonth}-${String(lastNumber + 1).padStart(5, "0")}-${branch_code}`;
 };
 
+// Generate line item id that includes the transaction prefix (yearMonth and transaction increment)
+// Desired format: <YYYY-MM>-<trxIncrement>-<lineIncrement>-<branch_code>
 const generateLineItemId = (transactionId: string, lineIndex: number): string => {
-  const transactionIncrement = transactionId.split("-")[2];
-  const branchCode = transactionId.split("-")[3];
-  return `${transactionIncrement}-${String(lineIndex + 1).padStart(3, "0")}-${branchCode}`;
+  // transactionId assumed format: <YYYY-MM>-<trxIncrement>-<branch_code>
+  const parts = transactionId.split("-")
+  const year = parts[0]
+  const month = parts[1]
+  const trxIncrement = parts[2]
+  // branch code may contain hyphens; everything after the third dash is branch code
+  const branchCode = parts.slice(3).join("-")
+
+  return `${year}-${month}-${trxIncrement}-${String(lineIndex + 1).padStart(3, "0")}-${branchCode}`;
 };
 
 // ------------------- Validation -------------------

@@ -19,7 +19,10 @@ import "@/styles/payment.css"
 import { PaymentsTable } from "@/components/operations/PaymentsTable"
 import { getAllLineItems } from "@/utils/api/getAllLineItems"
 import { getTransactionById } from "@/utils/api/getTransactionById"
+import { applyPayment } from "@/utils/api/applyPayment"
 import { getServices, IService } from "@/utils/api/getServices"
+import { exportReceiptPDF } from "@/utils/exportReceiptPDF"
+import { toast } from "sonner"
 import { Checkbox } from "@/components/ui/checkbox"
 
 type Shoe = {
@@ -28,6 +31,9 @@ type Shoe = {
   additionals: string[]
   pairs?: number
   rush?: "yes" | "no"
+  // track the DB line item id and current status so we can validate pickup
+  lineItemId?: string
+  currentStatus?: string
 }
 
 type Request = {
@@ -183,6 +189,7 @@ export default function Payments() {
                 pairs: 1,
                 rush: li.priority === "Rush" ? "yes" : "no",
                 lineItemId: li.line_item_id || undefined,
+                currentStatus: li.current_status || li.status || undefined,
               }
             })
 
@@ -333,48 +340,274 @@ export default function Payments() {
     // Validation is enforced at save-time; do not alert while typing
   }
 
-  const handleSavePaymentOnly = () => {
-    if (dueNow <= 0) {
-      alert("Please enter an amount due now.")
+  const handleSavePaymentOnly = async () => {
+    // Basic validations
+    if (!selectedRequest) {
+      toast.error("No request selected.")
       return
     }
+
+    // Require cashier name
+    if (!cashier || cashier.trim() === "") {
+      toast.error("Please enter cashier name.")
+      return
+    }
+
+    if (!Number.isFinite(dueNow) || dueNow < 0) {
+      toast.error("Please enter a valid Due Now amount (0 or greater).")
+      return
+    }
+
+    if (dueNow > (selectedRequest.remainingBalance ?? Infinity)) {
+      toast.error("Due Now cannot exceed the remaining balance.")
+      return
+    }
+
+    if (!Number.isFinite(customerPaid) || customerPaid < 0) {
+      toast.error("Please enter a valid Customer Paid amount.")
+      return
+    }
+
     if (customerPaid < dueNow) {
-      alert("Customer paid is less than due now.")
+      toast.error("Customer paid is less than due now.")
       return
     }
-    console.log("Payment only saved:", {
-      selectedRequest,
-      dueNow,
-      customerPaid,
-      change,
-      updatedBalance,
-      modeOfPayment,
-    })
-    alert("Payment saved successfully!")
+    try {
+      const txId = selectedRequest?.receiptId
+      if (!txId) throw new Error("No selected transaction")
+      const pm = modeOfPayment === 'cash' ? 'Cash' : modeOfPayment === 'gcash' ? 'GCash' : modeOfPayment === 'bank' ? 'Card' : 'Other'
+      await applyPayment(txId, {
+        dueNow,
+        customerPaid,
+        modeOfPayment: pm,
+        markPickedUp: false,
+      })
+
+      // refresh transaction data
+      const refreshed = await getTransactionById(txId)
+      if (refreshed && refreshed.transaction) {
+        const transaction = refreshed.transaction
+        // map back to Request shape for selectedRequest update (minimal fields)
+        const updatedReq = {
+          ...selectedRequest,
+          total: transaction.total_amount,
+          amountPaid: transaction.amount_paid,
+          remainingBalance: Math.max(0, transaction.total_amount - transaction.amount_paid),
+          // keep discount as-is from transaction
+          discount: transaction.discount_amount ?? selectedRequest?.discount ?? null,
+        }
+        setSelectedRequest(updatedReq)
+        // also update fetchedRequests list
+        setFetchedRequests((prev) => prev.map((r) => (r.receiptId === txId ? updatedReq : r)))
+      }
+
+      // Build PDF data and export receipt (best-effort)
+      try {
+        const branch = sessionStorage.getItem("branch_name") || sessionStorage.getItem("branch_id") || "Branch"
+
+        // Build structured shoes array for the PDF utility
+        const pdfShoes = (selectedRequest?.shoes || []).map((shoe) => {
+          // aggregate services by name
+          const counts = new Map<string, number>()
+          for (const s of shoe.services || []) counts.set(s, (counts.get(s) || 0) + 1)
+          const servicesArr = Array.from(counts.entries()).map(([name, qty]) => ({
+            service_name: name,
+            quantity: qty,
+            service_base_price: findServicePriceFromList(name),
+          }))
+          return {
+            model: shoe.model,
+            services: servicesArr,
+            additionals: [],
+            rush: shoe.rush === "yes" ? true : false,
+            rushFee: shoe.rush === "yes" ? RUSH_FEE : 0,
+            subtotal: servicesArr.reduce((s: number, it: any) => s + (it.service_base_price || 0) * (it.quantity || 1), 0) + (shoe.rush === "yes" ? RUSH_FEE : 0),
+          }
+        })
+
+        // Determine if this action released the final pair so we can include pickup date
+        const wasLastPairRelease = !paymentOnly && ((selectedRequest?.pairs || 0) - (selectedRequest?.pairsReleased || 0)) === 1 && ((selectedRequest?.remainingBalance || 0) - dueNow) <= 0
+
+        const pdfData = {
+          transaction_id: txId,
+          cust_name: selectedRequest?.customerName || "",
+          cust_id: selectedRequest?.customerId || "",
+          cust_address: "",
+          date: new Date().toISOString(),
+          date_in: selectedRequest?.dateIn || "",
+          // Prefer server-provided date_out; if not present and we just released the last pair, use now
+          date_out: refreshed.transaction.date_out || (wasLastPairRelease ? new Date().toISOString() : null),
+          received_by: cashier || refreshed.transaction.received_by || "",
+          payment_mode: pm,
+          discountAmount: refreshed.transaction.discount_amount ?? selectedRequest?.discount ?? 0,
+          total_amount: refreshed.transaction.total_amount ?? selectedRequest?.total ?? 0,
+          payment: dueNow,
+          amount_paid: refreshed.transaction.amount_paid ?? 0,
+          change: Math.max(0, customerPaid - dueNow),
+          prev_balance: (refreshed.transaction.total_amount ?? selectedRequest?.total ?? 0) - (refreshed.transaction.amount_paid ?? 0),
+          dueNow: dueNow,
+          customerPaid: customerPaid,
+          new_balance: Math.max(0, ((refreshed.transaction.total_amount ?? selectedRequest?.total ?? 0) - (refreshed.transaction.amount_paid ?? 0)) - dueNow),
+          shoes: pdfShoes,
+        }
+
+        await exportReceiptPDF({ type: 'acknowledgement-receipt', data: pdfData, branch })
+      } catch (e) {
+        console.debug('Failed to export receipt PDF', e)
+      }
+
+      toast.success("Payment saved successfully!")
+    } catch (err) {
+      console.error(err)
+      toast.error(`Failed to save payment: ${err instanceof Error ? err.message : String(err)}`)
+    }
   }
 
-  const handleConfirmPayment = () => {
-    if (dueNow <= 0) {
-      alert("Please enter an amount due now.")
+  const handleConfirmPayment = async () => {
+    // Basic validations
+    if (!selectedRequest) {
+      toast.error("No request selected.")
       return
     }
+
+    // Require cashier name
+    if (!cashier || cashier.trim() === "") {
+      toast.error("Please enter cashier name.")
+      return
+    }
+
+    // Allow dueNow to be zero unless this is the last pair and not fully paid
+    if (!Number.isFinite(dueNow) || dueNow < 0) {
+      toast.error("Please enter a valid Due Now amount (0 or greater).")
+      return
+    }
+
+    if (dueNow > (selectedRequest.remainingBalance ?? Infinity)) {
+      toast.error("Due Now cannot exceed the remaining balance.")
+      return
+    }
+
+    if (!Number.isFinite(customerPaid) || customerPaid < 0) {
+      toast.error("Please enter a valid Customer Paid amount.")
+      return
+    }
+
     if (customerPaid < dueNow) {
-      alert("Customer paid is less than due now.")
+      toast.error("Customer paid is less than due now.")
       return
     }
-    console.log("Payment updated & picked up:", {
-      selectedRequest,
-      dueNow,
-      customerPaid,
-      change,
-      updatedBalance,
-      modeOfPayment,
-    })
-    alert("Payment updated & marked as picked up!")
+    // Prevent marking as Picked Up when only one unreleased pair remains but payment is not fully covered
+    const remainingPairs = (selectedRequest.pairs || 0) - (selectedRequest.pairsReleased || 0)
+    if (remainingPairs === 1) {
+      const postPaymentRemaining = (selectedRequest.remainingBalance || 0) - dueNow
+      if (postPaymentRemaining > 0) {
+        // Last pair and still unpaid after this payment attempt -> require payment
+        toast.error("Cannot mark as Picked Up: the remaining balance must be fully paid before picking up the last pair.")
+        return
+      }
+    }
+
+    // If marking a single line item as picked up and there are multiple remaining pairs,
+    // require the user to select a specific line item to avoid ambiguity.
+    if (!paymentOnly && remainingPairs > 1 && !selectedLineItemId) {
+      toast.error("Multiple pairs are still pending. Select the specific pair (row) to mark as picked up.")
+      return
+    }
+
+    // If we are marking a specific line item as picked up, ensure its current status
+    // is 'Ready fo Pickup' (exact string) before allowing pickup. If not, inform user.
+    if (!paymentOnly && selectedLineItemId && selectedRequest) {
+      const selectedShoe = selectedRequest.shoes.find((s: any) => (s as any).lineItemId === selectedLineItemId)
+  const status = selectedShoe?.currentStatus || null
+      if (status && status !== "Ready for Pickup") {
+        toast.error(`${status} cannot be marked as Picked Up.`)
+        return
+      }
+    }
+    try {
+      const txId = selectedRequest?.receiptId
+      if (!txId) throw new Error("No selected transaction")
+      const pm = modeOfPayment === 'cash' ? 'Cash' : modeOfPayment === 'gcash' ? 'GCash' : modeOfPayment === 'bank' ? 'Card' : 'Other'
+      await applyPayment(txId, {
+        dueNow,
+        customerPaid,
+        modeOfPayment: pm,
+        lineItemId: selectedLineItemId ?? undefined,
+        markPickedUp: true,
+      })
+
+      // refresh transaction data
+      const refreshed = await getTransactionById(txId)
+      if (refreshed && refreshed.transaction) {
+        const transaction = refreshed.transaction
+        const updatedReq = {
+          ...selectedRequest,
+          total: transaction.total_amount,
+          amountPaid: transaction.amount_paid,
+          remainingBalance: Math.max(0, transaction.total_amount - transaction.amount_paid),
+          discount: transaction.discount_amount ?? selectedRequest?.discount ?? null,
+        }
+        setSelectedRequest(updatedReq)
+        setFetchedRequests((prev) => prev.map((r) => (r.receiptId === txId ? updatedReq : r)))
+      }
+
+      // Build PDF data and export receipt after confirm
+      try {
+        const branch = sessionStorage.getItem("branch_name") || sessionStorage.getItem("branch_id") || "Branch"
+
+        const pdfShoes = (selectedRequest?.shoes || []).map((shoe) => {
+          const counts = new Map<string, number>()
+          for (const s of shoe.services || []) counts.set(s, (counts.get(s) || 0) + 1)
+          const servicesArr = Array.from(counts.entries()).map(([name, qty]) => ({
+            service_name: name,
+            quantity: qty,
+            service_base_price: findServicePriceFromList(name),
+          }))
+          return {
+            model: shoe.model,
+            services: servicesArr,
+            additionals: [],
+            rush: shoe.rush === "yes" ? true : false,
+            rushFee: shoe.rush === "yes" ? RUSH_FEE : 0,
+            subtotal: servicesArr.reduce((s: number, it: any) => s + (it.service_base_price || 0) * (it.quantity || 1), 0) + (shoe.rush === "yes" ? RUSH_FEE : 0),
+          }
+        })
+
+        const pdfData = {
+          transaction_id: txId,
+          cust_name: selectedRequest?.customerName || "",
+          cust_id: selectedRequest?.customerId || "",
+          cust_address: "",
+          date: new Date().toISOString(),
+          date_in: selectedRequest?.dateIn || "",
+          date_out: refreshed.transaction.date_out || null,
+          received_by: cashier || refreshed.transaction.received_by || "",
+          payment_mode: pm,
+          discountAmount: refreshed.transaction.discount_amount ?? selectedRequest?.discount ?? 0,
+          total_amount: refreshed.transaction.total_amount ?? selectedRequest?.total ?? 0,
+          payment: dueNow,
+          amount_paid: refreshed.transaction.amount_paid ?? 0,
+          change: Math.max(0, customerPaid - dueNow),
+          prev_balance: (refreshed.transaction.total_amount ?? selectedRequest?.total ?? 0) - (refreshed.transaction.amount_paid ?? 0),
+          dueNow: dueNow,
+          customerPaid: customerPaid,
+          new_balance: Math.max(0, ((refreshed.transaction.total_amount ?? selectedRequest?.total ?? 0) - (refreshed.transaction.amount_paid ?? 0)) - dueNow),
+          shoes: pdfShoes,
+        }
+
+        await exportReceiptPDF({ type: 'acknowledgement-receipt', data: pdfData, branch })
+      } catch (e) {
+        console.debug('Failed to export receipt PDF', e)
+      }
+
+      toast.success("Payment updated & marked as picked up!")
+    } catch (err) {
+      console.error(err)
+      toast.error(`Failed to confirm payment: ${err instanceof Error ? err.message : String(err)}`)
+    }
   }
 
-  // Derived validation flag for disabling save actions
-  const isPaymentInvalid = !!selectedRequest && customerPaid < dueNow
+  // Validation is performed at save/confirm time via toast messages. Keep inputs permissive in the UI.
 
 
   return (
@@ -388,7 +621,7 @@ export default function Payments() {
               <div className="customer-info-grid">
                 <div className="customer-info-pair flex items-end">
                   <div className="w-[70%]">
-                    <Label>Search by Receipt ID / Customer Name / Date In</Label>
+                    <Label>Search by Transaction ID/ Line-item ID / Customer Name / Shoes</Label>
                     <SearchBar
                       value={searchQuery}
                       onChange={(val) => setSearchQuery(val)}
@@ -402,10 +635,9 @@ export default function Payments() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="default">None</SelectItem>
-                        <SelectItem value="receiptId">Receipt ID</SelectItem>
-                        <SelectItem value="dateIn">Date In</SelectItem>
-                        <SelectItem value="customerName">Customer Name</SelectItem>
+                        <SelectItem value="receiptId">Transaction ID</SelectItem>
                         <SelectItem value="pairs"># Pairs</SelectItem>
+                        <SelectItem value="customerName">Customer Name</SelectItem>
                         <SelectItem value="total">Total Amount</SelectItem>
                       </SelectContent>
                     </Select>
@@ -436,7 +668,7 @@ export default function Payments() {
                 {loading ? (
                   <div className="p-4 text-center text-gray-600">Loading payments...</div>
                 ) : (
-                  <PaymentsTable
+                    <PaymentsTable
                     requests={filteredRequests}
                     selectedRequest={selectedRequest}
                     selectedLineItemId={selectedLineItemId}
@@ -461,8 +693,7 @@ export default function Payments() {
                       setSelectedRequest(req)
                       setSelectedLineItemId(lineItemId ?? null)
 
-                      // Prefill payment UI: dueNow/customerPaid reset, and updatedBalance set to
-                      // the transaction-level remaining balance (total_amount - amount_paid)
+                      // Reset payment inputs to zero on selection. Do NOT prefill any amounts.
                       setDueNow(0)
                       setCustomerPaid(0)
                       setChange(0)
@@ -618,18 +849,21 @@ export default function Payments() {
                     </div>
                   ))}
                 </div>
+                
+                {(() => {
+                  const discountAmount = selectedRequest ? (selectedRequest.discount ?? 0) : 0
+                  return discountAmount > 0 ? (
+                    <div className="summary-discount-row">
+                      <p className="bold">Discount</p>
+                      <p>({formatCurrency(discountAmount)})</p>
+                    </div>
+                  ) : null
+                })()}
 
                 <div className="summary-discount-row">
                   <p className="bold">Total Amount</p>
                   <p>{formatCurrency(selectedRequest.total)}</p>
                 </div>
-
-                {selectedRequest.discount && (
-                  <div className="summary-discount-row">
-                    <p className="bold">Discount</p>
-                    <p>({formatCurrency(selectedRequest.discount)})</p>
-                  </div>
-                )}
 
                 <div className="summary-discount-row">
                   <p className="bold">Amount Paid</p>
@@ -675,7 +909,6 @@ export default function Payments() {
                   onClick={() =>
                     paymentOnly ? handleSavePaymentOnly() : handleConfirmPayment()
                   }
-                  disabled={isPaymentInvalid}
                 >
                   {paymentOnly ? "Save Payment" : "Save & Mark as Picked Up"}
                 </Button>

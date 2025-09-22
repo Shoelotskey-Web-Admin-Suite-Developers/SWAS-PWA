@@ -15,7 +15,7 @@ export interface ITransaction extends Document {
   discount_amount: number; // New field
   amount_paid: number;
   payment_status: "NP" | "PAID" | "PARTIAL";
-  payment_mode?: "Cash" | "Card" | "GCash" | "Other";
+  payment_mode?: string;
 }
 
 const TransactionSchema: Schema = new Schema<ITransaction>(
@@ -38,9 +38,9 @@ const TransactionSchema: Schema = new Schema<ITransaction>(
       default: "NP",
       required: true,
     },
+    // allow arbitrary payment_mode strings (e.g., combined modes like "Cash,GCash")
     payment_mode: {
       type: String,
-      enum: ["Cash", "Card", "GCash", "Other"],
       default: null,
     },
   },
