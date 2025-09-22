@@ -8,20 +8,13 @@ import mongoose from "mongoose";
 export const getTransactionById = async (req: Request, res: Response) => {
   try {
     const { transaction_id } = req.params;
-    const { branch_id } = req.query;
 
     if (!transaction_id) {
       return res.status(400).json({ error: "transaction_id required" });
     }
-    if (!branch_id) {
-      return res.status(400).json({ error: "branch_id required" });
-    }
 
-    // Find transaction scoped to branch
-    const transaction = await Transaction.findOne({
-      transaction_id,
-      branch_id,
-    });
+    // Find transaction by transaction_id only
+    const transaction = await Transaction.findOne({ transaction_id });
     if (!transaction) {
       return res.status(404).json({ error: "Transaction not found" });
     }
