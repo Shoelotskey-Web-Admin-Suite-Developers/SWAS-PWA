@@ -131,3 +131,14 @@ export const applyPayment = async (req: Request, res: Response) => {
     return res.status(500).json({ error: message });
   }
 };
+
+// GET /transactions
+export const getAllTransactions = async (_req: Request, res: Response) => {
+  try {
+    const transactions = await Transaction.find();
+    res.status(200).json(transactions);
+  } catch (error) {
+    console.error("Error fetching all transactions:", error);
+    res.status(500).json({ message: "Server error fetching transactions" });
+  }
+};

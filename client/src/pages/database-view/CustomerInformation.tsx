@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { MoreVertical } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
+import { toast, Toaster } from "sonner"; // Add this import
 
 import { getCustomers } from "@/utils/api/getCustomers" // 👈 your API util
 import { exportCSV } from "@/utils/exportCSV"
@@ -198,19 +199,20 @@ export default function CustomerInformation() {
               <DropdownMenuItem
               className="text-red-600"
               onClick={async () => {
-                if (!confirm("Are you sure you want to delete all customers? This cannot be undone.")) return;
+                if (!confirm("Are you sure you want to archive all customers? This cannot be undone.")) return;
 
                 try {
+                  await exportCSV(filtered);
                   await deleteAllCustomers();
-                  setRows([]); // clear frontend state
-                  alert("All customers deleted successfully");
+                  setRows([]);
+                  toast.success("All customers archived successfully"); // Success toast
                 } catch (err) {
                   console.error(err);
-                  alert("Failed to delete customers. See console for details.");
+                  toast.error("Failed to archive customers. Export may have failed."); // Error toast
                 }
               }}
             >
-              Delete Records
+              Archive Records
             </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -300,6 +302,8 @@ export default function CustomerInformation() {
       <div className="ci-table">
         {loading ? <p>Loading customers...</p> : <CustomerTable rows={tableRows} />}
       </div>
+
+      <Toaster position="top-center" richColors /> {/* Add Toaster here */}
     </div>
   )
 }

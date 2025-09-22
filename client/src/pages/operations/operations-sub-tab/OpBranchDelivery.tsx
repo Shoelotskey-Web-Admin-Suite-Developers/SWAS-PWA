@@ -1,5 +1,6 @@
 // src/components/OpBranchDelivery.tsx
 import React, { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import {
   Table,
@@ -13,6 +14,15 @@ import {
 import InProcessModal from "@/components/operations/modals/OpBDModal"
 import { getLineItems } from "@/utils/api/getLineItems";
 import { editLineItemStatus } from "@/utils/api/editLineItemStatus";
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuLabel,
+  ContextMenuSeparator,
+} from "@/components/ui/context-menu";
+import OpBfrImg from "@/components/operations/modals/OpBfrImg";
 
 type Branch = "Valenzuela" | "SM Valenzuela" | "SM Grand";
 type Location = "Branch" | "Hub" | "To Branch" | "To Hub";
@@ -38,6 +48,10 @@ export default function OpBranchDelivery() {
   const [expanded, setExpanded] = useState<string[]>([]);
   const [windowWidth, setWindowWidth] = useState<number>(window.innerWidth);
   const [modalOpen, setModalOpen] = useState(false);
+
+  // Modal state for Upload Before Image
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [activeLineItemId, setActiveLineItemId] = useState<string | null>(null);
 
   // --- helpers ---
   const mapItem = (item: any): Row => ({
@@ -110,6 +124,11 @@ export default function OpBranchDelivery() {
     );
   };
 
+  const handleUploadBeforeImage = (lineItemId: string) => {
+    setActiveLineItemId(lineItemId);
+    setUploadModalOpen(true);
+  };
+
   // determine hidden columns per breakpoint
   const getHiddenColumns = () => {
     if (windowWidth <= 899) return ["Action", "Customer", "Due", "Branch", "Mod", "Shoe", "Date", "Location", "Status"];
@@ -119,6 +138,19 @@ export default function OpBranchDelivery() {
   };
 
   const hiddenColumns = getHiddenColumns();
+
+  let longPressTimer: NodeJS.Timeout;
+
+  const handleTouchStart = (rowId: string) => {
+    longPressTimer = setTimeout(() => {
+      setActiveLineItemId(rowId);
+      setUploadModalOpen(true); // Or open your context menu if you want
+    }, 600); // 600ms for long press
+  };
+
+  const handleTouchEnd = () => {
+    clearTimeout(longPressTimer);
+  };
 
   return (
     <div className="op-container">
@@ -146,45 +178,58 @@ export default function OpBranchDelivery() {
         <TableBody className="op-body">
           {rows.map((row, index) => (
             <React.Fragment key={row.lineItemId}>
-              <TableRow
-                className={`op-body-row ${selected.includes(row.lineItemId) ? "selected" : ""}`}
-                onClick={(e) => handleRowClick(e, row.lineItemId, index)}
-              >
-                <TableCell className="op-body-action" onClick={(e) => e.stopPropagation()}>
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(row.lineItemId)}
-                    onChange={() => toggleCheckbox(row.lineItemId, index)}
-                  />
-                </TableCell>
-                <TableCell className="op-body-transact"><h5>{row.lineItemId}</h5></TableCell>
-                <TableCell className="op-body-date"><small>{row.date.toLocaleDateString()}</small></TableCell>
-                <TableCell className="op-body-customer"><small>{row.customer}</small></TableCell>
-                <TableCell className="op-body-shoe"><small>{row.shoe}</small></TableCell>
-                <TableCell className="op-body-service"><small>{row.service}</small></TableCell>
-                <TableCell className="op-body-branch"><small>{row.branch}</small></TableCell>
-                <TableCell className="op-body-location"><small>{row.Location}</small></TableCell>
-                <TableCell className="op-body-status op-status-bd"><h5>{row.status}</h5></TableCell>
-                <TableCell className="op-body-rush">
-                  {row.isRush ? (
-                    <span className="px-3 py-1 bg-red-200 text-red-800 rounded-full text-sm font-medium">Rush</span>
-                  ) : (
-                    <span className="px-3 py-1 bg-green-200 text-green-800 rounded-full text-sm font-medium">Normal</span>
-                  )}
-                </TableCell>
-                <TableCell className="op-body-due"><small>{row.dueDate.toLocaleDateString()}</small></TableCell>
-                <TableCell className="op-body-mod"><small>{row.updated.toLocaleDateString()}</small></TableCell>
-                {hiddenColumns.length > 0 && (
-                  <TableCell className="op-body-dropdown-toggle">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); toggleExpand(row.lineItemId); }}
-                      className={`chevron-btn ${expanded.includes(row.lineItemId) ? "rotate-180" : ""}`}
-                    >
-                      ▾
-                    </button>
-                  </TableCell>
-                )}
-              </TableRow>
+              <ContextMenu>
+                <ContextMenuTrigger asChild>
+                  <TableRow
+                    className={`op-body-row ${selected.includes(row.lineItemId) ? "selected" : ""}`}
+                    onClick={(e) => handleRowClick(e, row.lineItemId, index)}
+                    onTouchStart={() => handleTouchStart(row.lineItemId)}
+                    onTouchEnd={handleTouchEnd}
+                  >
+                    <TableCell className="op-body-action" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(row.lineItemId)}
+                        onChange={() => toggleCheckbox(row.lineItemId, index)}
+                      />
+                    </TableCell>
+                    <TableCell className="op-body-transact"><h5>{row.lineItemId}</h5></TableCell>
+                    <TableCell className="op-body-date"><small>{row.date.toLocaleDateString()}</small></TableCell>
+                    <TableCell className="op-body-customer"><small>{row.customer}</small></TableCell>
+                    <TableCell className="op-body-shoe"><small>{row.shoe}</small></TableCell>
+                    <TableCell className="op-body-service"><small>{row.service}</small></TableCell>
+                    <TableCell className="op-body-branch"><small>{row.branch}</small></TableCell>
+                    <TableCell className="op-body-location"><small>{row.Location}</small></TableCell>
+                    <TableCell className="op-body-status op-status-bd"><h5>{row.status}</h5></TableCell>
+                    <TableCell className="op-body-rush">
+                      {row.isRush ? (
+                        <span className="px-3 py-1 bg-red-200 text-red-800 rounded-full text-sm font-medium">Rush</span>
+                      ) : (
+                        <span className="px-3 py-1 bg-green-200 text-green-800 rounded-full text-sm font-medium">Normal</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="op-body-due"><small>{row.dueDate.toLocaleDateString()}</small></TableCell>
+                    <TableCell className="op-body-mod"><small>{row.updated.toLocaleDateString()}</small></TableCell>
+                    {hiddenColumns.length > 0 && (
+                      <TableCell className="op-body-dropdown-toggle">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleExpand(row.lineItemId); }}
+                          className={`chevron-btn ${expanded.includes(row.lineItemId) ? "rotate-180" : ""}`}
+                        >
+                          ▾
+                        </button>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                </ContextMenuTrigger>
+                <ContextMenuContent>
+                  <ContextMenuLabel>Actions</ContextMenuLabel>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem onClick={() => handleUploadBeforeImage(row.lineItemId)}>
+                    Upload Before Image
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
 
               {/* Dropdown card */}
               {expanded.includes(row.lineItemId) && hiddenColumns.length > 0 && (
@@ -241,32 +286,32 @@ export default function OpBranchDelivery() {
         </button>
 
         <InProcessModal
-            open={modalOpen}
-            onOpenChange={setModalOpen}
-            selectedCount={selected.length}
-            onConfirm={async () => {
-              try {
-                // 1. Call API to update status
-                await editLineItemStatus(selected, "In Process");
-  
-                // 2. Remove updated items from local state (since they're no longer "Queued")
-                setRows((prevRows) =>
-                  prevRows.filter((row) => !selected.includes(row.lineItemId))
-                );
-  
-                // 3. Clear selection
-                setSelected([]);
-  
-                // 4. Close modal
-                setModalOpen(false);
-  
-                console.log("Updated line items (removed from list):", selected);
-              } catch (error) {
-                console.error("Failed to update line items status:", error);
-              }
-            }}
-          />
+          open={modalOpen}
+          onOpenChange={setModalOpen}
+          selectedCount={selected.length}
+          onConfirm={async () => {
+            try {
+              await editLineItemStatus(selected, "In Process");
+              setRows((prevRows) =>
+                prevRows.filter((row) => !selected.includes(row.lineItemId))
+              );
+              setSelected([]);
+              setModalOpen(false);
+              toast.success("Selected items marked as In Process!"); // Success toast
+            } catch (error) {
+              console.error("Failed to update line items status:", error);
+              toast.error("Failed to update items. Please try again."); // Error toast
+            }
+          }}
+        />
       </div>
+
+      {/* Upload Before Image Modal */}
+      <OpBfrImg
+        open={uploadModalOpen}
+        onOpenChange={setUploadModalOpen}
+        lineItemId={activeLineItemId}
+      />
     </div>
   );
 }
