@@ -7,14 +7,14 @@ export const getPaymentStatus = async (transaction_id: string): Promise<string |
       return null;
     }
 
-    const url = `${API_BASE_URL}/transactions/${transaction_id}`;
+    const url = `${API_BASE_URL}/api/transactions/${transaction_id}`;
     const res = await fetch(url);
 
     if (!res.ok) throw new Error("Failed to fetch transaction");
 
-    const transaction = await res.json();
-    console.log("API transaction response:", transaction);
-    return transaction.payment_status || null;
+    const data = await res.json();
+    console.log("API transaction response:", data);
+    return data.transaction?.payment_status || null;
   } catch (err) {
     console.error("Error fetching payment status:", err);
     return null;

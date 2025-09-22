@@ -66,7 +66,6 @@ export default function Operations() {
   // Tab content filtering logic
   const getTabContent = () => {
     if (branchType === "A") {
-      // Show all tabs
       return [
         <OpServiceQueue key={0} />,
         <OpReadyDelivery key={1} />,
@@ -81,7 +80,7 @@ export default function Operations() {
       // Show 0, 1, 4, 5, 6
       const tabs = [
         <OpServiceQueue key={0} />,
-        <OpReadyDelivery key={1} />,
+        <OpReadyDelivery key={1} readOnly={true} />, // <-- readOnly for B
         null, // 2 hidden
         null, // 3 hidden
         <OpReturnBranch key={4} />,
@@ -91,15 +90,15 @@ export default function Operations() {
       return tabs[activeIndex];
     }
     if (branchType === "W") {
-      // Show 2, 3 (and 4 as read-only later)
+      // For warehouse, only tab 4 is read-only
       const tabs = [
         null, // 0 hidden
-        null, // 1 hidden
+        <OpReadyDelivery key={1} />, // NOT readOnly
         <OpBranchDelivery key={2} />,
         <OpWarehouse key={3} />,
-        null, // 4 hidden for now
-        null, // 5 hidden
-        null  // 6 hidden
+        <OpReturnBranch key={4} readOnly={true} />, // <-- readOnly only here
+        null,
+        null
       ];
       return tabs[activeIndex];
     }
@@ -110,7 +109,7 @@ export default function Operations() {
   const getVisibleTabs = () => {
     if (branchType === "A") return [0, 1, 2, 3, 4, 5, 6];
     if (branchType === "B") return [0, 1, 4, 5, 6];
-    if (branchType === "W") return [2, 3]; // add 4 later for read-only
+    if (branchType === "W") return [1, 2, 3, 4]; // add 4 later for read-only
     return [];
   };
 

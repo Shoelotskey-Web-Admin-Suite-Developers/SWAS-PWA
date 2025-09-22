@@ -93,3 +93,29 @@ export const updateLineItemStatus = async (req: Request, res: Response) => {
     res.status(500).json({ message: "Server error updating line items" });
   }
 };
+
+// PUT /line-items/:id/image
+export const updateLineItemImage = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { type, url } = req.body; // type: "before" | "after", url: string
+
+  if (!["before", "after"].includes(type) || !url) {
+    return res.status(400).json({ message: "type ('before' or 'after') and url are required" });
+  }
+
+  try {
+    const updateField = type === "before" ? { before_img: url } : { after_img: url };
+    const item = await LineItem.findOneAndUpdate(
+      { line_item_id: id },
+      updateField,
+      { new: true }
+    );
+    if (!item) {
+      return res.status(404).json({ message: "Line item not found" });
+    }
+    res.status(200).json(item);
+  } catch (error) {
+    console.error("Error updating line item image:", error);
+    res.status(500).json({ message: "Server error updating image" });
+  }
+};

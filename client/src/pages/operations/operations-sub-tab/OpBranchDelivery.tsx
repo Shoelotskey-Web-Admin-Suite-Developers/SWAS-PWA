@@ -23,6 +23,7 @@ import {
   ContextMenuSeparator,
 } from "@/components/ui/context-menu";
 import OpBfrImg from "@/components/operations/modals/OpBfrImg";
+import IconImg from "@/assets/icons/img-gall-icon.svg?react";
 
 type Branch = "Valenzuela" | "SM Valenzuela" | "SM Grand";
 type Location = "Branch" | "Hub" | "To Branch" | "To Hub";
@@ -39,6 +40,7 @@ type Row = {
   isRush: boolean;
   dueDate: Date;  
   updated: Date;
+  before_img: string | null;
 };
 
 export default function OpBranchDelivery() {
@@ -66,6 +68,7 @@ export default function OpBranchDelivery() {
     isRush: item.priority === "Rush",
     dueDate: item.due_date ? new Date(item.due_date) : new Date(),
     updated: new Date(item.latest_update),
+    before_img: item.before_img || null,
   });
 
   const mapItems = (items: any[]): Row[] => items.map(mapItem);
@@ -125,8 +128,20 @@ export default function OpBranchDelivery() {
   };
 
   const handleUploadBeforeImage = (lineItemId: string) => {
-    setActiveLineItemId(lineItemId);
-    setUploadModalOpen(true);
+    // Delay opening modal to allow context menu to close and focus to release
+    setTimeout(() => {
+      setActiveLineItemId(lineItemId);
+      setUploadModalOpen(true);
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    }, 50); // 50ms is enough for Radix to close the menu
+  };
+
+  const handleCloseUploadModal = () => {
+    setUploadModalOpen(false);
+    setActiveLineItemId(null);
+    (document.activeElement instanceof HTMLElement) && document.activeElement.blur(); // Remove focus from any overlay
   };
 
   // determine hidden columns per breakpoint
@@ -209,7 +224,10 @@ export default function OpBranchDelivery() {
                       )}
                     </TableCell>
                     <TableCell className="op-body-due"><small>{row.dueDate.toLocaleDateString()}</small></TableCell>
-                    <TableCell className="op-body-mod"><small>{row.updated.toLocaleDateString()}</small></TableCell>
+                    <TableCell className="op-body-mod"><small>{row.updated.toLocaleDateString()}{row.before_img
+                        ? <span title="Before image uploaded"><h6>B_IMG ✓</h6></span>
+                        : <span title="No before image"></span>
+                      }</small></TableCell>
                     {hiddenColumns.length > 0 && (
                       <TableCell className="op-body-dropdown-toggle">
                         <button
@@ -225,7 +243,7 @@ export default function OpBranchDelivery() {
                 <ContextMenuContent>
                   <ContextMenuLabel>Actions</ContextMenuLabel>
                   <ContextMenuSeparator />
-                  <ContextMenuItem onClick={() => handleUploadBeforeImage(row.lineItemId)}>
+                  <ContextMenuItem onSelect={() => handleUploadBeforeImage(row.lineItemId)}>
                     Upload Before Image
                   </ContextMenuItem>
                 </ContextMenuContent>
@@ -309,7 +327,7 @@ export default function OpBranchDelivery() {
       {/* Upload Before Image Modal */}
       <OpBfrImg
         open={uploadModalOpen}
-        onOpenChange={setUploadModalOpen}
+        onOpenChange={handleCloseUploadModal}
         lineItemId={activeLineItemId}
       />
     </div>

@@ -32,7 +32,7 @@ type Row = {
   updated: Date;
 };
 
-export default function OpReadyDelivery() {
+export default function OpReadyDelivery({ readOnly = false }) {
   const [rows, setRows] = useState<Row[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [lastIndex, setLastIndex] = useState<number | null>(null);
@@ -76,7 +76,8 @@ export default function OpReadyDelivery() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const handleRowClick = (
+  // Disable selection logic if readOnly
+  const handleRowClick = readOnly ? undefined : (
     e: React.MouseEvent,
     rowId: string,
     rowIndex: number
@@ -96,7 +97,7 @@ export default function OpReadyDelivery() {
     }
   };
 
-  const toggleCheckbox = (rowId: string, rowIndex: number) => {
+  const toggleCheckbox = readOnly ? undefined : (rowId: string, rowIndex: number) => {
     setSelected((prev) =>
       prev.includes(rowId)
         ? prev.filter((id) => id !== rowId)
@@ -146,17 +147,20 @@ export default function OpReadyDelivery() {
 
         <TableBody className="op-body">
           {rows.map((row, index) => (
-            <React.Fragment key={row.lineItemId}> {/* updated */}
+            <React.Fragment key={row.lineItemId}>
               <TableRow
-                className={`op-body-row ${selected.includes(row.lineItemId) ? "selected" : ""}`}
-                onClick={(e) => handleRowClick(e, row.lineItemId, index)}
+                className={`op-body-row ${selected.includes(row.lineItemId) ? "selected" : ""} ${readOnly ? "read-only-row" : ""}`}
+                onClick={handleRowClick ? (e) => handleRowClick(e, row.lineItemId, index) : undefined}
+                style={readOnly ? { pointerEvents: "none", opacity: 0.7 } : {}}
               >
                 <TableCell className="op-body-action" onClick={(e) => e.stopPropagation()}>
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(row.lineItemId)}
-                    onChange={() => toggleCheckbox(row.lineItemId, index)}
-                  />
+                  {!readOnly && (
+                    <input
+                      type="checkbox"
+                      checked={selected.includes(row.lineItemId)}
+                      onChange={() => toggleCheckbox && toggleCheckbox(row.lineItemId, index)}
+                    />
+                  )}
                 </TableCell>
                 <TableCell className="op-body-transact"><h5>{row.lineItemId}</h5></TableCell>
                 <TableCell className="op-body-date"><small>{row.date.toLocaleDateString()}</small></TableCell>
@@ -231,36 +235,39 @@ export default function OpReadyDelivery() {
         </TableBody>
       </Table>
 
-      <div className="op-below-container flex justify-end gap-4 mt-2">
-        <p>{selected.length} item(s) selected</p>
-        <button
-          className="op-btn-rd op-btn text-white bg-[#1447E6] button-md disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={selected.length === 0}
-          onClick={() => setModalOpen(true)}
-        >
-          <h5>Move To Warehouse</h5>
-        </button>
+      {/* Only show "n items selected" and button if not readOnly */}
+      {!readOnly && (
+        <div className="op-below-container flex justify-end gap-4 mt-2">
+          <p>{selected.length} item(s) selected</p>
+          <button
+            className="op-btn-rd op-btn text-white bg-[#1447E6] button-md disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={selected.length === 0}
+            onClick={() => setModalOpen(true)}
+          >
+            <h5>Move To Warehouse</h5>
+          </button>
 
-        <ToWarehouseModal
-          open={modalOpen}
-          onOpenChange={setModalOpen}
-          selectedCount={selected.length}
-          onConfirm={async () => {
-            try {
-              await editLineItemStatus(selected, "Incoming Branch Delivery");
-              setRows((prevRows) =>
-                prevRows.filter((row) => !selected.includes(row.lineItemId))
-              );
-              setSelected([]);
-              setModalOpen(false);
-              toast.success("Selected items moved to warehouse!"); // Success toast
-            } catch (error) {
-              console.error("Failed to update line items status:", error);
-              toast.error("Failed to update items. Please try again."); // Error toast
-            }
-          }}
-        />
-      </div>
+          <ToWarehouseModal
+            open={modalOpen}
+            onOpenChange={setModalOpen}
+            selectedCount={selected.length}
+            onConfirm={async () => {
+              try {
+                await editLineItemStatus(selected, "Incoming Branch Delivery");
+                setRows((prevRows) =>
+                  prevRows.filter((row) => !selected.includes(row.lineItemId))
+                );
+                setSelected([]);
+                setModalOpen(false);
+                toast.success("Selected items moved to warehouse!"); // Success toast
+              } catch (error) {
+                console.error("Failed to update line items status:", error);
+                toast.error("Failed to update items. Please try again."); // Error toast
+              }
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }

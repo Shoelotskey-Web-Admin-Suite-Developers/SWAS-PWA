@@ -32,7 +32,7 @@ type Row = {
   updated: Date;
 };
 
-export default function OpReturnBranch() {
+export default function OpReturnBranch({ readOnly = false }) {
   const [rows, setRows] = useState<Row[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [lastIndex, setLastIndex] = useState<number | null>(null);
@@ -76,7 +76,8 @@ export default function OpReturnBranch() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const handleRowClick = (
+  // Disable selection logic if readOnly
+  const handleRowClick = readOnly ? undefined : (
     e: React.MouseEvent,
     rowId: string,
     rowIndex: number
@@ -123,6 +124,7 @@ export default function OpReturnBranch() {
 
   return (
     <div className="op-container">
+
       <Table className="op-table">
         <TableHeader className="op-header">
           <TableRow className="op-header-row">
@@ -148,15 +150,18 @@ export default function OpReturnBranch() {
           {rows.map((row, index) => (
             <React.Fragment key={row.lineItemId}>
               <TableRow
-                className={`op-body-row ${selected.includes(row.lineItemId) ? "selected" : ""}`}
-                onClick={(e) => handleRowClick(e, row.lineItemId, index)}
+                className={`op-body-row ${selected.includes(row.lineItemId) ? "selected" : ""} ${readOnly ? "read-only-row" : ""}`}
+                onClick={handleRowClick ? (e) => handleRowClick(e, row.lineItemId, index) : undefined}
+                style={readOnly ? { pointerEvents: "none", opacity: 0.7 } : {}}
               >
                 <TableCell className="op-body-action" onClick={(e) => e.stopPropagation()}>
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(row.lineItemId)}
-                    onChange={() => toggleCheckbox(row.lineItemId, index)}
-                  />
+                  {!readOnly && (
+                    <input
+                      type="checkbox"
+                      checked={selected.includes(row.lineItemId)}
+                      onChange={() => toggleCheckbox && toggleCheckbox(row.lineItemId, index)}
+                    />
+                  )}
                 </TableCell>
                 <TableCell className="op-body-transact"><h5>{row.lineItemId}</h5></TableCell>
                 <TableCell className="op-body-date"><small>{row.date.toLocaleDateString()}</small></TableCell>
@@ -231,43 +236,46 @@ export default function OpReturnBranch() {
         </TableBody>
       </Table>
 
-      <div className="op-below-container flex justify-end gap-4 mt-2">
-        <p>{selected.length} item(s) selected</p>
-        <button
-          className="op-btn-rb op-btn text-white bg-[#0E9CFF] button-md disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={selected.length === 0}
-          onClick={() => setModalOpen(true)}
-        >
-          <h5>Mark as Received</h5>
-        </button>
-        <ReceivedModal
-          open={modalOpen}
-          onOpenChange={setModalOpen}
-          selectedCount={selected.length}
-          onConfirm={async () => {
-            try {
-              // 1. Call API to update status
-              await editLineItemStatus(selected, "To Pack");
+      {/* Hide action buttons if readOnly */}
+      {!readOnly && (
+        <div className="op-below-container flex justify-end gap-4 mt-2">
+          <p>{selected.length} item(s) selected</p>
+          <button
+            className="op-btn-rb op-btn text-white bg-[#0E9CFF] button-md disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={selected.length === 0}
+            onClick={() => setModalOpen(true)}
+          >
+            <h5>Mark as Received</h5>
+          </button>
+          <ReceivedModal
+            open={modalOpen}
+            onOpenChange={setModalOpen}
+            selectedCount={selected.length}
+            onConfirm={async () => {
+              try {
+                // 1. Call API to update status
+                await editLineItemStatus(selected, "To Pack");
 
-              // 2. Remove updated items from local state
-              setRows((prevRows) =>
-                prevRows.filter((row) => !selected.includes(row.lineItemId))
-              );
+                // 2. Remove updated items from local state
+                setRows((prevRows) =>
+                  prevRows.filter((row) => !selected.includes(row.lineItemId))
+                );
 
-              // 3. Clear selection
-              setSelected([]);
+                // 3. Clear selection
+                setSelected([]);
 
-              // 4. Close modal
-              setModalOpen(false);
+                // 4. Close modal
+                setModalOpen(false);
 
-              toast.success("Selected items marked as Received!"); // Success toast
-            } catch (error) {
-              console.error("Failed to update line items status:", error);
-              toast.error("Failed to update items. Please try again."); // Error toast
-            }
-          }}
-        />
-      </div>
+                toast.success("Selected items marked as Received!"); // Success toast
+              } catch (error) {
+                console.error("Failed to update line items status:", error);
+                toast.error("Failed to update items. Please try again."); // Error toast
+              }
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }
