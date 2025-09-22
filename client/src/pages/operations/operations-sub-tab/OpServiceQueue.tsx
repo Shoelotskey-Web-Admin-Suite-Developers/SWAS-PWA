@@ -12,6 +12,7 @@ import MarkAsReadyModal from "@/components/operations/modals/OpSQModal";
 import { getLineItems } from "@/utils/api/getLineItems";
 import { editLineItemStatus } from "@/utils/api/editLineItemStatus";
 import { useLineItemUpdates } from "@/hooks/useLineItemUpdates";
+import { toast, Toaster } from "sonner";
 
 type Branch = "Valenzuela" | "SM Valenzuela" | "SM Grand";
 type Location = "Branch" | "Hub" | "To Branch" | "To Hub";
@@ -248,23 +249,16 @@ export default function OpServiceQueue() {
           selectedCount={selected.length}
           onConfirm={async () => {
             try {
-              // 1. Call API to update status
               await editLineItemStatus(selected, "Ready for Delivery");
-
-              // 2. Remove updated items from local state (since they're no longer "Queued")
               setRows((prevRows) =>
                 prevRows.filter((row) => !selected.includes(row.lineItemId))
               );
-
-              // 3. Clear selection
               setSelected([]);
-
-              // 4. Close modal
               setModalOpen(false);
-
-              console.log("Updated line items (removed from list):", selected);
+              toast.success("Selected items marked as ready for delivery!"); // Success toast
             } catch (error) {
               console.error("Failed to update line items status:", error);
+              toast.error("Failed to update items. Please try again."); // Error toast
             }
           }}
         />

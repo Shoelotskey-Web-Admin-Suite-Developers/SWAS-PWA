@@ -25,13 +25,23 @@ export const updateLineItemStatus = async (req: Request, res: Response) => {
   const { line_item_ids, new_status } = req.body;
 
   if (!line_item_ids || !new_status) {
-    return res.status(400).json({ message: "line_item=ids and new_status are required" });
+    return res.status(400).json({ message: "line_item_ids and new_status are required" });
   }
 
   try {
+    const updateFields: any = {
+      current_status: new_status,
+      latest_update: new Date(),
+    };
+
+    // If marking as Ready for Pickup, set pickUpNotice
+    if (new_status === "Ready for Pickup") {
+      updateFields.pickUpNotice = new Date();
+    }
+
     const result = await LineItem.updateMany(
       { line_item_id: { $in: line_item_ids } },
-      { current_status: new_status, latest_update: new Date() }
+      updateFields
     );
 
     if (result.matchedCount === 0) {

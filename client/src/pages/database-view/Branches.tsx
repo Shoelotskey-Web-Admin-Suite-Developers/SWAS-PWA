@@ -17,6 +17,7 @@ import { AddUserDialog } from "@/components/database-view/AddUserDialog"
 import { getBranches } from "@/utils/api/getBranches"
 import { getUsers, User as APIUser } from "@/utils/api/getUser"
 import { addUser } from "@/utils/api/addUser"
+import { toast, Toaster } from "sonner"
 
 type Branch = {
   branch_id: string
@@ -82,12 +83,13 @@ export default function Branches() {
       }
 
       setUsers((prev) => [...prev, mappedUser])
+      toast.success("User added successfully") // Success toast
     } catch (err) {
       console.error("Failed to add user:", err)
       if (err instanceof Error) {
-        alert(`Could not add user: ${err.message}`)
+        toast.error(`Could not add user: ${err.message}`) // Error toast
       } else {
-        alert("Could not add user: Unknown error")
+        toast.error("Could not add user: Unknown error") // Error toast
       }
     }
   }
@@ -257,7 +259,6 @@ export default function Branches() {
         />
       )}
 
-
       {selectedBranch && (
         <AddUserDialog
           open={addUserOpen}
@@ -267,6 +268,8 @@ export default function Branches() {
           defaultBranchId={selectedBranchId}
         />
       )}
+
+      <Toaster position="top-center" richColors />
     </div>
   )
 }

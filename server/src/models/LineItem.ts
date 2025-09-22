@@ -21,6 +21,7 @@ export interface ILineItem extends Document {
   latest_update: Date;
   before_img?: string | null;
   after_img?: string | null;
+  pickUpNotice?: Date | null; // <-- added field
 }
 
 const LineItemServiceSchema: Schema = new Schema<ILineItemService>(
@@ -47,6 +48,7 @@ const LineItemSchema: Schema = new Schema<ILineItem>(
     latest_update: { type: Date, default: Date.now },
     before_img: { type: String, default: null },
     after_img: { type: String, default: null },
+    pickUpNotice: { type: Date, default: null }, // <-- added field, default null
   },
   {
     toJSON: { virtuals: true },

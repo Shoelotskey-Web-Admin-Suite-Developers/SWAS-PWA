@@ -1,5 +1,6 @@
 // src/components/OpReadyDelivery.tsx
 import React, { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import {
   Table,
@@ -246,23 +247,16 @@ export default function OpReadyDelivery() {
           selectedCount={selected.length}
           onConfirm={async () => {
             try {
-              // 1. Call API to update status
               await editLineItemStatus(selected, "Incoming Branch Delivery");
-
-              // 2. Remove updated items from local state (since they're no longer "Queued")
               setRows((prevRows) =>
                 prevRows.filter((row) => !selected.includes(row.lineItemId))
               );
-
-              // 3. Clear selection
               setSelected([]);
-
-              // 4. Close modal
               setModalOpen(false);
-
-              console.log("Updated line items (removed from list):", selected);
+              toast.success("Selected items moved to warehouse!"); // Success toast
             } catch (error) {
               console.error("Failed to update line items status:", error);
+              toast.error("Failed to update items. Please try again."); // Error toast
             }
           }}
         />

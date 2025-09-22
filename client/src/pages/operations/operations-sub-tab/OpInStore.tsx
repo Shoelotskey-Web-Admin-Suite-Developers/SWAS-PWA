@@ -1,5 +1,6 @@
 // src/components/OpInStore.tsx
 import React, { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import {
   Table,
@@ -240,31 +241,32 @@ export default function OpInStore() {
           <h5>Mark As Ready for Pickup</h5>
         </button>
         <MarkAsReadyForPickupModal
-              open={modalOpen}
-              onOpenChange={setModalOpen}
-              selectedCount={selected.length}
-              onConfirm={async () => {
-                try {
-                  // 1. Call API to update status
-                  await editLineItemStatus(selected, "Ready for Pickup");
-    
-                  // 2. Remove updated items from local state (since they're no longer "Queued")
-                  setRows((prevRows) =>
-                    prevRows.filter((row) => !selected.includes(row.lineItemId))
-                  );
-    
-                  // 3. Clear selection
-                  setSelected([]);
-    
-                  // 4. Close modal
-                  setModalOpen(false);
-    
-                  console.log("Updated line items (removed from list):", selected);
-                } catch (error) {
-                  console.error("Failed to update line items status:", error);
-                }
-              }}
-            />
+          open={modalOpen}
+          onOpenChange={setModalOpen}
+          selectedCount={selected.length}
+          onConfirm={async () => {
+            try {
+              // 1. Call API to update status
+              await editLineItemStatus(selected, "Ready for Pickup");
+
+              // 2. Remove updated items from local state
+              setRows((prevRows) =>
+                prevRows.filter((row) => !selected.includes(row.lineItemId))
+              );
+
+              // 3. Clear selection
+              setSelected([]);
+
+              // 4. Close modal
+              setModalOpen(false);
+
+              toast.success("Selected items marked as Ready for Pickup!"); // Success toast
+            } catch (error) {
+              console.error("Failed to update line items status:", error);
+              toast.error("Failed to update items. Please try again."); // Error toast
+            }
+          }}
+        />
       </div>
     </div>
   );

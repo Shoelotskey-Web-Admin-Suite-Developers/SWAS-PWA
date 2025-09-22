@@ -1,6 +1,5 @@
 // src/components/OpServiceQueue.tsx
 import React, { useEffect, useState } from "react";
-
 import {
   Table,
   TableHeader,
@@ -9,126 +8,80 @@ import {
   TableBody,
   TableCell,
 } from "@/components/ui/table";
+import { getLineItems } from "@/utils/api/getLineItems";
+import { getCustomerContact } from "@/utils/api/getCustomerContact";
+import { getPaymentStatus } from "@/utils/api/getPaymentStatus";
 
+// Helper to compute days left/overdue
+function computePickupAllowance(pickUpNotice?: Date | null, allowanceDays = 10): number {
+  if (!pickUpNotice) return allowanceDays;
+  const now = new Date();
+  const diffMs = now.getTime() - pickUpNotice.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  return allowanceDays - diffDays;
+}
 
 type Branch = "Valenzuela" | "SM Valenzuela" | "SM Grand";
 type Location = "Branch" | "Hub" | "To Branch" | "To Hub";
 
 type Row = {
-  transactId: string;
+  lineItemId: string;
   date: Date;
   customer: string;
   shoe: string;
   service: string;
   branch: Branch;
-  pickupNotice?: { notifiedAt?: Date; allowanceDays: number };
+  pickupNotice?: Date | null;
+  allowanceDays: number;
   paymentStatus: "Paid" | "Unpaid" | "Partial";
   contact: string;
 };
 
-
-const INITIAL_ROWS: Row[] = [
-  {
-    transactId: "0001-001-VALEN",
-    date: new Date("2025-01-15"),
-    customer: "Juan Dela Cruz",
-    shoe: "Nike Air Force 1",
-    service: "Basic Cleaning",
-    branch: "Valenzuela",
-    pickupNotice: { notifiedAt: new Date("2025-01-16"), allowanceDays: 5 }, // 5 days left
-    paymentStatus: "Paid",
-    contact: "09171234567",
-  },
-  {
-    transactId: "0001-002-SMVAL",
-    date: new Date("2025-02-03"),
-    customer: "Maria Santos",
-    shoe: "Adidas Ultraboost",
-    service: "Deep Cleaning",
-    branch: "SM Valenzuela",
-    pickupNotice: { notifiedAt: new Date("2025-02-01"), allowanceDays: -2 }, // 2 days overdue
-    paymentStatus: "Unpaid",
-    contact: "09179876543",
-  },
-  {
-    transactId: "0001-003-GRAND",
-    date: new Date("2025-03-22"),
-    customer: "Carlo Mendoza",
-    shoe: "Converse Chuck Taylor",
-    service: "Basic Cleaning",
-    branch: "SM Grand",
-    pickupNotice: { notifiedAt: new Date("2025-03-20"), allowanceDays: 3 }, // 3 days left
-    paymentStatus: "Partial",
-    contact: "09221234567",
-  },
-  {
-    transactId: "0001-004-VALEN",
-    date: new Date("2025-04-10"),
-    customer: "Ana Reyes",
-    shoe: "Vans Old Skool",
-    service: "Deep Cleaning",
-    branch: "Valenzuela",
-    pickupNotice: { notifiedAt: new Date("2025-04-08"), allowanceDays: -1 }, // 1 day overdue
-    paymentStatus: "Paid",
-    contact: "09174561234",
-  },
-  {
-    transactId: "0001-005-SMVAL",
-    date: new Date("2025-05-05"),
-    customer: "Mark Lopez",
-    shoe: "Puma RS-X",
-    service: "Basic Cleaning",
-    branch: "SM Valenzuela",
-    pickupNotice: { notifiedAt: new Date("2025-05-03"), allowanceDays: 7 }, // 7 days left
-    paymentStatus: "Partial",
-    contact: "09221239876",
-  },
-  {
-    transactId: "0002-001-VALEN",
-    date: new Date("2025-01-15"),
-    customer: "Juan Dela Cruz",
-    shoe: "Nike Air Force 1",
-    service: "Basic Cleaning",
-    branch: "Valenzuela",
-    pickupNotice: { notifiedAt: new Date("2025-01-16"), allowanceDays: 5 }, // 5 days left
-    paymentStatus: "Paid",
-    contact: "09171234567",
-  },
-  {
-    transactId: "0003-001-VALEN",
-    date: new Date("2025-01-15"),
-    customer: "Juan Dela Cruz",
-    shoe: "Nike Air Force 1",
-    service: "Basic Cleaning",
-    branch: "Valenzuela",
-    pickupNotice: { notifiedAt: new Date("2025-01-16"), allowanceDays: 5 }, // 5 days left
-    paymentStatus: "Paid",
-    contact: "09171234567",
-  },
-  {
-    transactId: "0004-001-VALEN",
-    date: new Date("2025-01-15"),
-    customer: "Juan Dela Cruz",
-    shoe: "Nike Air Force 1",
-    service: "Basic Cleaning",
-    branch: "Valenzuela",
-    pickupNotice: { notifiedAt: new Date("2025-01-16"), allowanceDays: 5 }, // 5 days left
-    paymentStatus: "Paid",
-    contact: "09171234567",
-  },
-];
-
-
-
-
-
 export default function OpPickup() {
+  const [rows, setRows] = useState<Row[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [lastIndex, setLastIndex] = useState<number | null>(null);
   const [expanded, setExpanded] = useState<string[]>([]);
   const [windowWidth, setWindowWidth] = useState<number>(window.innerWidth);
 
-  // update windowWidth on resize
+  useEffect(() => {
+    const fetchRows = async () => {
+      const items = await getLineItems("Ready for Pickup");
+      const mappedRows: Row[] = await Promise.all(
+        items.map(async (item: any) => {
+          // Fetch customer contact and payment status
+          const contact = await getCustomerContact(item.cust_id) ?? "";
+          const paymentStatusRaw = await getPaymentStatus(item.transaction_id);
+          console.log("paymentStatusRaw:", paymentStatusRaw);
+          let paymentStatus: "Paid" | "Unpaid" | "Partial" = "Unpaid";
+          if (paymentStatusRaw === "PAID") paymentStatus = "Paid";
+          else if (paymentStatusRaw === "PARTIAL") paymentStatus = "Partial";
+
+          // Compute pickup notice and allowance
+          const pickupNotice = item.pickUpNotice ? new Date(item.pickUpNotice) : null;
+          const allowanceDays = computePickupAllowance(pickupNotice);
+
+          return {
+            lineItemId: item.line_item_id,
+            date: new Date(item.latest_update),
+            customer: item.cust_id,
+            shoe: item.shoes,
+            service: Array.isArray(item.services) && item.services.length > 0
+              ? item.services.map((s: any) => s.service_id).join(", ")
+              : "",
+            branch: item.branch_id as Branch,
+            pickupNotice,
+            allowanceDays,
+            paymentStatus,
+            contact,
+          };
+        })
+      );
+      setRows(mappedRows);
+    };
+    fetchRows();
+  }, []);
+
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener("resize", handleResize);
@@ -139,7 +92,7 @@ export default function OpPickup() {
     if (e.shiftKey && lastIndex !== null) {
       const start = Math.min(lastIndex, rowIndex);
       const end = Math.max(lastIndex, rowIndex);
-      const rangeIds = INITIAL_ROWS.slice(start, end + 1).map((r) => r.transactId);
+      const rangeIds = rows.slice(start, end + 1).map((r) => r.lineItemId);
       setSelected(rangeIds);
     } else {
       setSelected((prev) =>
@@ -166,14 +119,12 @@ export default function OpPickup() {
     );
   };
 
-  // determine hidden columns per breakpoint
   const getHiddenColumns = () => {
-  if (windowWidth <= 899) return ["Date", "Service", "Shoe", "Customer", "Contact"];
-  if (windowWidth <= 1124) return ["Date", "Service", "Shoe", "Customer", "Contact"];
-  if (windowWidth <= 1312) return ["Date", "Service"];
-  return [];
-};
-
+    if (windowWidth <= 899) return ["Date", "Service", "Shoe", "Customer", "Contact"];
+    if (windowWidth <= 1124) return ["Date", "Service", "Shoe", "Customer", "Contact"];
+    if (windowWidth <= 1312) return ["Date", "Service"];
+    return [];
+  };
 
   const hiddenColumns = getHiddenColumns();
 
@@ -182,7 +133,7 @@ export default function OpPickup() {
       <Table className="op-table">
         <TableHeader className="op-header">
           <TableRow className="op-header-row">
-            <TableHead className="op-pu-head-transact"><h5>Transaction No</h5></TableHead>
+            <TableHead className="op-pu-head-transact"><h5>Line Item ID</h5></TableHead>
             <TableHead className="op-pu-head-date"><h5>Date</h5></TableHead>
             <TableHead className="op-pu-head-customer"><h5>Customer</h5></TableHead>
             <TableHead className="op-pu-head-shoe"><h5>Shoe</h5></TableHead>
@@ -196,41 +147,38 @@ export default function OpPickup() {
         </TableHeader>
 
         <TableBody className="op-body">
-          {INITIAL_ROWS.map((row, index) => (
-            <React.Fragment key={row.transactId}>
+          {rows.map((row, index) => (
+            <React.Fragment key={row.lineItemId}>
               <TableRow
-                className={`op-body-row ${selected.includes(row.transactId) ? "selected" : ""}`}
+                className={`op-body-row ${selected.includes(row.lineItemId) ? "selected" : ""}`}
               >
-                <TableCell className="op-pu-body-transact"><h5>{row.transactId}</h5></TableCell>
+                <TableCell className="op-pu-body-transact"><h5>{row.lineItemId}</h5></TableCell>
                 <TableCell className="op-pu-body-date"><small>{row.date.toLocaleDateString()}</small></TableCell>
                 <TableCell className="op-pu-body-customer"><small>{row.customer}</small></TableCell>
                 <TableCell className="op-pu-body-shoe"><small>{row.shoe}</small></TableCell>
                 <TableCell className="op-pu-body-service"><small>{row.service}</small></TableCell>
                 <TableCell className="op-pu-body-branch"><small>{row.branch}</small></TableCell>
-
                 {/* Pickup Notice */}
                 <TableCell className="op-pu-body-pickup-notice">
-                  {row.pickupNotice?.notifiedAt && (
+                  {row.pickupNotice && (
                     <>
-                      <div>📢 <small>{row.pickupNotice.notifiedAt.toLocaleDateString()}</small></div>
+                      <div>📢 <small>{row.pickupNotice.toLocaleDateString()}</small></div>
                       <div className={
-                        row.pickupNotice.allowanceDays <= 0
+                        row.allowanceDays <= 0
                           ? "text-red-600"
-                          : row.pickupNotice.allowanceDays <= 3
+                          : row.allowanceDays <= 3
                           ? "text-yellow-600"
                           : "text-green-600"
                       }>
                         <small>
-                          {row.pickupNotice.allowanceDays > 0
-                            ? `${row.pickupNotice.allowanceDays} days left`
-                            : `+${Math.abs(row.pickupNotice.allowanceDays)} days overdue`}
+                          {row.allowanceDays > 0
+                            ? `${row.allowanceDays} days left`
+                            : `+${Math.abs(row.allowanceDays)} days overdue`}
                         </small>
                       </div>
                     </>
                   )}
                 </TableCell>
-
-
                 {/* Payment Status */}
                 <TableCell className="op-pu-body-payment-status">
                   <span
@@ -245,32 +193,28 @@ export default function OpPickup() {
                     {row.paymentStatus}
                   </span>
                 </TableCell>
-
                 {/* Contact */}
                 <TableCell className="op-pu-body-contact"><small>{row.contact}</small></TableCell>
-
                 {/* Chevron for dropdown */}
                 {hiddenColumns.length > 0 && (
                   <TableCell className="op-pu-body-dropdown-toggle">
                     <button
-                      onClick={(e) => { e.stopPropagation(); toggleExpand(row.transactId); }}
-                      className={`chevron-btn ${expanded.includes(row.transactId) ? "rotate-180" : ""}`}
+                      onClick={(e) => { e.stopPropagation(); toggleExpand(row.lineItemId); }}
+                      className={`chevron-btn ${expanded.includes(row.lineItemId) ? "rotate-180" : ""}`}
                     >
                       ▾
                     </button>
                   </TableCell>
                 )}
               </TableRow>
-
               {/* Dropdown card for hidden columns */}
-              {expanded.includes(row.transactId) && hiddenColumns.length > 0 && (
+              {expanded.includes(row.lineItemId) && hiddenColumns.length > 0 && (
                 <TableRow className="op-body-dropdown-row">
                   <TableCell colSpan={9} className="op-dropdown-cell">
                     <div className="op-dropdown-card">
                       {hiddenColumns.includes("Date") && (
                         <div><h5 className="label">Date</h5> <h5 className="name">{row.date.toLocaleDateString()}</h5></div>
                       )}
-
                       {hiddenColumns.includes("Customer") && (
                         <div><h5 className="label">Customer</h5> <h5 className="name">{row.customer}</h5></div>
                       )}
@@ -283,14 +227,14 @@ export default function OpPickup() {
                       {hiddenColumns.includes("Branch") && (
                         <div><h5 className="label">Branch</h5> <h5 className="name">{row.branch}</h5></div>
                       )}
-                      {hiddenColumns.includes("PickupNotice") && row.pickupNotice?.notifiedAt && (
+                      {hiddenColumns.includes("PickupNotice") && row.pickupNotice && (
                         <div>
                           <h5 className="label">Pickup Notice</h5>
-                          <div>{row.pickupNotice.notifiedAt.toLocaleDateString()}</div>
-                          <div className={row.pickupNotice.allowanceDays < 0 ? "text-red-600" : ""}>
-                            {row.pickupNotice.allowanceDays >= 0
-                              ? `${row.pickupNotice.allowanceDays} days left`
-                              : `+${Math.abs(row.pickupNotice.allowanceDays)} days overdue`}
+                          <div>{row.pickupNotice.toLocaleDateString()}</div>
+                          <div className={row.allowanceDays < 0 ? "text-red-600" : ""}>
+                            {row.allowanceDays >= 0
+                              ? `${row.allowanceDays} days left`
+                              : `+${Math.abs(row.allowanceDays)} days overdue`}
                           </div>
                         </div>
                       )}
