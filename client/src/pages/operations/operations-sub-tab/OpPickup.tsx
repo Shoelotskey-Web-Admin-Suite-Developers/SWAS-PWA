@@ -11,15 +11,7 @@ import {
 import { getLineItems } from "@/utils/api/getLineItems";
 import { getCustomerContact } from "@/utils/api/getCustomerContact";
 import { getPaymentStatus } from "@/utils/api/getPaymentStatus";
-
-// Helper to compute days left/overdue
-function computePickupAllowance(pickUpNotice?: Date | null, allowanceDays = 10): number {
-  if (!pickUpNotice) return allowanceDays;
-  const now = new Date();
-  const diffMs = now.getTime() - pickUpNotice.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  return allowanceDays - diffDays;
-}
+import { computePickupAllowance } from "@/utils/computePickupAllowance"; // <-- import helper
 
 type Branch = "Valenzuela" | "SM Valenzuela" | "SM Grand";
 type Location = "Branch" | "Hub" | "To Branch" | "To Hub";

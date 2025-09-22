@@ -47,6 +47,9 @@ app.use("/line-items", lineItemRoutes);
 app.use("/api/appointments", appointmentsRoutes);
 app.use("/api/services", serviceRoutes);
 app.use("/api/service-request", serviceRequestRoutes);
+app.use("/transactions", transactionRoutes);
+app.use("/api/line-item-image", lineItemImageRoutes);
+app.use("/api/transactions", transactionRoutes);
 
 // Test route
 app.get("/", (req: Request, res: Response) => {
