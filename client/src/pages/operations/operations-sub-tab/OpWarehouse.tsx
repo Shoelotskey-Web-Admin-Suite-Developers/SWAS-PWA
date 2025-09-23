@@ -12,8 +12,18 @@ import {
 } from "@/components/ui/table";
 
 import ReturnToBranchModal from "@/components/operations/modals/OpWHModal"
+import OpAfrImg from "@/components/operations/modals/OpAfrImg";
 import { getLineItems } from "@/utils/api/getLineItems";
 import { editLineItemStatus } from "@/utils/api/editLineItemStatus";
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuLabel,
+  ContextMenuSeparator,
+} from "@/components/ui/context-menu";
+import { getUpdateColor } from "@/utils/getUpdateColor";
 
 type Branch = "Valenzuela" | "SM Valenzuela" | "SM Grand";
 type Location = "Branch" | "Hub" | "To Branch" | "To Hub";
@@ -30,6 +40,8 @@ type Row = {
   isRush: boolean;
   dueDate: Date;  
   updated: Date;
+  before_img?: string | null;
+  after_img?: string | null;
 };
 
 export default function OpWarehouse() {
@@ -39,6 +51,8 @@ export default function OpWarehouse() {
   const [expanded, setExpanded] = useState<string[]>([]);
   const [windowWidth, setWindowWidth] = useState<number>(window.innerWidth);
   const [modalOpen, setModalOpen] = useState(false);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [activeLineItemId, setActiveLineItemId] = useState<string | null>(null);
 
   // --- helpers ---
   const mapItem = (item: any): Row => ({
@@ -53,6 +67,8 @@ export default function OpWarehouse() {
     isRush: item.priority === "Rush",
     dueDate: item.due_date ? new Date(item.due_date) : new Date(),
     updated: new Date(item.latest_update),
+    before_img: item.before_img || null,
+    after_img: item.after_img || null,
   });
 
   const mapItems = (items: any[]): Row[] => items.map(mapItem);
@@ -119,6 +135,22 @@ export default function OpWarehouse() {
 
   const hiddenColumns = getHiddenColumns();
 
+  const handleUploadAfterImage = (lineItemId: string) => {
+    setTimeout(() => {
+      setActiveLineItemId(lineItemId);
+      setUploadModalOpen(true);
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    }, 50);
+  };
+
+  const handleCloseUploadModal = () => {
+    setUploadModalOpen(false);
+    setActiveLineItemId(null);
+    (document.activeElement instanceof HTMLElement) && document.activeElement.blur();
+  };
+
   return (
     <div className="op-container">
       <Table className="op-table">
@@ -145,45 +177,68 @@ export default function OpWarehouse() {
         <TableBody className="op-body">
           {rows.map((row, index) => (
             <React.Fragment key={row.lineItemId}>
-              <TableRow
-                className={`op-body-row ${selected.includes(row.lineItemId) ? "selected" : ""}`}
-                onClick={(e) => handleRowClick(e, row.lineItemId, index)}
-              >
-                <TableCell className="op-body-action" onClick={(e) => e.stopPropagation()}>
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(row.lineItemId)}
-                    onChange={() => toggleCheckbox(row.lineItemId, index)}
-                  />
-                </TableCell>
-                <TableCell className="op-body-transact"><h5 className="text-[#000000]">{row.lineItemId}</h5></TableCell>
-                <TableCell className="op-body-date"><small>{row.date.toLocaleDateString()}</small></TableCell>
-                <TableCell className="op-body-customer"><small>{row.customer}</small></TableCell>
-                <TableCell className="op-body-shoe"><small>{row.shoe}</small></TableCell>
-                <TableCell className="op-body-service"><small>{row.service}</small></TableCell>
-                <TableCell className="op-body-branch"><small>{row.branch}</small></TableCell>
-                <TableCell className="op-body-location"><small>{row.Location}</small></TableCell>
-                <TableCell className="op-body-status op-status-wh"><h5>{row.status}</h5></TableCell>
-                <TableCell className="op-body-rush">
-                  {row.isRush ? (
-                    <span className="px-3 py-1 bg-red-200 text-red-800 rounded-full text-sm font-medium">Rush</span>
-                  ) : (
-                    <span className="px-3 py-1 bg-green-200 text-green-800 rounded-full text-sm font-medium">Normal</span>
-                  )}
-                </TableCell>
-                <TableCell className="op-body-due"><small>{row.dueDate.toLocaleDateString()}</small></TableCell>
-                <TableCell className="op-body-mod"><small>{row.updated.toLocaleDateString()}</small></TableCell>
-                {hiddenColumns.length > 0 && (
-                  <TableCell className="op-body-dropdown-toggle">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); toggleExpand(row.lineItemId); }}
-                      className={`chevron-btn ${expanded.includes(row.lineItemId) ? "rotate-180" : ""}`}
-                    >
-                      ▾
-                    </button>
-                  </TableCell>
-                )}
-              </TableRow>
+              <ContextMenu>
+                <ContextMenuTrigger asChild>
+                  <TableRow
+                    className={`op-body-row ${selected.includes(row.lineItemId) ? "selected" : ""}`}
+                    onClick={(e) => handleRowClick(e, row.lineItemId, index)}
+                  >
+                    <TableCell className={`op-body-action ${getUpdateColor(row.updated)}`} onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(row.lineItemId)}
+                        onChange={() => toggleCheckbox(row.lineItemId, index)}
+                      />
+                    </TableCell>
+                    <TableCell className={`op-body-transact ${getUpdateColor(row.updated)}`}><h5 className="text-[#000000]">{row.lineItemId}</h5></TableCell>
+                    <TableCell className={`op-body-date ${getUpdateColor(row.updated)}`}><small>{row.date.toLocaleDateString()}</small></TableCell>
+                    <TableCell className={`op-body-customer ${getUpdateColor(row.updated)}`}><small>{row.customer}</small></TableCell>
+                    <TableCell className={`op-body-shoe ${getUpdateColor(row.updated)}`}><small>{row.shoe}</small></TableCell>
+                    <TableCell className={`op-body-service ${getUpdateColor(row.updated)}`}><small>{row.service}</small></TableCell>
+                    <TableCell className={`op-body-branch ${getUpdateColor(row.updated)}`}><small>{row.branch}</small></TableCell>
+                    <TableCell className={`op-body-location ${getUpdateColor(row.updated)}`}><small>{row.Location}</small></TableCell>
+                    <TableCell className={`op-body-status op-status-wh ${getUpdateColor(row.updated)}`}><h5>{row.status}</h5></TableCell>
+                    <TableCell className={`op-body-rush ${getUpdateColor(row.updated)}`}>
+                      {row.isRush ? (
+                        <span className="px-3 py-1 bg-red-200 text-red-800 rounded-full text-sm font-medium">Rush</span>
+                      ) : (
+                        <span className="px-3 py-1 bg-green-200 text-green-800 rounded-full text-sm font-medium">Normal</span>
+                      )}
+                    </TableCell>
+                    <TableCell className={`op-body-due ${getUpdateColor(row.updated)}`}><small>{row.dueDate.toLocaleDateString()}</small></TableCell>
+                    <TableCell className={`op-body-mod ${getUpdateColor(row.updated)}`}>
+                      <small>
+                        {row.updated.toLocaleDateString()}
+                        {row.after_img
+                          ? <span title="After image uploaded"><h6>A_IMG ✓</h6></span>
+                          : <span title="No after image"></span>
+                        }
+                        {row.before_img
+                          ? <span title="Before image uploaded"><h6>B_IMG ✓</h6></span>
+                          : <span title="No before image"></span>
+                        }
+                      </small>
+                    </TableCell>
+                    {hiddenColumns.length > 0 && (
+                      <TableCell className={`op-body-dropdown-toggle ${getUpdateColor(row.updated)}`}>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleExpand(row.lineItemId); }}
+                          className={`chevron-btn ${expanded.includes(row.lineItemId) ? "rotate-180" : ""}`}
+                        >
+                          ▾
+                        </button>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                </ContextMenuTrigger>
+                <ContextMenuContent>
+                  <ContextMenuLabel>Actions</ContextMenuLabel>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem onSelect={() => handleUploadAfterImage(row.lineItemId)}>
+                    Upload After Image
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
 
               {expanded.includes(row.lineItemId) && hiddenColumns.length > 0 && (
                 <TableRow className="op-body-dropdown-row">
@@ -255,6 +310,21 @@ export default function OpWarehouse() {
               console.error("Failed to update line items status:", error);
               toast.error("Failed to update items. Please try again."); // Error toast
             }
+          }}
+        />
+
+        <OpAfrImg
+          open={uploadModalOpen}
+          onOpenChange={handleCloseUploadModal}
+          lineItemId={activeLineItemId}
+          onImageUploaded={(lineItemId, url) => {
+            setRows(prevRows =>
+              prevRows.map(row =>
+                row.lineItemId === lineItemId
+                  ? { ...row, after_img: url }
+                  : row
+              )
+            );
           }}
         />
       </div>

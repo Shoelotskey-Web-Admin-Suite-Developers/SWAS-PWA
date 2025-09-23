@@ -14,6 +14,7 @@ import {
 import ReceivedModal from "@/components/operations/modals/OpRBModal"
 import { getLineItems } from "@/utils/api/getLineItems";
 import { editLineItemStatus } from "@/utils/api/editLineItemStatus";
+import { getUpdateColor } from "@/utils/getUpdateColor";
 
 type Branch = "Valenzuela" | "SM Valenzuela" | "SM Grand";
 type Location = "Branch" | "Hub" | "To Branch" | "To Hub";
@@ -154,7 +155,7 @@ export default function OpReturnBranch({ readOnly = false }) {
                 onClick={handleRowClick ? (e) => handleRowClick(e, row.lineItemId, index) : undefined}
                 style={readOnly ? { pointerEvents: "none", opacity: 0.7 } : {}}
               >
-                <TableCell className="op-body-action" onClick={(e) => e.stopPropagation()}>
+                <TableCell className={`op-body-action ${getUpdateColor(row.updated)}`} onClick={(e) => e.stopPropagation()}>
                   {!readOnly && (
                     <input
                       type="checkbox"
@@ -163,25 +164,25 @@ export default function OpReturnBranch({ readOnly = false }) {
                     />
                   )}
                 </TableCell>
-                <TableCell className="op-body-transact"><h5>{row.lineItemId}</h5></TableCell>
-                <TableCell className="op-body-date"><small>{row.date.toLocaleDateString()}</small></TableCell>
-                <TableCell className="op-body-customer"><small>{row.customer}</small></TableCell>
-                <TableCell className="op-body-shoe"><small>{row.shoe}</small></TableCell>
-                <TableCell className="op-body-service"><small>{row.service}</small></TableCell>
-                <TableCell className="op-body-branch"><small>{row.branch}</small></TableCell>
-                <TableCell className="op-body-location"><small>{row.Location}</small></TableCell>
-                <TableCell className="op-body-status op-status-rb"><h5>{row.status}</h5></TableCell>
-                <TableCell className="op-body-rush">
+                <TableCell className={`op-body-transact ${getUpdateColor(row.updated)}`}><h5>{row.lineItemId}</h5></TableCell>
+                <TableCell className={`op-body-date ${getUpdateColor(row.updated)}`}><small>{row.date.toLocaleDateString()}</small></TableCell>
+                <TableCell className={`op-body-customer ${getUpdateColor(row.updated)}`}><small>{row.customer}</small></TableCell>
+                <TableCell className={`op-body-shoe ${getUpdateColor(row.updated)}`}><small>{row.shoe}</small></TableCell>
+                <TableCell className={`op-body-service ${getUpdateColor(row.updated)}`}><small>{row.service}</small></TableCell>
+                <TableCell className={`op-body-branch ${getUpdateColor(row.updated)}`}><small>{row.branch}</small></TableCell>
+                <TableCell className={`op-body-location ${getUpdateColor(row.updated)}`}><small>{row.Location}</small></TableCell>
+                <TableCell className={`op-body-status op-status-rb ${getUpdateColor(row.updated)}`}><h5>{row.status}</h5></TableCell>
+                <TableCell className={`op-body-rush ${getUpdateColor(row.updated)}`}>
                   {row.isRush ? (
                     <span className="px-3 py-1 bg-red-200 text-red-800 rounded-full text-sm font-medium">Rush</span>
                   ) : (
                     <span className="px-3 py-1 bg-green-200 text-green-800 rounded-full text-sm font-medium">Normal</span>
                   )}
                 </TableCell>
-                <TableCell className="op-body-due"><small>{row.dueDate.toLocaleDateString()}</small></TableCell>
-                <TableCell className="op-body-mod"><small>{row.updated.toLocaleDateString()}</small></TableCell>
+                <TableCell className={`op-body-due ${getUpdateColor(row.updated)}`}><small>{row.dueDate.toLocaleDateString()}</small></TableCell>
+                <TableCell className={`op-body-mod ${getUpdateColor(row.updated)}`}><small>{row.updated.toLocaleDateString()}</small></TableCell>
                 {hiddenColumns.length > 0 && (
-                  <TableCell className="op-body-dropdown-toggle">
+                  <TableCell className={`op-body-dropdown-toggle ${getUpdateColor(row.updated)}`}>
                     <button
                       onClick={(e) => { e.stopPropagation(); toggleExpand(row.lineItemId); }}
                       className={`chevron-btn ${expanded.includes(row.lineItemId) ? "rotate-180" : ""}`}

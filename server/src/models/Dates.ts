@@ -10,6 +10,7 @@ export interface IDates extends Document {
   rb_date?: Date;
   is_date?: Date;
   rpu_date?: Date;
+  current_status?: number; // Added field
 }
 
 const DatesSchema: Schema = new Schema<IDates>(
@@ -22,6 +23,7 @@ const DatesSchema: Schema = new Schema<IDates>(
     rb_date: { type: Date, default: null },
     is_date: { type: Date, default: null },
     rpu_date: { type: Date, default: null },
+    current_status: { type: Number, default: null }, // Added field
   }
 );
 

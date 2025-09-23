@@ -19,6 +19,7 @@ import serviceRequestRoutes from "./routes/serviceRequestRoutes";
 import transactionRoutes from "./routes/transactionRoutes";
 import { initSocket } from "./socket";
 import lineItemImageRoutes from "./routes/lineItemImageRoutes";
+import datesRoutes from "./routes/datesRoutes";
 
 dotenv.config();
 
@@ -50,6 +51,7 @@ app.use("/api/service-request", serviceRequestRoutes);
 app.use("/transactions", transactionRoutes);
 app.use("/api/line-item-image", lineItemImageRoutes);
 app.use("/api/transactions", transactionRoutes);
+app.use("/api/dates", datesRoutes);
 
 // Test route
 app.get("/", (req: Request, res: Response) => {

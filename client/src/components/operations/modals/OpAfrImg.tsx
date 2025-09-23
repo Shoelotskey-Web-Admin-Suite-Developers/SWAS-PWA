@@ -13,17 +13,16 @@ import {
 import { uploadToCloudinary } from "@/utils/api/cloudinaryUpload";
 import { saveLineItemImage } from "@/utils/api/editImageLink";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner"; // <-- import toast
+import { toast } from "sonner";
 
-// Add to props:
-interface OpBfrImgProps {
+interface OpAfrImgProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   lineItemId: string | null;
   onImageUploaded?: (lineItemId: string, url: string) => void;
 }
 
-export default function OpBfrImg({ open, onOpenChange, lineItemId, onImageUploaded }: OpBfrImgProps) {
+export default function OpAfrImg({ open, onOpenChange, lineItemId, onImageUploaded }: OpAfrImgProps) {
   const [step, setStep] = useState<"choose" | "upload" | "camera">("choose");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [cameraImg, setCameraImg] = useState<string | null>(null);
@@ -51,7 +50,6 @@ export default function OpBfrImg({ open, onOpenChange, lineItemId, onImageUpload
     }
   };
 
-  // --- CONNECTED UPLOAD LOGIC ---
   const handleUpload = async () => {
     if (!selectedFile || !lineItemId) return;
     const url = await uploadToCloudinary(selectedFile);
@@ -59,14 +57,14 @@ export default function OpBfrImg({ open, onOpenChange, lineItemId, onImageUpload
       toast.error("Image upload failed.");
       return;
     }
-    const success = await saveLineItemImage(lineItemId, "before", url);
+    const success = await saveLineItemImage(lineItemId, "after", url); // <-- "after" type
     if (!success) {
       toast.error("Failed to save image link to DB.");
       return;
     }
-    toast.success("Image uploaded and saved successfully!");
+    toast.success("After image uploaded and saved successfully!");
     if (onImageUploaded) {
-      onImageUploaded(lineItemId, url); // <-- update parent
+      onImageUploaded(lineItemId, url);
     }
     onOpenChange(false);
     setStep("choose");
@@ -86,7 +84,7 @@ export default function OpBfrImg({ open, onOpenChange, lineItemId, onImageUpload
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
-            <h2 className="text-lg font-bold">Upload Before Image</h2>
+            <h2 className="text-lg font-bold">Upload After Image</h2>
           </AlertDialogTitle>
           <AlertDialogDescription>
             <p className="mb-2">

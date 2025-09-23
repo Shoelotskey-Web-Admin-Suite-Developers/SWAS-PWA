@@ -12,6 +12,7 @@ import { getLineItems } from "@/utils/api/getLineItems";
 import { getCustomerContact } from "@/utils/api/getCustomerContact";
 import { getPaymentStatus } from "@/utils/api/getPaymentStatus";
 import { computePickupAllowance } from "@/utils/computePickupAllowance"; // <-- import helper
+import { getUpdateColor } from "@/utils/getUpdateColor";
 
 type Branch = "Valenzuela" | "SM Valenzuela" | "SM Grand";
 type Location = "Branch" | "Hub" | "To Branch" | "To Hub";
@@ -143,15 +144,15 @@ export default function OpPickup() {
             <React.Fragment key={row.lineItemId}>
               <TableRow
                 className={`op-body-row ${selected.includes(row.lineItemId) ? "selected" : ""}`}
+                onClick={(e) => handleRowClick(e, row.lineItemId, index)}
               >
-                <TableCell className="op-pu-body-transact"><h5>{row.lineItemId}</h5></TableCell>
-                <TableCell className="op-pu-body-date"><small>{row.date.toLocaleDateString()}</small></TableCell>
-                <TableCell className="op-pu-body-customer"><small>{row.customer}</small></TableCell>
-                <TableCell className="op-pu-body-shoe"><small>{row.shoe}</small></TableCell>
-                <TableCell className="op-pu-body-service"><small>{row.service}</small></TableCell>
-                <TableCell className="op-pu-body-branch"><small>{row.branch}</small></TableCell>
-                {/* Pickup Notice */}
-                <TableCell className="op-pu-body-pickup-notice">
+                <TableCell className={`op-pu-body-transact ${getUpdateColor(row.date)}`}><h5>{row.lineItemId}</h5></TableCell>
+                <TableCell className={`op-pu-body-date ${getUpdateColor(row.date)}`}><small>{row.date.toLocaleDateString()}</small></TableCell>
+                <TableCell className={`op-pu-body-customer ${getUpdateColor(row.date)}`}><small>{row.customer}</small></TableCell>
+                <TableCell className={`op-pu-body-shoe ${getUpdateColor(row.date)}`}><small>{row.shoe}</small></TableCell>
+                <TableCell className={`op-pu-body-service ${getUpdateColor(row.date)}`}><small>{row.service}</small></TableCell>
+                <TableCell className={`op-pu-body-branch ${getUpdateColor(row.date)}`}><small>{row.branch}</small></TableCell>
+                <TableCell className={`op-pu-body-pickup-notice ${getUpdateColor(row.date)}`}>
                   {row.pickupNotice && (
                     <>
                       <div>📢 <small>{row.pickupNotice.toLocaleDateString()}</small></div>
@@ -171,8 +172,7 @@ export default function OpPickup() {
                     </>
                   )}
                 </TableCell>
-                {/* Payment Status */}
-                <TableCell className="op-pu-body-payment-status">
+                <TableCell className={`op-pu-body-payment-status ${getUpdateColor(row.date)}`}>
                   <span
                     className={`px-3 py-1 rounded-full text-sm font-medium ${
                       row.paymentStatus === "Paid"
@@ -185,11 +185,9 @@ export default function OpPickup() {
                     {row.paymentStatus}
                   </span>
                 </TableCell>
-                {/* Contact */}
-                <TableCell className="op-pu-body-contact"><small>{row.contact}</small></TableCell>
-                {/* Chevron for dropdown */}
+                <TableCell className={`op-pu-body-contact ${getUpdateColor(row.date)}`}><small>{row.contact}</small></TableCell>
                 {hiddenColumns.length > 0 && (
-                  <TableCell className="op-pu-body-dropdown-toggle">
+                  <TableCell className={`op-pu-body-dropdown-toggle ${getUpdateColor(row.date)}`}>
                     <button
                       onClick={(e) => { e.stopPropagation(); toggleExpand(row.lineItemId); }}
                       className={`chevron-btn ${expanded.includes(row.lineItemId) ? "rotate-180" : ""}`}
