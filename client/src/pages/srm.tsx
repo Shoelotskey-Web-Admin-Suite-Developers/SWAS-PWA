@@ -34,7 +34,7 @@ interface ServiceRequestPayload {
   discount_amount: number;
   amount_paid: number;
   payment_status: "NP" | "PARTIAL" | "PAID";
-  payment_mode: "Cash" | "Card" | "GCash" | "Other";
+  payment_mode: "Cash" | "Bank" | "GCash" | "Other";
 }
 
 type Shoe = {
@@ -465,10 +465,10 @@ export default function SRM() {
     });
 
     // --- 3. Prepare service request payload ---
-    const paymentMap: Record<string, "Cash" | "Card" | "GCash" | "Other"> = {
+    const paymentMap: Record<string, "Cash" | "GCash" | "Bank" | "Other"> = {
       cash: "Cash",
       gcash: "GCash",
-      bank: "Card",
+  bank: "Bank",
       other: "Other",
     };
 
@@ -544,7 +544,40 @@ export default function SRM() {
           });
         }
 
+        // If the transaction contains payment ids, fetch each payment object and include them
+        let enrichedPayments: any[] = []
+        try {
+          const paymentIds = Array.isArray(transactionData.transaction.payments) ? transactionData.transaction.payments : [];
+          if (paymentIds.length > 0) {
+            const { getPaymentById } = await import("@/utils/api/getPaymentById");
+            const fetched = await Promise.all(paymentIds.map(async (pid: string) => {
+              try {
+                const p = await getPaymentById(pid);
+                return p || { payment_id: pid };
+              } catch (e) {
+                console.debug('Failed to fetch payment', pid, e);
+                return { payment_id: pid };
+              }
+            }));
+            enrichedPayments = fetched;
+          }
+        } catch (e) {
+          console.debug('Error enriching payments for pdf', e);
+        }
+
+        // Try to fetch latest payment for this transaction to include its id as a header
+        let latestPaymentId: string | null = null
+        try {
+          const { getLatestPaymentByTransactionId } = await import("@/utils/api/getLatestPaymentByTransactionId")
+          const latest = await getLatestPaymentByTransactionId(transactionId)
+          if (latest && latest.payment_id) latestPaymentId = latest.payment_id
+        } catch (e) {
+          // ignore - it's optional
+          console.debug('Failed to fetch latest payment for header', e)
+        }
+
         const pdfData = {
+          latest_payment_id: latestPaymentId,
           transaction_id: transactionData.transaction.transaction_id,
           cust_name: transactionData.customer.cust_name,
           cust_id: transactionData.customer.cust_id,
@@ -556,7 +589,10 @@ export default function SRM() {
           discountAmount: transactionData.transaction.discount_amount,
           total_amount: transactionData.transaction.total_amount,
           amount_paid: transactionData.transaction.amount_paid,
-          payment: customerPaid,
+          // For payments, include full payment objects (if available) so the PDF can list them like shoes
+          payments: enrichedPayments.length > 0 ? enrichedPayments : (transactionData.transaction.payments || []),
+          // Also keep legacy single payment field but prefer first enriched payment amount when present
+          payment: enrichedPayments.length > 0 ? Number(enrichedPayments[0].payment_amount || enrichedPayments[0].paymentAmount || 0) : customerPaid,
           change: change,
           shoes: pdfShoes,
         };
