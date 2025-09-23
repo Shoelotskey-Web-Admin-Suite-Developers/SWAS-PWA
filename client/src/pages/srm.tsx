@@ -13,6 +13,7 @@ import { toast } from 'sonner'
 import { getServices, IService } from "@/utils/api/getServices";
 import { getCustomerByNameAndBdate } from "@/utils/api/getCustByNameAndBdate";
 import { addServiceRequest} from "@/utils/api/addServiceRequest";
+import { updateDates } from "@/utils/api/updateDates";
 
 interface LineItemInput {
   priority: "Rush" | "Normal";
@@ -495,8 +496,25 @@ export default function SRM() {
     try {
       setSubmitting(true);
       const result = await addServiceRequest(requestPayload as any);
-  console.log("Service request created:", result);
-  toast.success("Service request confirmed successfully!");
+console.log("Service request created:", result);
+toast.success("Service request confirmed successfully!");
+
+// --- Add Dates entry for each line item ---
+if (result?.lineItems && Array.isArray(result.lineItems)) {
+  const now = new Date().toISOString();
+  await Promise.all(
+    result.lineItems.map(async (li: any) => {
+      try {
+        await updateDates(li.line_item_id, {
+          srm_date: now,
+          current_status: 1,
+        });
+      } catch (err) {
+        console.error(`Failed to create Dates for line_item_id ${li.line_item_id}:`, err);
+      }
+    })
+  );
+}
 
       // --- 4. PDF Export logic ---
       const transactionId = result?.transaction?.transaction_id;

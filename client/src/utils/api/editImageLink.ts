@@ -7,7 +7,7 @@ export async function saveLineItemImage(
 ): Promise<boolean> {
   try {
     const res = await fetch(
-      `${API_BASE_URL}/line-items/${lineItemId}/image`,
+      `${API_BASE_URL}/api/line-items/${lineItemId}/image`,
       {
         method: "PUT",
         headers: { "Content-Type": "application/json" },

@@ -15,6 +15,7 @@ import MarkAsReadyForPickupModal from "@/components/operations/modals/OpISModal"
 import { getLineItems } from "@/utils/api/getLineItems";
 import { editLineItemStatus } from "@/utils/api/editLineItemStatus";
 import { getUpdateColor } from "@/utils/getUpdateColor";
+import { updateDates } from "@/utils/api/updateDates";
 
 type Branch = "Valenzuela" | "SM Valenzuela" | "SM Grand";
 type Location = "Branch" | "Hub" | "To Branch" | "To Hub";
@@ -247,24 +248,31 @@ export default function OpInStore() {
           selectedCount={selected.length}
           onConfirm={async () => {
             try {
-              // 1. Call API to update status
-              await editLineItemStatus(selected, "Ready for Pickup");
+              // Update Dates for each selected line item
+              const now = new Date().toISOString();
+              await Promise.all(
+                selected.map(async (lineItemId) => {
+                  try {
+                    await updateDates(lineItemId, {
+                      rpu_date: now,
+                      current_status: 7,
+                    });
+                  } catch (err) {
+                    console.error(`Failed to update Dates for ${lineItemId}:`, err);
+                  }
+                })
+              );
 
-              // 2. Remove updated items from local state
+              await editLineItemStatus(selected, "Ready for Pickup");
               setRows((prevRows) =>
                 prevRows.filter((row) => !selected.includes(row.lineItemId))
               );
-
-              // 3. Clear selection
               setSelected([]);
-
-              // 4. Close modal
               setModalOpen(false);
-
-              toast.success("Selected items marked as Ready for Pickup!"); // Success toast
+              toast.success("Selected items marked as Ready for Pickup!");
             } catch (error) {
               console.error("Failed to update line items status:", error);
-              toast.error("Failed to update items. Please try again."); // Error toast
+              toast.error("Failed to update items. Please try again.");
             }
           }}
         />

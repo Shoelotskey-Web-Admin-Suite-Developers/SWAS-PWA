@@ -25,6 +25,7 @@ import {
 import OpBfrImg from "@/components/operations/modals/OpBfrImg";
 import IconImg from "@/assets/icons/img-gall-icon.svg?react";
 import { getUpdateColor } from "@/utils/getUpdateColor";
+import { updateDates } from "@/utils/api/updateDates";
 
 type Branch = "Valenzuela" | "SM Valenzuela" | "SM Grand";
 type Location = "Branch" | "Hub" | "To Branch" | "To Hub";
@@ -315,16 +316,31 @@ export default function OpBranchDelivery() {
           selectedCount={selected.length}
           onConfirm={async () => {
             try {
+              // Update Dates for each selected line item
+              const now = new Date().toISOString();
+              await Promise.all(
+                selected.map(async (lineItemId) => {
+                  try {
+                    await updateDates(lineItemId, {
+                      wh_date: now,
+                      current_status: 4,
+                    });
+                  } catch (err) {
+                    console.error(`Failed to update Dates for ${lineItemId}:`, err);
+                  }
+                })
+              );
+
               await editLineItemStatus(selected, "In Process");
               setRows((prevRows) =>
                 prevRows.filter((row) => !selected.includes(row.lineItemId))
               );
               setSelected([]);
               setModalOpen(false);
-              toast.success("Selected items marked as In Process!"); // Success toast
+              toast.success("Selected items marked as In Process!");
             } catch (error) {
               console.error("Failed to update line items status:", error);
-              toast.error("Failed to update items. Please try again."); // Error toast
+              toast.error("Failed to update items. Please try again.");
             }
           }}
         />

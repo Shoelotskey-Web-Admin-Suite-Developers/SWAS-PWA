@@ -14,6 +14,7 @@ import {
 import ToWarehouseModal from "@/components/operations/modals/OpRDModal"
 import { getLineItems } from "@/utils/api/getLineItems";
 import { editLineItemStatus } from "@/utils/api/editLineItemStatus";
+import { updateDates } from "@/utils/api/updateDates";
 import { getUpdateColor } from "@/utils/getUpdateColor";
 
 type Branch = "Valenzuela" | "SM Valenzuela" | "SM Grand";
@@ -254,6 +255,21 @@ export default function OpReadyDelivery({ readOnly = false }) {
             selectedCount={selected.length}
             onConfirm={async () => {
               try {
+                // Update Dates for each selected line item
+                const now = new Date().toISOString();
+                await Promise.all(
+                  selected.map(async (lineItemId) => {
+                    try {
+                      await updateDates(lineItemId, {
+                        ibd_date: now,
+                        current_status: 3,
+                      });
+                    } catch (err) {
+                      console.error(`Failed to update Dates for ${lineItemId}:`, err);
+                    }
+                  })
+                );
+
                 await editLineItemStatus(selected, "Incoming Branch Delivery");
                 setRows((prevRows) =>
                   prevRows.filter((row) => !selected.includes(row.lineItemId))

@@ -14,6 +14,7 @@ import {
 import ReceivedModal from "@/components/operations/modals/OpRBModal"
 import { getLineItems } from "@/utils/api/getLineItems";
 import { editLineItemStatus } from "@/utils/api/editLineItemStatus";
+import { updateDates } from "@/utils/api/updateDates";
 import { getUpdateColor } from "@/utils/getUpdateColor";
 
 type Branch = "Valenzuela" | "SM Valenzuela" | "SM Grand";
@@ -254,6 +255,21 @@ export default function OpReturnBranch({ readOnly = false }) {
             selectedCount={selected.length}
             onConfirm={async () => {
               try {
+                // Update Dates for each selected line item
+                const now = new Date().toISOString();
+                await Promise.all(
+                  selected.map(async (lineItemId) => {
+                    try {
+                      await updateDates(lineItemId, {
+                        is_date: now,
+                        current_status: 6,
+                      });
+                    } catch (err) {
+                      console.error(`Failed to update Dates for ${lineItemId}:`, err);
+                    }
+                  })
+                );
+
                 // 1. Call API to update status
                 await editLineItemStatus(selected, "To Pack");
 

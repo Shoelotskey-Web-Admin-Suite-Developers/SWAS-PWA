@@ -11,6 +11,7 @@ import {
 import MarkAsReadyModal from "@/components/operations/modals/OpSQModal";
 import { getLineItems } from "@/utils/api/getLineItems";
 import { editLineItemStatus } from "@/utils/api/editLineItemStatus";
+import { updateDates } from "@/utils/api/updateDates";
 import { useLineItemUpdates } from "@/hooks/useLineItemUpdates";
 import { toast, Toaster } from "sonner";
 import { getUpdateColor } from "@/utils/getUpdateColor";
@@ -252,6 +253,21 @@ export default function OpServiceQueue() {
           selectedCount={selected.length}
           onConfirm={async () => {
             try {
+              // Update Dates for each selected line item
+              const now = new Date().toISOString();
+              await Promise.all(
+                selected.map(async (lineItemId) => {
+                  try {
+                    await updateDates(lineItemId, {
+                      rd_date: now,
+                      current_status: 2,
+                    });
+                  } catch (err) {
+                    console.error(`Failed to update Dates for ${lineItemId}:`, err);
+                  }
+                })
+              );
+
               await editLineItemStatus(selected, "Ready for Delivery");
               setRows((prevRows) =>
                 prevRows.filter((row) => !selected.includes(row.lineItemId))

@@ -24,6 +24,7 @@ import {
   ContextMenuSeparator,
 } from "@/components/ui/context-menu";
 import { getUpdateColor } from "@/utils/getUpdateColor";
+import { updateDates } from "@/utils/api/updateDates";
 
 type Branch = "Valenzuela" | "SM Valenzuela" | "SM Grand";
 type Location = "Branch" | "Hub" | "To Branch" | "To Hub";
@@ -299,16 +300,31 @@ export default function OpWarehouse() {
           selectedCount={selected.length}
           onConfirm={async () => {
             try {
+              // Update Dates for each selected line item
+              const now = new Date().toISOString();
+              await Promise.all(
+                selected.map(async (lineItemId) => {
+                  try {
+                    await updateDates(lineItemId, {
+                      rb_date: now,
+                      current_status: 5,
+                    });
+                  } catch (err) {
+                    console.error(`Failed to update Dates for ${lineItemId}:`, err);
+                  }
+                })
+              );
+
               await editLineItemStatus(selected, "Returning to Branch");
               setRows((prevRows) =>
                 prevRows.filter((row) => !selected.includes(row.lineItemId))
               );
               setSelected([]);
               setModalOpen(false);
-              toast.success("Selected items returned to branch!"); // Success toast
+              toast.success("Selected items returned to branch!");
             } catch (error) {
               console.error("Failed to update line items status:", error);
-              toast.error("Failed to update items. Please try again."); // Error toast
+              toast.error("Failed to update items. Please try again.");
             }
           }}
         />

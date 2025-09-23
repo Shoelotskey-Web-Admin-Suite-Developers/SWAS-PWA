@@ -3,7 +3,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 // src/utils/api/editLineItemStatus.ts
 export const editLineItemStatus = async (line_item_ids: string[], new_status: string) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/line-items/status`, {
+    const res = await fetch(`${API_BASE_URL}/api/line-items/status`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
