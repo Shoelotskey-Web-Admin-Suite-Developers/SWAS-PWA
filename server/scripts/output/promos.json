@@ -1,0 +1,163 @@
+[
+  {
+    "promo_id": "PROMO-001",
+    "promo_title": "SMVAL Promo 1",
+    "promo_description": "Weekend special",
+    "promo_dates": [
+      "2025-06-28 00:00:00",
+      "2025-06-29 00:00:00",
+      "2025-06-30 00:00:00",
+      "2025-07-01 00:00:00",
+      "2025-07-02 00:00:00",
+      "2025-07-03 00:00:00"
+    ],
+    "promo_duration": "2025-06-28 - 2025-07-03",
+    "branch_id": "SMVAL-B-NCR"
+  },
+  {
+    "promo_id": "PROMO-002",
+    "promo_title": "SMVAL Promo 2",
+    "promo_description": "Rainy season promo",
+    "promo_dates": [
+      "2025-07-26 00:00:00",
+      "2025-07-27 00:00:00"
+    ],
+    "promo_duration": "2025-07-26 - 2025-07-27",
+    "branch_id": "SMVAL-B-NCR"
+  },
+  {
+    "promo_id": "PROMO-003",
+    "promo_title": "SMVAL Promo 3",
+    "promo_description": "Back-to-school",
+    "promo_dates": [
+      "2025-07-08 00:00:00",
+      "2025-07-09 00:00:00",
+      "2025-07-10 00:00:00",
+      "2025-07-11 00:00:00",
+      "2025-07-12 00:00:00",
+      "2025-07-13 00:00:00"
+    ],
+    "promo_duration": "2025-07-08 - 2025-07-13",
+    "branch_id": "SMVAL-B-NCR"
+  },
+  {
+    "promo_id": "PROMO-004",
+    "promo_title": "VAL Promo 4",
+    "promo_description": "Back-to-school",
+    "promo_dates": [
+      "2025-09-16 00:00:00",
+      "2025-09-17 00:00:00",
+      "2025-09-18 00:00:00",
+      "2025-09-19 00:00:00",
+      "2025-09-20 00:00:00",
+      "2025-09-21 00:00:00"
+    ],
+    "promo_duration": "2025-09-16 - 2025-09-21",
+    "branch_id": "VAL-B-NCR"
+  },
+  {
+    "promo_id": "PROMO-005",
+    "promo_title": "VAL Promo 5",
+    "promo_description": "Weekend special",
+    "promo_dates": [
+      "2025-08-17 00:00:00",
+      "2025-08-18 00:00:00"
+    ],
+    "promo_duration": "2025-08-17 - 2025-08-18",
+    "branch_id": "VAL-B-NCR"
+  },
+  {
+    "promo_id": "PROMO-006",
+    "promo_title": "VAL Promo 6",
+    "promo_description": "Rainy season promo",
+    "promo_dates": [
+      "2025-09-08 00:00:00",
+      "2025-09-09 00:00:00",
+      "2025-09-10 00:00:00"
+    ],
+    "promo_duration": "2025-09-08 - 2025-09-10",
+    "branch_id": "VAL-B-NCR"
+  },
+  {
+    "promo_id": "PROMO-007",
+    "promo_title": "VAL Promo 7",
+    "promo_description": "Weekend special",
+    "promo_dates": [
+      "2025-07-15 00:00:00",
+      "2025-07-16 00:00:00",
+      "2025-07-17 00:00:00",
+      "2025-07-18 00:00:00",
+      "2025-07-19 00:00:00",
+      "2025-07-20 00:00:00"
+    ],
+    "promo_duration": "2025-07-15 - 2025-07-20",
+    "branch_id": "VAL-B-NCR"
+  },
+  {
+    "promo_id": "PROMO-008",
+    "promo_title": "SMGRA Promo 8",
+    "promo_description": "Weekend special",
+    "promo_dates": [
+      "2025-09-13 00:00:00",
+      "2025-09-14 00:00:00",
+      "2025-09-15 00:00:00",
+      "2025-09-16 00:00:00",
+      "2025-09-17 00:00:00"
+    ],
+    "promo_duration": "2025-09-13 - 2025-09-17",
+    "branch_id": "SMGRA-B-NCR"
+  },
+  {
+    "promo_id": "PROMO-009",
+    "promo_title": "SMGRA Promo 9",
+    "promo_description": "Back-to-school",
+    "promo_dates": [
+      "2025-09-06 00:00:00",
+      "2025-09-07 00:00:00"
+    ],
+    "promo_duration": "2025-09-06 - 2025-09-07",
+    "branch_id": "SMGRA-B-NCR"
+  },
+  {
+    "promo_id": "PROMO-010",
+    "promo_title": "SMGRA Promo 10",
+    "promo_description": "Back-to-school",
+    "promo_dates": [
+      "2025-07-03 00:00:00"
+    ],
+    "promo_duration": "2025-07-03 - 2025-07-03",
+    "branch_id": "SMGRA-B-NCR"
+  },
+  {
+    "promo_id": "PROMO-011",
+    "promo_title": "SMGRA Promo 11",
+    "promo_description": "Weekend special",
+    "promo_dates": [
+      "2025-07-24 00:00:00",
+      "2025-07-25 00:00:00",
+      "2025-07-26 00:00:00",
+      "2025-07-27 00:00:00",
+      "2025-07-28 00:00:00",
+      "2025-07-29 00:00:00",
+      "2025-07-30 00:00:00"
+    ],
+    "promo_duration": "2025-07-24 - 2025-07-30",
+    "branch_id": "SMGRA-B-NCR"
+  },
+  {
+    "promo_id": "PROMO-012",
+    "promo_title": "SMGRA Promo 12",
+    "promo_description": "Rainy season promo",
+    "promo_dates": [
+      "2025-07-05 00:00:00",
+      "2025-07-06 00:00:00",
+      "2025-07-07 00:00:00",
+      "2025-07-08 00:00:00",
+      "2025-07-09 00:00:00",
+      "2025-07-10 00:00:00",
+      "2025-07-11 00:00:00"
+    ],
+    "promo_duration": "2025-07-05 - 2025-07-11",
+    "branch_id": "SMGRA-B-NCR"
+  }
+]
