@@ -12,6 +12,7 @@ import OpWarehouse from '@/pages/operations/operations-sub-tab/OpWarehouse'
 import OpReturnBranch from '@/pages/operations/operations-sub-tab/OpReturnBranch'
 import OpInStore from '@/pages/operations/operations-sub-tab/OpInStore'
 import OpPickup from '@/pages/operations/operations-sub-tab/OpPickup'
+import { PickupProvider } from '@/context/PickupContext';
 
 export default function Operations() {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -114,26 +115,28 @@ export default function Operations() {
   };
 
   return (
-    <div className='main-div' style={{ "--fillheight": fillHeight } as React.CSSProperties}>
-      {showAdminUpper && ( // conditional rendering
-        <div className='admin-upper'>
-          <BranchStorage />
-        </div>
-      )}
+    <PickupProvider>
+      <div className='main-div' style={{ "--fillheight": fillHeight } as React.CSSProperties}>
+        {showAdminUpper && ( // conditional rendering
+          <div className='admin-upper'>
+            <BranchStorage />
+          </div>
+        )}
 
-      <div className='main-content'>
-        <Card className='rounded-3xl main-card'>
-          <CardContent>
-            <OperationsNav
-              onChange={setActiveIndex}
-              visibleTabs={getVisibleTabs()}
-            />
-            <div className="tab-content">
-              {getTabContent()}
-            </div>
-          </CardContent>
-        </Card>
+        <div className='main-content'>
+          <Card className='rounded-3xl main-card'>
+            <CardContent>
+              <OperationsNav
+                onChange={setActiveIndex}
+                visibleTabs={getVisibleTabs()}
+              />
+              <div className="tab-content">
+                {getTabContent()}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
-    </div>
+    </PickupProvider>
   );
 }

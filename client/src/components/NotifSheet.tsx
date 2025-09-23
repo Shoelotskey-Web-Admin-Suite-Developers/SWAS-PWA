@@ -14,22 +14,7 @@ import { updateAppointmentStatus } from "@/utils/api/updateAppointmentStatus"
 import { getCustomerName } from "@/utils/api/getCustomerName"
 import { getBranchByBranchId } from "@/utils/api/getBranchByBranchId"
 import { useAppointmentUpdates } from "@/hooks/useAppointmentUpdates"
-
-type Warning = {
-  transactId: string
-  daysOverdue: number
-}
-
-const WARNINGS: Warning[] = [
-  { transactId: "12345", daysOverdue: 2 },
-  { transactId: "98765", daysOverdue: 3 },
-  { transactId: "24680", daysOverdue: 5 },
-  { transactId: "13579", daysOverdue: 7 },
-  { transactId: "11223", daysOverdue: 1 },
-  { transactId: "99887", daysOverdue: 10 },
-  { transactId: "55555", daysOverdue: 4 },
-  { transactId: "66666", daysOverdue: 6 },
-]
+import { usePickupRows } from "@/context/PickupContext" // <-- import context
 
 type Appointment = {
   appointment_id: string
@@ -43,13 +28,28 @@ type Appointment = {
   name?: string
 }
 
-
 interface NotifSheetProps {
   children: React.ReactNode
 }
 
 export function NotifSheet({ children }: NotifSheetProps) {
   const [appointments, setAppointments] = useState<Appointment[]>([])
+
+  // --- PICKUP WARNINGS LOGIC ---
+  const pickupRows = usePickupRows()
+  // Filter for overdue or <= 3 days left
+  const warnings = pickupRows
+    .filter(row =>
+      row.pickupNotice &&
+      (row.allowanceDays < 0 || row.allowanceDays <= 3)
+    )
+    .map(row => ({
+      transactId: row.lineItemId,
+      daysOverdue: row.allowanceDays < 0 ? Math.abs(row.allowanceDays) : 0,
+      daysLeft: row.allowanceDays > 0 ? row.allowanceDays : 0,
+      customer: row.customer,
+      pickupNotice: row.pickupNotice,
+    }))
 
   const fetchPending = async () => {
     try {
@@ -163,10 +163,10 @@ export function NotifSheet({ children }: NotifSheetProps) {
           </div>
 
           <div className="space-y-2 max-h-[33vh] overflow-y-auto pr-2 scrollbar-thin">
-            {WARNINGS.length === 0 ? (
+            {warnings.length === 0 ? (
               <p className="text-sm text-muted-foreground">No warnings 🎉</p>
             ) : (
-              WARNINGS.map((warning) => (
+              warnings.map((warning) => (
                 <div
                   key={warning.transactId}
                   className="flex items-center justify-between rounded-md border border-red-200 bg-red-50 p-3 cursor-pointer hover:bg-red-100 transition"
@@ -178,9 +178,15 @@ export function NotifSheet({ children }: NotifSheetProps) {
                     <h3 className="text-sm font-medium">
                       Transaction #{warning.transactId}
                     </h3>
-                    <p className="text-xs text-red-600 font-semibold">
-                      +{warning.daysOverdue} days overdue
-                    </p>
+                    {warning.daysOverdue > 0 ? (
+                      <p className="text-xs text-red-600 font-semibold">
+                        +{warning.daysOverdue} days overdue
+                      </p>
+                    ) : (
+                      <p className="text-xs text-yellow-600 font-semibold">
+                        {warning.daysLeft} days left for pickup
+                      </p>
+                    )}
                   </div>
                   <span className="text-xs text-red-500">View →</span>
                 </div>
