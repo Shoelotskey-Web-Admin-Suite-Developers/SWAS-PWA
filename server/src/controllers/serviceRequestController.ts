@@ -4,6 +4,8 @@ import mongoose from "mongoose";
 import { Customer } from "../models/Customer";
 import { LineItem, ILineItem, ILineItemService } from "../models/LineItem";
 import { Transaction } from "../models/Transactions";
+import { Payment } from "../models/payments";
+import { generatePaymentId } from "../utils/generatePaymentId";
 import { Branch } from "../models/Branch";
 import { Service } from "../models/Service";
 
@@ -11,7 +13,7 @@ import { Service } from "../models/Service";
 const PRIORITY_ENUM = ["Rush", "Normal"] as const;
 const CURRENT_LOCATION_ENUM = ["Hub", "Branch"] as const;
 const PAYMENT_STATUS_ENUM = ["NP", "PARTIAL", "PAID"] as const;
-const PAYMENT_MODE_ENUM = ["Cash", "Card", "GCash", "Other"] as const;
+const PAYMENT_MODE_ENUM = ["Cash", "Bank", "GCash", "Other"] as const;
 
 type Priority = typeof PRIORITY_ENUM[number];
 type CurrentLocation = typeof CURRENT_LOCATION_ENUM[number];
@@ -58,7 +60,8 @@ const generateCustomerId = async (branch_number: number): Promise<string> => {
     .sort({ cust_id: -1 })
     .limit(1);
   const lastNumber = lastCust[0] ? parseInt(lastCust[0].cust_id.split("-")[2], 10) : 0;
-  return `CUST-${branch_number}-${String(lastNumber + 1).padStart(5, "0")}`;
+  // Use plain incremented number without zero-padding for the customer id suffix
+  return `CUST-${branch_number}-${lastNumber + 1}`;
 };
 
 const generateTransactionId = async (branch_code: string): Promise<string> => {
@@ -72,6 +75,8 @@ const generateTransactionId = async (branch_code: string): Promise<string> => {
   // Keep full branch_code as provided (it may contain hyphens)
   return `${yearMonth}-${String(lastNumber + 1).padStart(5, "0")}-${branch_code}`;
 };
+
+// use centralized generatePaymentId from utils
 
 // Generate line item id that includes the transaction prefix (yearMonth and transaction increment)
 // Desired format: <YYYY-MM>-<trxIncrement>-<lineIncrement>-<branch_code>
@@ -253,10 +258,30 @@ export const createServiceRequest = async (req: Request, res: Response) => {
       discount_amount: data.discount_amount,
       amount_paid: data.amount_paid,
       payment_status: data.payment_status,
+      payments: [],
       payment_mode: data.payment_mode,
       received_by: data.received_by,
       date_in: data.date_in ? new Date(data.date_in) : new Date(),
     });
+
+    // If there's an initial payment (amount_paid > 0), create a Payment record and attach
+    if (data.amount_paid && data.amount_paid > 0) {
+      // generate payment id
+      const paymentId = await generatePaymentId(branch_code);
+
+      const payment = new Payment({
+        payment_id: paymentId,
+        transaction_id: transactionId,
+        payment_amount: data.amount_paid,
+        payment_mode: data.payment_mode,
+        payment_date: new Date(),
+      });
+
+      await payment.save({ session });
+
+      // attach payment id to transaction
+      transaction.payments = [paymentId];
+    }
 
     await transaction.save({ session });
 

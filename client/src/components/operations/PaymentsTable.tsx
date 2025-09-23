@@ -35,6 +35,8 @@ export type Request = {
   amountPaid: number
   remainingBalance: number
   discount: number | null
+  // optional storage fee to display alongside balance
+  storageFee?: number
 }
 
 type Props = {
@@ -132,9 +134,8 @@ export const PaymentsTable: React.FC<Props> = ({
             // Prefer DB-provided lineItemId if present; otherwise fall back to generated id
             const lineItemId = shoe.lineItemId || `${req.receiptId}-${idx + 1}`
             // Display transaction-level remaining balance (total_amount - amount_paid)
-            // per user's request, the Balance column should show the whole transaction balance,
-            // not a per-line-item distributed amount.
-            const balanceForShoe = req.remainingBalance
+            // plus any storage fee (per user's request the Balance should include storage fee)
+            const balanceForShoe = (req.remainingBalance ?? 0) + (req.storageFee ?? 0)
 
             const isExpanded = expandedLine === lineItemId
 

@@ -29,6 +29,7 @@ import { getUnavailabilityWhole } from "@/utils/api/getUnavailabilityFullDay"
 import { getUnavailabilityPartial } from "@/utils/api/getUnavailabilityPartialDay"
 import { deleteUnavailability } from "@/utils/api/deleteUnavailability"
 import { getAppointmentsApproved } from "@/utils/api/getAppointmentsApproved";
+import { useAppointmentUpdates } from "@/hooks/useAppointmentUpdates"
 
 // Types
 interface Appointment {
@@ -122,6 +123,15 @@ export default function Appointments() {
     fetchUnavailability(); // existing unavailability fetch
     fetchAppointments();   // fetch approved appointments
   }, []);
+
+  // subscribe to appointment updates and refresh when they occur
+  const { changes: appointmentChanges } = useAppointmentUpdates()
+  useEffect(() => {
+    if (appointmentChanges) {
+      const t = setTimeout(() => fetchAppointments(), 300)
+      return () => clearTimeout(t)
+    }
+  }, [appointmentChanges])
 
   // Convert 24-hour time to 12-hour AM/PM
   const formatAMPM = (hour: number, minute: number) => {

@@ -17,4 +17,15 @@ export function initSocket(io: Server, db: mongoose.Connection) {
     console.log("📢 line_items updated:", change);
     io.emit("lineItemUpdated", change);
   });
+
+  // Setup MongoDB Change Stream for `appointments`
+  try {
+    const appointmentsCollection = db.collection("appointments");
+    appointmentsCollection.watch().on("change", (change) => {
+      console.log("📢 appointments updated:", change);
+      io.emit("appointmentUpdated", change);
+    });
+  } catch (err) {
+    console.error("Error initializing appointments change stream:", err);
+  }
 }

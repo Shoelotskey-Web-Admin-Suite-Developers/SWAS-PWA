@@ -94,10 +94,14 @@ export const updateLineItemStatus = async (req: Request, res: Response) => {
   }
 };
 
-// PUT /line-items/:id/image
+// PUT /line-items/:line_item_id/image
 export const updateLineItemImage = async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const { line_item_id } = req.params;
   const { type, url } = req.body; // type: "before" | "after", url: string
+
+  if (!line_item_id) {
+    return res.status(400).json({ message: "line_item_id is required in params" });
+  }
 
   if (!["before", "after"].includes(type) || !url) {
     return res.status(400).json({ message: "type ('before' or 'after') and url are required" });
@@ -106,7 +110,7 @@ export const updateLineItemImage = async (req: Request, res: Response) => {
   try {
     const updateField = type === "before" ? { before_img: url } : { after_img: url };
     const item = await LineItem.findOneAndUpdate(
-      { line_item_id: id },
+      { line_item_id },
       updateField,
       { new: true }
     );
@@ -117,5 +121,38 @@ export const updateLineItemImage = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Error updating line item image:", error);
     res.status(500).json({ message: "Server error updating image" });
+  }
+};
+
+// PUT /line-items/:line_item_id/storage-fee
+export const updateLineItemStorageFee = async (req: Request, res: Response) => {
+  const { line_item_id } = req.params;
+  const { storage_fee } = req.body;
+
+  if (!line_item_id) {
+    return res.status(400).json({ message: 'line_item_id is required in params' });
+  }
+
+  const feeNum = Number(storage_fee ?? NaN);
+  if (!Number.isFinite(feeNum) || feeNum < 0) {
+    return res.status(400).json({ message: 'storage_fee must be a non-negative number' });
+  }
+
+  try {
+    // Increment the existing storage_fee by the provided amount instead of replacing it
+    const updated = await LineItem.findOneAndUpdate(
+      { line_item_id },
+      { $inc: { storage_fee: feeNum }, $set: { latest_update: new Date() } },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ message: 'Line item not found' });
+    }
+
+    return res.status(200).json({ message: 'Storage fee added', lineItem: updated });
+  } catch (error) {
+    console.error('Error updating storage fee for line item:', error);
+    return res.status(500).json({ message: 'Server error updating storage fee' });
   }
 };

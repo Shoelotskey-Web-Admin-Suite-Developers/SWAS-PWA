@@ -6,7 +6,7 @@ export async function getLineItems(status: string) {
 
   if (!token || !currentBranchId) throw new Error("No token or branch_id found");
 
-  const res = await fetch(`${BASE_URL}/line-items/status/${status}`, {
+  const res = await fetch(`${BASE_URL}/api/line-items/status/${status}`, {
     method: "GET",
     headers: {
       "Authorization": `Bearer ${token}`,

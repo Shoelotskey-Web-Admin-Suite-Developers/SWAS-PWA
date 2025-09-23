@@ -1,5 +1,5 @@
 // NotifSheet.tsx
-import React from "react"
+import React, { useEffect, useState } from "react"
 import {
   Sheet,
   SheetTrigger,
@@ -8,6 +8,12 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Separator } from "@/components/ui/separator"
+import { toast } from "sonner"
+import { getAppointmentsPending } from "@/utils/api/getAppointmentsPending"
+import { updateAppointmentStatus } from "@/utils/api/updateAppointmentStatus"
+import { getCustomerName } from "@/utils/api/getCustomerName"
+import { getBranchByBranchId } from "@/utils/api/getBranchByBranchId"
+import { useAppointmentUpdates } from "@/hooks/useAppointmentUpdates"
 
 type Warning = {
   transactId: string
@@ -25,71 +31,17 @@ const WARNINGS: Warning[] = [
   { transactId: "66666", daysOverdue: 6 },
 ]
 
-type Branch = "Valenzuela" | "SM Valenzuela" | "SM Grand"
-
 type Appointment = {
-  name: string
-  date: string
-  timeBlock: string
-  branch: Branch
+  appointment_id: string
+  cust_id?: string
+  date_for_inquiry?: string
+  time_start?: string
+  time_end?: string
+  branch_id?: string
+  status?: string
+  // display fields
+  name?: string
 }
-
-const APPOINTMENTS: Appointment[] = [
-  {
-    name: "Juan Dela Cruz",
-    date: "Sept 12, 2025",
-    timeBlock: "10:00 AM - 11:00 AM",
-    branch: "Valenzuela",
-  },
-  {
-    name: "Maria Santos",
-    date: "Sept 13, 2025",
-    timeBlock: "1:00 PM - 2:00 PM",
-    branch: "SM Valenzuela",
-  },
-  {
-    name: "Pedro Ramirez",
-    date: "Sept 14, 2025",
-    timeBlock: "3:00 PM - 4:00 PM",
-    branch: "SM Grand",
-  },
-  {
-    name: "Ana Villanueva",
-    date: "Sept 15, 2025",
-    timeBlock: "9:00 AM - 10:00 AM",
-    branch: "Valenzuela",
-  },
-  {
-    name: "Carlos Dizon",
-    date: "Sept 15, 2025",
-    timeBlock: "2:00 PM - 3:00 PM",
-    branch: "SM Valenzuela",
-  },
-  {
-    name: "Liza Reyes",
-    date: "Sept 16, 2025",
-    timeBlock: "11:00 AM - 12:00 PM",
-    branch: "SM Grand",
-  },
-  {
-    name: "Miguel Santos",
-    date: "Sept 17, 2025",
-    timeBlock: "4:00 PM - 5:00 PM",
-    branch: "Valenzuela",
-  },
-  {
-    name: "Sofia Cruz",
-    date: "Sept 18, 2025",
-    timeBlock: "1:30 PM - 2:30 PM",
-    branch: "SM Valenzuela",
-  },
-  {
-    name: "Daniel Perez",
-    date: "Sept 19, 2025",
-    timeBlock: "3:30 PM - 4:30 PM",
-    branch: "SM Grand",
-  },
-]
 
 
 interface NotifSheetProps {
@@ -97,6 +49,96 @@ interface NotifSheetProps {
 }
 
 export function NotifSheet({ children }: NotifSheetProps) {
+  const [appointments, setAppointments] = useState<Appointment[]>([])
+
+  const fetchPending = async () => {
+    try {
+      const data = await getAppointmentsPending();
+      const items = data || []
+      // filter to keep present and future only
+      const today = new Date()
+      today.setHours(0,0,0,0)
+      const upcoming = items.filter((appt: any) => {
+        if (!appt.date_for_inquiry) return true // keep if no date
+        const d = new Date(appt.date_for_inquiry)
+        d.setHours(0,0,0,0)
+        return d >= today
+      })
+
+      // enrich with customer name and branch name (batched)
+      const enriched = await Promise.all(
+        upcoming.map(async (appt: any) => {
+          const name = await resolveCustomerName(appt.cust_id)
+          const branch_name = await resolveBranchName(appt.branch_id)
+          return {
+            ...appt,
+            name: name || appt.cust_id,
+            branch_name: branch_name || appt.branch_id,
+          }
+        })
+      )
+
+      setAppointments(enriched)
+    } catch (err) {
+      console.error("Failed to fetch pending appointments:", err)
+    }
+  }
+
+  useEffect(() => {
+    fetchPending()
+  }, [])
+
+  // subscribe to real-time appointment changes and refresh when they occur
+  const { changes: appointmentChanges } = useAppointmentUpdates()
+  useEffect(() => {
+    if (appointmentChanges) {
+      // small debounce to avoid rapid repeated fetches
+      const t = setTimeout(() => fetchPending(), 300)
+      return () => clearTimeout(t)
+    }
+  }, [appointmentChanges])
+
+  const handleUpdateStatus = async (appointment_id: string, status: "Approved" | "Cancelled") => {
+    try {
+      await updateAppointmentStatus(appointment_id, status)
+      toast.success(`Appointment ${status === 'Approved' ? 'acknowledged' : 'cancelled'}`)
+      await fetchPending()
+    } catch (err) {
+      console.error("Failed to update appointment status:", err)
+      toast.error("Failed to update appointment")
+    }
+  }
+
+  // helpers to resolve customer and branch names with small caches
+  const customerCache = React.useRef<Record<string, string | null>>({})
+  const branchCache = React.useRef<Record<string, string | null>>({})
+
+  const resolveCustomerName = async (cust_id?: string) => {
+    if (!cust_id) return null
+    if (cust_id in customerCache.current) return customerCache.current[cust_id]
+    try {
+      const name = await getCustomerName(cust_id)
+      customerCache.current[cust_id] = name
+      return name
+    } catch (err) {
+      customerCache.current[cust_id] = null
+      return null
+    }
+  }
+
+  const resolveBranchName = async (branch_id?: string) => {
+    if (!branch_id) return null
+    if (branch_id in branchCache.current) return branchCache.current[branch_id]
+    try {
+      const branchObj = await getBranchByBranchId(branch_id)
+      const name = branchObj?.branch_name || branchObj?.branch_id || null
+      branchCache.current[branch_id] = name
+      return name
+    } catch (err) {
+      branchCache.current[branch_id] = null
+      return null
+    }
+  }
   return (
     <Sheet>
       <SheetTrigger asChild>{children}</SheetTrigger>
@@ -155,37 +197,40 @@ export function NotifSheet({ children }: NotifSheetProps) {
           </div>
 
           <div className="space-y-2 max-h-[30vh] overflow-y-auto pr-2 scrollbar-thin">
-            {APPOINTMENTS.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No pending appointments 🎉
-              </p>
+            {appointments.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No pending appointments 🎉</p>
             ) : (
-              APPOINTMENTS.map((appt, index) => (
+              appointments.map((appt) => (
                 <div
-                  key={index}
+                  key={appt.appointment_id}
                   className="rounded-md border p-3 flex justify-between items-start hover:bg-accent transition"
                 >
                   <div>
-                    <h3 className="text-sm font-medium">{appt.name}</h3>
-                    <p className="text-xs text-muted-foreground">{appt.date}</p>
-                    <p className="text-xs text-muted-foreground">{appt.timeBlock}</p>
+                    <h3 className="text-sm font-medium">{appt.name || appt.cust_id || appt.appointment_id}</h3>
+                    <p className="text-xs text-muted-foreground">{appt.date_for_inquiry ? new Date(appt.date_for_inquiry).toLocaleDateString() : ""}</p>
+                    <p className="text-xs text-muted-foreground">{appt.time_start || ""}{appt.time_end ? ` - ${appt.time_end}` : ""}</p>
                   </div>
 
                   <div className="flex flex-col items-end gap-2">
                     {/* Branch in upper right */}
-                    <h4 className="text-xs font-medium text-muted-foreground bold">{appt.branch}</h4>
+                    <h4 className="text-xs font-medium text-muted-foreground bold">{(appt as any).branch_name || appt.branch_id}</h4>
 
                     <div className="flex gap-2">
-                      <button className="px-2 py-1 text-xs rounded-md bg-green-100 text-green-700 hover:bg-green-200">
+                      <button
+                        onClick={() => handleUpdateStatus(appt.appointment_id, "Approved")}
+                        className="px-2 py-1 text-xs rounded-md bg-green-100 text-green-700 hover:bg-green-200"
+                      >
                         Acknowledge
                       </button>
-                      <button className="px-2 py-1 text-xs rounded-md bg-red-100 text-red-700 hover:bg-red-200">
+                      <button
+                        onClick={() => handleUpdateStatus(appt.appointment_id, "Cancelled")}
+                        className="px-2 py-1 text-xs rounded-md bg-red-100 text-red-700 hover:bg-red-200"
+                      >
                         Trash
                       </button>
                     </div>
                   </div>
                 </div>
-
               ))
             )}
           </div>
