@@ -30,7 +30,7 @@ export interface ServiceRequestInput {
   discount_amount: number;
   amount_paid: number;
   payment_status: "NP" | "PARTIAL" | "PAID";
-  payment_mode: "Cash" | "Card" | "GCash" | "Other";
+  payment_mode: "Cash" | "GCash" | "Bank" | "Other";
   date_in?: string | Date | null;
 }
 

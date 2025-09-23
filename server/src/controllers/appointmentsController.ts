@@ -47,3 +47,34 @@ export const cancelAffectedAppointmentsController = async (req: Request, res: Re
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
+// Update appointment status (approve/cancel)
+export const updateAppointmentStatus = async (req: Request, res: Response) => {
+  try {
+    const { appointment_id } = req.params;
+    const { status } = req.body as { status?: string };
+
+    if (!appointment_id) {
+      return res.status(400).json({ success: false, message: "appointment_id is required" });
+    }
+
+    if (!status || !["Pending", "Cancelled", "Approved"].includes(status)) {
+      return res.status(400).json({ success: false, message: "Invalid or missing status" });
+    }
+
+    const updated: IAppointment | null = await Appointment.findOneAndUpdate(
+      { appointment_id },
+      { $set: { status } },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: "Appointment not found" });
+    }
+
+    return res.status(200).json({ success: true, data: updated });
+  } catch (error) {
+    console.error("Error updating appointment status:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};

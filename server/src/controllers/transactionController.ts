@@ -3,7 +3,12 @@ import { Request, Response } from "express";
 import { Transaction } from "../models/Transactions";
 import { Customer } from "../models/Customer";
 import { LineItem } from "../models/LineItem";
+import { Payment } from "../models/payments";
+import { Branch } from "../models/Branch";
+import { generatePaymentId } from "../utils/generatePaymentId";
 import mongoose from "mongoose";
+
+// use centralized generatePaymentId
 
 export const getTransactionById = async (req: Request, res: Response) => {
   try {
@@ -41,13 +46,15 @@ export const applyPayment = async (req: Request, res: Response) => {
   session.startTransaction();
   try {
     const { transaction_id } = req.params;
-    const { dueNow, customerPaid, modeOfPayment, lineItemId, markPickedUp } = req.body as {
-      dueNow: number;
-      customerPaid: number;
-      modeOfPayment?: string;
-      lineItemId?: string;
-      markPickedUp?: boolean;
-    };
+    const { dueNow, customerPaid, modeOfPayment, lineItemId, markPickedUp, payment_status, provided_payment_id } = req.body as {
+        dueNow: number;
+        customerPaid: number;
+        modeOfPayment?: string;
+        lineItemId?: string;
+        markPickedUp?: boolean;
+        payment_status?: string;
+        provided_payment_id?: string;
+      };
 
     if (!transaction_id) return res.status(400).json({ error: "transaction_id required" });
     if (dueNow == null || customerPaid == null) return res.status(400).json({ error: "dueNow and customerPaid are required" });
@@ -65,14 +72,23 @@ export const applyPayment = async (req: Request, res: Response) => {
       transaction.no_released = (transaction.no_released || 0) + 1;
     }
 
-    // Add the dueNow to amount_paid
-    transaction.amount_paid = (transaction.amount_paid || 0) + Number(dueNow);
+  // Add the dueNow to amount_paid, but clamp to total_amount (no overpay recorded on transaction)
+  const prevPaid = Number(transaction.amount_paid || 0)
+  const dueNum = Number(dueNow || 0)
+  const totalAmt = Number(transaction.total_amount || 0)
+  const newPaid = prevPaid + dueNum
+  transaction.amount_paid = newPaid > totalAmt ? totalAmt : newPaid
 
-    // Recompute payment_status: NP, PARTIAL, PAID
-    const remaining = (transaction.total_amount || 0) - (transaction.amount_paid || 0);
-    if (remaining <= 0) transaction.payment_status = "PAID";
-    else if (transaction.amount_paid && transaction.amount_paid > 0) transaction.payment_status = "PARTIAL";
-    else transaction.payment_status = "NP";
+    // If frontend provided payment_status, validate and persist it. Do NOT recompute here.
+    const VALID = ["NP", "PARTIAL", "PAID"];
+    if (payment_status !== undefined) {
+      if (!VALID.includes(payment_status)) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({ error: `Invalid payment_status. Must be one of ${VALID.join(", ")}` });
+      }
+      transaction.payment_status = payment_status as any;
+    }
 
     // Update payment_mode: if provided and different, append separated by comma
     if (modeOfPayment) {
@@ -81,6 +97,53 @@ export const applyPayment = async (req: Request, res: Response) => {
       else if (!existing.split(",").map((s: string) => s.trim()).includes(modeOfPayment)) {
         (transaction.payment_mode as any) = `${existing},${modeOfPayment}`;
       }
+    }
+
+    // Create a Payment document for the applied amount (dueNow) and attach its id
+    try {
+      if (provided_payment_id) {
+        // If frontend pre-created a payment, ensure it exists and attach it to the transaction
+        try {
+          const existing = await Payment.findOne({ payment_id: provided_payment_id }).session(session);
+          if (existing) {
+            transaction.payments = Array.isArray(transaction.payments) ? transaction.payments : [];
+            if (!transaction.payments.includes(provided_payment_id)) transaction.payments.push(provided_payment_id);
+          } else {
+            console.debug('Provided payment id not found on server:', provided_payment_id);
+          }
+        } catch (e) {
+          console.debug('Error attaching provided payment id:', e);
+        }
+      } else {
+        if (dueNum && dueNum > 0) {
+          // get branch code from Branch model if available
+          let branchCode = String(transaction.branch_id || "");
+          try {
+            const branch = await Branch.findOne({ branch_id: transaction.branch_id }).session(session);
+            if (branch && branch.branch_code) branchCode = branch.branch_code;
+          } catch (e) {
+            // ignore and fallback to branch_id
+          }
+
+          const paymentId = await generatePaymentId(branchCode);
+          const payment = new Payment({
+            payment_id: paymentId,
+            transaction_id: transaction.transaction_id,
+            payment_amount: dueNum,
+            payment_mode: modeOfPayment || "Other",
+            payment_date: new Date(),
+          });
+
+          await payment.save({ session });
+
+          // attach to transaction.payments array (ensure uniqueness)
+          transaction.payments = Array.isArray(transaction.payments) ? transaction.payments : [];
+          if (!transaction.payments.includes(paymentId)) transaction.payments.push(paymentId);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to create/attach payment record:", err);
+      // don't fail the whole operation; but you may choose to abort instead
     }
 
     // If this action marks a picked-up item and it causes the transaction to have

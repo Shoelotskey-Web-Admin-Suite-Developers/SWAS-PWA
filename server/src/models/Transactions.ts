@@ -3,7 +3,7 @@ import mongoose, { Schema, Document } from "mongoose";
 
 export interface ITransaction extends Document {
   transaction_id: string; // LOC-BRNCH-T style
-  line_item_id: string; // FK -> LineItem
+  line_item_id: string[]; // FK -> LineItem
   branch_id: string;
   date_in: Date;
   received_by: string;
@@ -15,7 +15,8 @@ export interface ITransaction extends Document {
   discount_amount: number; // New field
   amount_paid: number;
   payment_status: "NP" | "PAID" | "PARTIAL";
-  payment_mode?: string;
+  payments: string[]; // FK -> Payment.payment_id
+  payment_mode?: string | string[]; // can be a single mode or comma-separated list
 }
 
 const TransactionSchema: Schema = new Schema<ITransaction>(
@@ -38,14 +39,16 @@ const TransactionSchema: Schema = new Schema<ITransaction>(
       default: "NP",
       required: true,
     },
-    // allow arbitrary payment_mode strings (e.g., combined modes like "Cash,GCash")
-    payment_mode: {
-      type: String,
-      default: null,
-    },
+    payment_mode: { type: String, default: "" },
+    payments: [
+      {
+        type: String,
+        ref: "Payment", // links to Payment.payment_id
+      },
+    ],
   },
+  { timestamps: true }
 );
-
 
 export const Transaction = mongoose.model<ITransaction>(
   "Transaction",

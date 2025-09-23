@@ -17,6 +17,7 @@ import appointmentsRoutes from "./routes/appointmentsRoutes";
 import serviceRoutes from "./routes/serviceRoutes";
 import serviceRequestRoutes from "./routes/serviceRequestRoutes";
 import transactionRoutes from "./routes/transactionRoutes";
+import paymentsRoutes from "./routes/paymentsRoutes";
 import { initSocket } from "./socket";
 import lineItemImageRoutes from "./routes/lineItemImageRoutes";
 import datesRoutes from "./routes/datesRoutes";
@@ -44,7 +45,7 @@ app.use("/api", userRoutes);
 app.use("/api/promos", promoRoutes);
 app.use("/api/unavailability", unavailabilityRoutes);
 app.use("/api/customers", customerRoutes);
-app.use("/line-items", lineItemRoutes);
+app.use("/api/line-items", lineItemRoutes);
 app.use("/api/appointments", appointmentsRoutes);
 app.use("/api/services", serviceRoutes);
 app.use("/api/service-request", serviceRequestRoutes);
@@ -52,6 +53,7 @@ app.use("/transactions", transactionRoutes);
 app.use("/api/line-item-image", lineItemImageRoutes);
 app.use("/api/transactions", transactionRoutes);
 app.use("/api/dates", datesRoutes);
+app.use("/api/payments", paymentsRoutes);
 
 // Test route
 app.get("/", (req: Request, res: Response) => {

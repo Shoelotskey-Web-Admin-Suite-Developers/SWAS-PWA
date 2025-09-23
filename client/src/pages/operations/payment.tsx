@@ -22,6 +22,14 @@ import { getTransactionById } from "@/utils/api/getTransactionById"
 import { applyPayment } from "@/utils/api/applyPayment"
 import { getServices, IService } from "@/utils/api/getServices"
 import { exportReceiptPDF } from "@/utils/exportReceiptPDF"
+import {
+  formatCurrency,
+  calculateTotal,
+  RUSH_FEE,
+  computeStorageFeeFromLineItems,
+  getUpdatedStatus,
+} from "@/utils/paymentHelpers"
+import { updateLineItemStorageFee } from "@/utils/api/updateLineItemStorageFee"
 import { toast } from "sonner"
 import { Checkbox } from "@/components/ui/checkbox"
 
@@ -41,6 +49,8 @@ type Request = {
   dateIn: string
   customerId: string
   customerName: string
+  // customer address (optional)
+  customerAddress?: string
   total: number
   pairs: number
   pairsReleased: number
@@ -48,43 +58,13 @@ type Request = {
   amountPaid: number
   remainingBalance: number
   discount: number | null
+  // total storage fee (sum of per-line-item storage charges)
+  storageFee?: number
+  // list of payment ids attached to this transaction
+  payments?: string[]
 }
 
-// Rush fee constant
-const RUSH_FEE = 150
-
-function formatCurrency(n: number) {
-  return "₱" + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-}
-
-function getPaymentStatus(balance: number, totalAmount: number): string {
-  if (balance === totalAmount) return "NP"
-  else if (balance > 0 && balance < totalAmount) return "PARTIAL"
-  else if (balance === 0) return "PAID"
-  return "Unknown"
-}
-
-  // --- Helper: calculate total (use only services; additionals treated as services in DB) ---
-  function calculateTotal(
-    shoes: Shoe[],
-    discount: number | null,
-    findServicePriceFn: (serviceName: string) => number
-  ): number {
-    let total = 0
-
-    shoes.forEach((shoe) => {
-      const serviceTotal = shoe.services.reduce(
-        (sum, srv) => sum + findServicePriceFn(srv),
-        0
-      )
-      const rushFee = shoe.rush === "yes" ? RUSH_FEE : 0
-
-      total += serviceTotal + rushFee
-    })
-
-    if (discount) total -= discount
-    return Math.max(total, 0)
-  }
+// helpers imported from paymentHelpers
 
 // --- Dummy Data ---
 // (dummy generator removed) real data will be fetched from APIs
@@ -106,6 +86,7 @@ export default function Payments() {
   const [fetchedRequests, setFetchedRequests] = useState<Request[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null)
+  const [paymentsForSelected, setPaymentsForSelected] = useState<Array<{ payment_id: string; payment_amount: number; payment_mode?: string; payment_date?: string }>>([])
   const [selectedLineItemId, setSelectedLineItemId] = useState<string | null>(null)
 
   // Build lookup maps for service prices (service_id -> price)
@@ -166,6 +147,8 @@ export default function Payments() {
             } catch (e) {}
 
             // Map server line items to local Shoe[] style
+            // Also compute storage fee per line item using computePickupAllowance
+            let storageFeeTotal = 0
             const shoes: Shoe[] = txLineItems.map((li: any) => {
               // li.services is an array of { service_id, quantity }
               const servicesNames: string[] = []
@@ -193,6 +176,13 @@ export default function Payments() {
               }
             })
 
+            // compute storage fee using helper
+            try {
+              storageFeeTotal = computeStorageFeeFromLineItems(txLineItems)
+            } catch (e) {
+              console.debug('Failed computing storage fees', e)
+            }
+
             // Prefer explicit transaction amounts from the server. If missing, fall back to local calculation.
             const totalFromTx =
               transaction.total_amount !== undefined && transaction.total_amount !== null
@@ -207,6 +197,7 @@ export default function Payments() {
               dateIn: new Date(transaction.date_in).toLocaleDateString(),
               customerId: customer?.cust_id || transaction.cust_id || "",
               customerName: customer?.cust_name || "",
+              customerAddress: customer?.cust_address || transaction.cust_address || "",
               // use the explicit transaction total when available
               total: totalFromTx,
               pairs: transaction.no_pairs || shoes.length,
@@ -216,9 +207,13 @@ export default function Payments() {
               // remaining balance = total_amount - amount_paid
               remainingBalance: remaining,
               discount: transaction.discount_amount ?? null,
+              storageFee: storageFeeTotal > 0 ? storageFeeTotal : 0,
+              payments: Array.isArray(transaction.payments) ? transaction.payments : [],
             }
 
             requests.push(req)
+            // Preload payment ids for this transaction (no state mutation here) - optional
+            // We won't call loadPaymentsForTransaction here to avoid extra network calls during bulk load
           } catch (err) {
             console.error("Failed to load transaction", txId, err)
           }
@@ -248,6 +243,33 @@ export default function Payments() {
     load()
     return () => { mounted = false }
   }, [])
+
+  // helper: fetch payment details for an array of payment_ids stored on transaction
+  async function loadPaymentsForTransaction(paymentIds?: string[]) {
+    if (!paymentIds || paymentIds.length === 0) {
+      setPaymentsForSelected([])
+      return
+    }
+
+    try {
+      const { getPaymentById } = await import("@/utils/api/getPaymentById")
+      const promises = paymentIds.map((pid) => getPaymentById(String(pid)).catch((e) => {
+        console.debug('Failed to load payment', pid, e)
+        return null
+      }))
+      const results = await Promise.all(promises)
+      const payments = results.filter(Boolean).map((p: any) => ({
+        payment_id: p.payment_id,
+        payment_amount: p.payment_amount,
+        payment_mode: p.payment_mode,
+        payment_date: p.payment_date,
+      }))
+      setPaymentsForSelected(payments)
+    } catch (e) {
+      console.debug('Error loading payments for transaction', e)
+      setPaymentsForSelected([])
+    }
+  }
 
   // Filter + Sort over fetchedRequests
   const filteredRequests = useMemo(() => {
@@ -328,13 +350,13 @@ export default function Payments() {
   }
 
   const handleDueNow = (value: number) => {
-    // Clamp the due now value to be between 0 and the transaction remaining balance
-    const maxDue = selectedRequest ? selectedRequest.remainingBalance : Number.POSITIVE_INFINITY
-    const clamped = Math.max(0, Math.min(value, maxDue))
+    // Clamp the due now value to be between 0 and the transaction remaining balance + storage fee
+    const combinedBalanceForClamp = selectedRequest ? ((selectedRequest.remainingBalance ?? 0) + (selectedRequest.storageFee ?? 0)) : Number.POSITIVE_INFINITY
+    const clamped = Math.max(0, Math.min(value, combinedBalanceForClamp))
     setDueNow(clamped)
     if (!selectedRequest) return
     const newTotalPaid = selectedRequest.amountPaid + clamped
-    setUpdatedBalance(Math.max(0, selectedRequest.total - newTotalPaid))
+    setUpdatedBalance(Math.max(0, (selectedRequest.total - newTotalPaid) + (selectedRequest.storageFee ?? 0)))
   // Update change to reflect current customerPaid - dueNow, but never negative
   setChange(Math.max(0, customerPaid - clamped))
     // Validation is enforced at save-time; do not alert while typing
@@ -358,8 +380,8 @@ export default function Payments() {
       return
     }
 
-    if (dueNow > (selectedRequest.remainingBalance ?? Infinity)) {
-      toast.error("Due Now cannot exceed the remaining balance.")
+    if (dueNow > ((selectedRequest.remainingBalance ?? 0) + (selectedRequest.storageFee ?? 0))) {
+      toast.error("Due Now cannot exceed the remaining balance (including storage fee).")
       return
     }
 
@@ -375,39 +397,87 @@ export default function Payments() {
     try {
       const txId = selectedRequest?.receiptId
       if (!txId) throw new Error("No selected transaction")
-      const pm = modeOfPayment === 'cash' ? 'Cash' : modeOfPayment === 'gcash' ? 'GCash' : modeOfPayment === 'bank' ? 'Card' : 'Other'
-      await applyPayment(txId, {
-        dueNow,
-        customerPaid,
-        modeOfPayment: pm,
-        markPickedUp: false,
-      })
+  const pm = modeOfPayment === 'cash' ? 'Cash' : modeOfPayment === 'gcash' ? 'GCash' : modeOfPayment === 'bank' ? 'Bank' : 'Other'
 
-      // refresh transaction data
-      const refreshed = await getTransactionById(txId)
-      if (refreshed && refreshed.transaction) {
-        const transaction = refreshed.transaction
-        // map back to Request shape for selectedRequest update (minimal fields)
-        const updatedReq = {
-          ...selectedRequest,
-          total: transaction.total_amount,
-          amountPaid: transaction.amount_paid,
-          remainingBalance: Math.max(0, transaction.total_amount - transaction.amount_paid),
-          // keep discount as-is from transaction
-          discount: transaction.discount_amount ?? selectedRequest?.discount ?? null,
-        }
-        setSelectedRequest(updatedReq)
-        // also update fetchedRequests list
-        setFetchedRequests((prev) => prev.map((r) => (r.receiptId === txId ? updatedReq : r)))
+      // Compute updated payment status using post-payment totals so we can pass simple status to PDF
+      const prevPaid = Number(selectedRequest?.amountPaid ?? 0)
+      const totalDue = (Number(selectedRequest?.total ?? 0) + Number(selectedRequest?.storageFee ?? 0))
+      const totalPaidAfter = prevPaid + Number(dueNow || 0)
+      let updatedStatus = 'PARTIAL'
+      if (totalPaidAfter === 0) {
+        updatedStatus = 'NP'
+      } else if (totalPaidAfter >= totalDue) {
+        updatedStatus = 'PAID'
+      } else {
+        updatedStatus = 'PARTIAL'
       }
 
-      // Build PDF data and export receipt (best-effort)
+  const paymentSimple = updatedStatus === 'PAID' ? 'full' : updatedStatus === 'NP' ? 'no' : 'partial'
+  // When saving payment only, the items are not being marked as picked up.
+
+      // Create payment record (if dueNow > 0), get its id, export receipt PDF, then perform DB updates
+      let createdPaymentId: string | null = null
+      let createdPaymentObj: { payment_id: string; payment_amount: number; payment_mode?: string; payment_date?: string } | null = null
+      try {
+        if (dueNow && dueNow > 0) {
+          const { createPayment } = await import("@/utils/api/createPayment")
+          const branch_id = sessionStorage.getItem("branch_id") || undefined
+          const created = await createPayment({ transaction_id: txId, payment_amount: dueNow, payment_mode: pm, branch_id })
+          createdPaymentId = created?.payment_id || null
+          if (created && created.payment_id) {
+            createdPaymentObj = {
+              payment_id: created.payment_id,
+              payment_amount: created.payment_amount,
+              payment_mode: created.payment_mode,
+              payment_date: created.payment_date || new Date().toISOString(),
+            }
+          }
+        }
+      } catch (e) {
+        console.debug('Failed to create payment before export (continuing):', e)
+        // Continue: export and applyPayment will still run; server-side applyPayment may also create a payment
+      }
+
+      // Build payments list for applyPayment and PDF export prior to exporting
+      let paymentsForPdf: Array<{ payment_id: string; payment_amount: number; payment_mode?: string; payment_date?: string }> = []
+      try {
+        const existingPaymentIds = selectedRequest?.payments || []
+        if (existingPaymentIds && existingPaymentIds.length > 0) {
+          const { getPaymentById } = await import("@/utils/api/getPaymentById")
+          const promises = existingPaymentIds.map((pid) => getPaymentById(String(pid)).catch((e) => {
+            console.debug('Failed to load payment', pid, e)
+            return null
+          }))
+          const results = await Promise.all(promises)
+          paymentsForPdf = results.filter(Boolean).map((p: any) => ({
+            payment_id: p.payment_id,
+            payment_amount: p.payment_amount,
+            payment_mode: p.payment_mode,
+            payment_date: p.payment_date,
+          }))
+        }
+      } catch (e) {
+        console.debug('Failed to preload payments for PDF export', e)
+      }
+
+      // include created payment if present and not already included
+      if (createdPaymentObj) {
+        const exists = paymentsForPdf.some((p) => p.payment_id === createdPaymentObj!.payment_id)
+        if (!exists) paymentsForPdf.push(createdPaymentObj)
+      }
+
+      // sort by payment_date ascending (missing dates go last)
+      paymentsForPdf.sort((a, b) => {
+        const ta = a.payment_date ? new Date(a.payment_date).getTime() : Number.POSITIVE_INFINITY
+        const tb = b.payment_date ? new Date(b.payment_date).getTime() : Number.POSITIVE_INFINITY
+        return ta - tb
+      })
+
+      // Export receipt PDF before performing DB updates
       try {
         const branch = sessionStorage.getItem("branch_name") || sessionStorage.getItem("branch_id") || "Branch"
 
-        // Build structured shoes array for the PDF utility
         const pdfShoes = (selectedRequest?.shoes || []).map((shoe) => {
-          // aggregate services by name
           const counts = new Map<string, number>()
           for (const s of shoe.services || []) counts.set(s, (counts.get(s) || 0) + 1)
           const servicesArr = Array.from(counts.entries()).map(([name, qty]) => ({
@@ -425,36 +495,148 @@ export default function Payments() {
           }
         })
 
-        // Determine if this action released the final pair so we can include pickup date
-        const wasLastPairRelease = !paymentOnly && ((selectedRequest?.pairs || 0) - (selectedRequest?.pairsReleased || 0)) === 1 && ((selectedRequest?.remainingBalance || 0) - dueNow) <= 0
+        const storageFeeUI = Number(selectedRequest?.storageFee ?? 0)
+        const prevBalance = Math.max(0, (Number(selectedRequest?.total ?? 0) - Number(selectedRequest?.amountPaid ?? 0)) + storageFeeUI)
+        const newBalance = Math.max(0, prevBalance - Number(dueNow || 0))
+
+        // acknowledgement text intentionally omitted from printed receipt
+
+        // Use the paymentsForPdf we already built above (preload + include createdPaymentObj + sort)
 
         const pdfData = {
           transaction_id: txId,
           cust_name: selectedRequest?.customerName || "",
           cust_id: selectedRequest?.customerId || "",
-          cust_address: "",
+          cust_address: selectedRequest?.customerAddress || "",
           date: new Date().toISOString(),
           date_in: selectedRequest?.dateIn || "",
-          // Prefer server-provided date_out; if not present and we just released the last pair, use now
-          date_out: refreshed.transaction.date_out || (wasLastPairRelease ? new Date().toISOString() : null),
-          received_by: cashier || refreshed.transaction.received_by || "",
+          date_out: null,
+          received_by: cashier || "",
           payment_mode: pm,
-          discountAmount: refreshed.transaction.discount_amount ?? selectedRequest?.discount ?? 0,
-          total_amount: refreshed.transaction.total_amount ?? selectedRequest?.total ?? 0,
+          discountAmount: selectedRequest?.discount ?? 0,
+          total_amount: selectedRequest?.total ?? 0,
           payment: dueNow,
-          amount_paid: refreshed.transaction.amount_paid ?? 0,
+          amount_paid: Number(selectedRequest?.amountPaid ?? 0) + Number(dueNow || 0),
           change: Math.max(0, customerPaid - dueNow),
-          prev_balance: (refreshed.transaction.total_amount ?? selectedRequest?.total ?? 0) - (refreshed.transaction.amount_paid ?? 0),
+          prev_balance: prevBalance,
+          storageFee: storageFeeUI,
           dueNow: dueNow,
           customerPaid: customerPaid,
-          new_balance: Math.max(0, ((refreshed.transaction.total_amount ?? selectedRequest?.total ?? 0) - (refreshed.transaction.amount_paid ?? 0)) - dueNow),
+          new_balance: newBalance,
+          payment_status_simple: paymentSimple,
+          uiSummary: {
+            cashier: cashier || "",
+            dueNow: dueNow,
+            customerPaid: customerPaid,
+            change: Math.max(0, customerPaid - dueNow),
+            updatedBalance: Math.max(0, newBalance),
+            updatedStatus: getUpdatedStatus(Number(selectedRequest?.amountPaid ?? 0), Number(dueNow || 0), Number(selectedRequest?.total ?? 0), Number(selectedRequest?.storageFee ?? 0)),
+            storageFee: storageFeeUI,
+          },
           shoes: pdfShoes,
+       // include the latest created payment id for printing (optional)
+       latest_payment_id: createdPaymentId,
+       // include full payments list (ids and amounts) in date ascending order
+       payments: paymentsForPdf.length > 0 ? paymentsForPdf : undefined,
         }
 
         await exportReceiptPDF({ type: 'acknowledgement-receipt', data: pdfData, branch })
       } catch (e) {
-        console.debug('Failed to export receipt PDF', e)
+        console.debug('Pre-save export failed (continuing to save):', e)
+        toast.error('Failed to export receipt before saving. The payment will still be saved.')
       }
+
+      await applyPayment(txId, {
+        dueNow,
+        customerPaid,
+        modeOfPayment: pm,
+        markPickedUp: false,
+        payment_status: updatedStatus,
+        // allow server to know if a payment record was pre-created (server will ensure no duplicates)
+        provided_payment_id: createdPaymentId ?? undefined,
+        // pass full payments list (ids + amounts) in date ascending order as helper for server-side record
+        provided_payments_list: paymentsForPdf.length > 0 ? paymentsForPdf : undefined,
+      })
+
+  // refresh transaction data
+  const refreshed = await getTransactionById(txId)
+    if (refreshed && refreshed.transaction) {
+        const transaction = refreshed.transaction
+        // recompute storage fee from refreshed.lineItems using helper
+        let refreshedStorageFee = selectedRequest?.storageFee ?? 0
+        try {
+          refreshedStorageFee = computeStorageFeeFromLineItems(refreshed.lineItems)
+        } catch (e) {
+          /* ignore */
+        }
+
+        const updatedReq = {
+          ...selectedRequest,
+          total: transaction.total_amount,
+          amountPaid: transaction.amount_paid,
+          remainingBalance: Math.max(0, transaction.total_amount - transaction.amount_paid),
+          // keep discount as-is from transaction
+          discount: transaction.discount_amount ?? selectedRequest?.discount ?? null,
+          storageFee: refreshedStorageFee,
+          // include up-to-date payments ids from transaction so next exports see them
+          payments: Array.isArray(transaction.payments) ? transaction.payments : [],
+        }
+        setSelectedRequest(updatedReq)
+        // also update fetchedRequests list
+        setFetchedRequests((prev) => prev.map((r) => (r.receiptId === txId ? updatedReq : r)))
+        // update updatedBalance in UI to include storage fee
+        setUpdatedBalance(Math.max(0, (updatedReq.remainingBalance ?? 0) + (updatedReq.storageFee ?? 0)))
+
+        // refresh payments list for UI
+        try {
+          await loadPaymentsForTransaction(refreshed.transaction.payments)
+        } catch (e) {
+          /* ignore */
+        }
+
+        // If transaction overpaid, update storage_fee on line items accordingly
+        try {
+          // compute overflow using previous amountPaid + dueNow (the new payment amount)
+          const prevPaid = Number(selectedRequest?.amountPaid ?? 0)
+          const totalAmt = Number(transaction.total_amount ?? selectedRequest?.total ?? 0)
+          const overflow = Math.max(0, (prevPaid + dueNow) - totalAmt)
+          if (overflow > 0) {
+            const refreshedLineItems = refreshed.lineItems || []
+            if (selectedLineItemId) {
+              // apply entire overflow to selected line item
+              await updateLineItemStorageFee(selectedLineItemId, overflow)
+            } else if (refreshedLineItems.length > 0) {
+              // distribute equally among line items
+              const per = Math.floor((overflow / refreshedLineItems.length) * 100) / 100
+              await Promise.all(refreshedLineItems.map((li: any) => updateLineItemStorageFee(li.line_item_id, per)))
+            }
+
+            // After applying DB updates to line items, refetch transaction to get updated stored storage_fee values
+              try {
+                const afterUpdate = await getTransactionById(txId)
+                const newRemainingSf = computeStorageFeeFromLineItems(afterUpdate.lineItems || [])
+
+                const updatedReqAfter = {
+                  ...updatedReq,
+                  total: afterUpdate.transaction.total_amount,
+                  amountPaid: afterUpdate.transaction.amount_paid,
+                  remainingBalance: Math.max(0, afterUpdate.transaction.total_amount - afterUpdate.transaction.amount_paid),
+                  storageFee: newRemainingSf,
+                  payments: Array.isArray(afterUpdate.transaction.payments) ? afterUpdate.transaction.payments : [],
+                }
+                setSelectedRequest(updatedReqAfter)
+                setFetchedRequests((prev) => prev.map((r) => (r.receiptId === txId ? updatedReqAfter : r)))
+                setUpdatedBalance(Math.max(0, (updatedReqAfter.remainingBalance ?? 0) + (updatedReqAfter.storageFee ?? 0)))
+              } catch (e) {
+                console.debug('Failed to refresh transaction after updating line item storage fees', e)
+              }
+          }
+        } catch (e) {
+          console.debug('Failed to update line item storage fees after payment', e)
+        }
+      }
+
+      // removed post-update export: we exported the receipt before saving to DB
 
       toast.success("Payment saved successfully!")
     } catch (err) {
@@ -482,8 +664,8 @@ export default function Payments() {
       return
     }
 
-    if (dueNow > (selectedRequest.remainingBalance ?? Infinity)) {
-      toast.error("Due Now cannot exceed the remaining balance.")
+    if (dueNow > ((selectedRequest.remainingBalance ?? 0) + (selectedRequest.storageFee ?? 0))) {
+      toast.error("Due Now cannot exceed the remaining balance (including storage fee).")
       return
     }
 
@@ -499,7 +681,7 @@ export default function Payments() {
     // Prevent marking as Picked Up when only one unreleased pair remains but payment is not fully covered
     const remainingPairs = (selectedRequest.pairs || 0) - (selectedRequest.pairsReleased || 0)
     if (remainingPairs === 1) {
-      const postPaymentRemaining = (selectedRequest.remainingBalance || 0) - dueNow
+      const postPaymentRemaining = ((selectedRequest.remainingBalance || 0) + (selectedRequest.storageFee ?? 0)) - dueNow
       if (postPaymentRemaining > 0) {
         // Last pair and still unpaid after this payment attempt -> require payment
         toast.error("Cannot mark as Picked Up: the remaining balance must be fully paid before picking up the last pair.")
@@ -527,34 +709,42 @@ export default function Payments() {
     try {
       const txId = selectedRequest?.receiptId
       if (!txId) throw new Error("No selected transaction")
-      const pm = modeOfPayment === 'cash' ? 'Cash' : modeOfPayment === 'gcash' ? 'GCash' : modeOfPayment === 'bank' ? 'Card' : 'Other'
-      await applyPayment(txId, {
-        dueNow,
-        customerPaid,
-        modeOfPayment: pm,
-        lineItemId: selectedLineItemId ?? undefined,
-        markPickedUp: true,
-      })
-
-      // refresh transaction data
-      const refreshed = await getTransactionById(txId)
-      if (refreshed && refreshed.transaction) {
-        const transaction = refreshed.transaction
-        const updatedReq = {
-          ...selectedRequest,
-          total: transaction.total_amount,
-          amountPaid: transaction.amount_paid,
-          remainingBalance: Math.max(0, transaction.total_amount - transaction.amount_paid),
-          discount: transaction.discount_amount ?? selectedRequest?.discount ?? null,
-        }
-        setSelectedRequest(updatedReq)
-        setFetchedRequests((prev) => prev.map((r) => (r.receiptId === txId ? updatedReq : r)))
+  const pm = modeOfPayment === 'cash' ? 'Cash' : modeOfPayment === 'gcash' ? 'GCash' : modeOfPayment === 'bank' ? 'Bank' : 'Other'
+      // Compute updated payment status for confirm action using same consistent rules
+      const prevPaidC = Number(selectedRequest?.amountPaid ?? 0)
+      const totalDueC = (Number(selectedRequest?.total ?? 0) + Number(selectedRequest?.storageFee ?? 0))
+      const totalPaidAfterC = prevPaidC + Number(dueNow || 0)
+      let updatedStatusC = 'PARTIAL'
+      if (totalPaidAfterC === 0) {
+        updatedStatusC = 'NP'
+      } else if (totalPaidAfterC >= totalDueC) {
+        updatedStatusC = 'PAID'
+      } else {
+        updatedStatusC = 'PARTIAL'
       }
 
-      // Build PDF data and export receipt after confirm
+      // Create payment record (if dueNow > 0), then export PDF and confirm
+      let createdPaymentIdC: string | null = null
       try {
-        const branch = sessionStorage.getItem("branch_name") || sessionStorage.getItem("branch_id") || "Branch"
+        if (dueNow && dueNow > 0) {
+          const { createPayment } = await import("@/utils/api/createPayment")
+          const branch_id = sessionStorage.getItem("branch_id") || undefined
+          const created = await createPayment({ transaction_id: txId, payment_amount: dueNow, payment_mode: pm, branch_id })
+          createdPaymentIdC = created?.payment_id || null
+        }
+      } catch (e) {
+        console.debug('Failed to create payment before export (continuing):', e)
+      }
 
+  // Build payments list for PDF/export and for applyPayment payload (declare before try so it's in scope below)
+  let paymentsForPdfC: Array<{ payment_id: string; payment_amount: number; payment_mode?: string; payment_date?: string }> = []
+  // Build and export PDF before confirm (include simplified payment status and acknowledgement text)
+  try {
+        const paymentSimple = updatedStatusC === 'PAID' ? 'full' : updatedStatusC === 'NP' ? 'no' : 'partial'
+  // In the confirm flow we are marking items as picked up.
+        // acknowledgement text intentionally omitted from printed receipt
+
+        const branch = sessionStorage.getItem("branch_name") || sessionStorage.getItem("branch_id") || "Branch"
         const pdfShoes = (selectedRequest?.shoes || []).map((shoe) => {
           const counts = new Map<string, number>()
           for (const s of shoe.services || []) counts.set(s, (counts.get(s) || 0) + 1)
@@ -573,32 +763,174 @@ export default function Payments() {
           }
         })
 
+        const storageFeeUI = Number(selectedRequest?.storageFee ?? 0)
+        const prevBalance = Math.max(0, (Number(selectedRequest?.total ?? 0) - Number(selectedRequest?.amountPaid ?? 0)) + storageFeeUI)
+        const newBalance = Math.max(0, prevBalance - Number(dueNow || 0))
+
+        try {
+          const existingPaymentIds = selectedRequest?.payments || []
+          if (existingPaymentIds && existingPaymentIds.length > 0) {
+            const { getPaymentById } = await import("@/utils/api/getPaymentById")
+            const promises = existingPaymentIds.map((pid) => getPaymentById(String(pid)).catch((e) => {
+              console.debug('Failed to load payment', pid, e)
+              return null
+            }))
+            const results = await Promise.all(promises)
+            paymentsForPdfC = results.filter(Boolean).map((p: any) => ({
+              payment_id: p.payment_id,
+              payment_amount: p.payment_amount,
+              payment_mode: p.payment_mode,
+              payment_date: p.payment_date,
+            }))
+          }
+        } catch (e) {
+          console.debug('Failed to preload payments for PDF export (confirm)', e)
+        }
+
+        // include created payment if present and not already included
+        if (createdPaymentIdC) {
+          const createdObj = {
+            payment_id: createdPaymentIdC,
+            payment_amount: dueNow,
+            payment_mode: pm,
+            payment_date: new Date().toISOString(),
+          }
+          const exists = paymentsForPdfC.some((p) => p.payment_id === createdObj.payment_id)
+          if (!exists) paymentsForPdfC.push(createdObj)
+        }
+
+        // sort by payment_date ascending
+        paymentsForPdfC.sort((a, b) => {
+          const ta = a.payment_date ? new Date(a.payment_date).getTime() : Number.POSITIVE_INFINITY
+          const tb = b.payment_date ? new Date(b.payment_date).getTime() : Number.POSITIVE_INFINITY
+          return ta - tb
+        })
+
         const pdfData = {
           transaction_id: txId,
           cust_name: selectedRequest?.customerName || "",
           cust_id: selectedRequest?.customerId || "",
-          cust_address: "",
+          cust_address: selectedRequest?.customerAddress || "",
           date: new Date().toISOString(),
           date_in: selectedRequest?.dateIn || "",
-          date_out: refreshed.transaction.date_out || null,
-          received_by: cashier || refreshed.transaction.received_by || "",
+          date_out: null,
+          received_by: cashier || "",
           payment_mode: pm,
-          discountAmount: refreshed.transaction.discount_amount ?? selectedRequest?.discount ?? 0,
-          total_amount: refreshed.transaction.total_amount ?? selectedRequest?.total ?? 0,
+          discountAmount: selectedRequest?.discount ?? 0,
+          total_amount: selectedRequest?.total ?? 0,
           payment: dueNow,
-          amount_paid: refreshed.transaction.amount_paid ?? 0,
+          amount_paid: Number(selectedRequest?.amountPaid ?? 0) + Number(dueNow || 0),
           change: Math.max(0, customerPaid - dueNow),
-          prev_balance: (refreshed.transaction.total_amount ?? selectedRequest?.total ?? 0) - (refreshed.transaction.amount_paid ?? 0),
+          prev_balance: prevBalance,
+          storageFee: storageFeeUI,
           dueNow: dueNow,
           customerPaid: customerPaid,
-          new_balance: Math.max(0, ((refreshed.transaction.total_amount ?? selectedRequest?.total ?? 0) - (refreshed.transaction.amount_paid ?? 0)) - dueNow),
+          new_balance: newBalance,
+          payment_status_simple: paymentSimple,
+          uiSummary: {
+            cashier: cashier || "",
+            dueNow: dueNow,
+            customerPaid: customerPaid,
+            change: Math.max(0, customerPaid - dueNow),
+            updatedBalance: Math.max(0, newBalance),
+            updatedStatus: getUpdatedStatus(Number(selectedRequest?.amountPaid ?? 0), Number(dueNow || 0), Number(selectedRequest?.total ?? 0), Number(selectedRequest?.storageFee ?? 0)),
+            storageFee: storageFeeUI,
+          },
           shoes: pdfShoes,
+          latest_payment_id: createdPaymentIdC,
+          payments: paymentsForPdfC.length > 0 ? paymentsForPdfC : undefined,
         }
 
         await exportReceiptPDF({ type: 'acknowledgement-receipt', data: pdfData, branch })
       } catch (e) {
-        console.debug('Failed to export receipt PDF', e)
+        console.debug('Pre-confirm export failed (continuing to confirm):', e)
+        toast.error('Failed to export receipt before confirming. The payment will still be saved and pickup processed.')
       }
+
+      await applyPayment(txId, {
+        dueNow,
+        customerPaid,
+        modeOfPayment: pm,
+        lineItemId: selectedLineItemId ?? undefined,
+        markPickedUp: true,
+        payment_status: updatedStatusC,
+        provided_payment_id: createdPaymentIdC ?? undefined,
+        // pass full payments list (ids + amounts) in date ascending order as helper for server-side record
+        provided_payments_list: paymentsForPdfC.length > 0 ? paymentsForPdfC : undefined,
+      })
+
+  // refresh transaction data
+  const refreshed = await getTransactionById(txId)
+  if (refreshed && refreshed.transaction) {
+        const transaction = refreshed.transaction
+        // Compute remaining storage fee owed after accounting for any existing stored storage_fee
+        let refreshedStorageFee = selectedRequest?.storageFee ?? 0
+        try {
+          refreshedStorageFee = computeStorageFeeFromLineItems(refreshed.lineItems || [])
+        } catch (e) {
+          /* ignore */
+        }
+
+        const updatedReq = {
+          ...selectedRequest,
+          total: transaction.total_amount,
+          amountPaid: transaction.amount_paid,
+          remainingBalance: Math.max(0, transaction.total_amount - transaction.amount_paid),
+          discount: transaction.discount_amount ?? selectedRequest?.discount ?? null,
+          storageFee: refreshedStorageFee,
+          payments: Array.isArray(transaction.payments) ? transaction.payments : [],
+        }
+        setSelectedRequest(updatedReq)
+        setFetchedRequests((prev) => prev.map((r) => (r.receiptId === txId ? updatedReq : r)))
+        setUpdatedBalance(Math.max(0, (updatedReq.remainingBalance ?? 0) + (updatedReq.storageFee ?? 0)))
+
+        // If transaction overpaid, update storage_fee on line items accordingly
+        try {
+          const prevPaid = Number(selectedRequest?.amountPaid ?? 0)
+          const totalAmt = Number(transaction.total_amount ?? selectedRequest?.total ?? 0)
+          const overflow = Math.max(0, (prevPaid + dueNow) - totalAmt)
+          if (overflow > 0) {
+            const refreshedLineItems = refreshed.lineItems || []
+            if (selectedLineItemId) {
+              await updateLineItemStorageFee(selectedLineItemId, overflow)
+            } else if (refreshedLineItems.length > 0) {
+              const per = Math.floor((overflow / refreshedLineItems.length) * 100) / 100
+              await Promise.all(refreshedLineItems.map((li: any) => updateLineItemStorageFee(li.line_item_id, per)))
+            }
+
+            // After applying DB updates to line items, refetch transaction to get updated stored storage_fee values
+              try {
+                const afterUpdate = await getTransactionById(txId)
+                const newRemainingSf = computeStorageFeeFromLineItems(afterUpdate.lineItems || [])
+
+                const updatedReqAfter = {
+                  ...updatedReq,
+                  total: afterUpdate.transaction.total_amount,
+                  amountPaid: afterUpdate.transaction.amount_paid,
+                  remainingBalance: Math.max(0, afterUpdate.transaction.total_amount - afterUpdate.transaction.amount_paid),
+                  storageFee: newRemainingSf,
+                  payments: Array.isArray(afterUpdate.transaction.payments) ? afterUpdate.transaction.payments : [],
+                }
+                setSelectedRequest(updatedReqAfter)
+                setFetchedRequests((prev) => prev.map((r) => (r.receiptId === txId ? updatedReqAfter : r)))
+                setUpdatedBalance(Math.max(0, (updatedReqAfter.remainingBalance ?? 0) + (updatedReqAfter.storageFee ?? 0)))
+              } catch (e) {
+                console.debug('Failed to refresh transaction after updating line item storage fees', e)
+              }
+          }
+        } catch (e) {
+          console.debug('Failed to update line item storage fees after confirm', e)
+        }
+      }
+
+      // refresh payments list for UI after confirm
+      try {
+        await loadPaymentsForTransaction(refreshed.transaction.payments)
+      } catch (e) {
+        /* ignore */
+      }
+
+      // removed post-update export: we already exported the receipt before confirming
 
       toast.success("Payment updated & marked as picked up!")
     } catch (err) {
@@ -691,13 +1023,15 @@ export default function Payments() {
 
                       // Select the passed request and line-item id (may be null)
                       setSelectedRequest(req)
+                      // load payment details for this request (if any)
+                      loadPaymentsForTransaction(req?.payments)
                       setSelectedLineItemId(lineItemId ?? null)
 
                       // Reset payment inputs to zero on selection. Do NOT prefill any amounts.
                       setDueNow(0)
                       setCustomerPaid(0)
                       setChange(0)
-                      setUpdatedBalance(req.remainingBalance)
+                      setUpdatedBalance((req.remainingBalance ?? 0) + (req.storageFee ?? 0))
                     }}
                     findServicePrice={findServicePriceFromList}
                     formatCurrency={formatCurrency}
@@ -755,7 +1089,7 @@ export default function Payments() {
                   <div className="payment-grid w-[60%]">
                     <p>Remaining Balance:</p>
                     <p className="text-right pr-3">
-                      {formatCurrency(selectedRequest.remainingBalance)}
+                      {formatCurrency((selectedRequest.remainingBalance ?? 0) + (selectedRequest.storageFee ?? 0))}
                     </p>
 
                     <p>Due Now:</p>
@@ -764,7 +1098,7 @@ export default function Payments() {
                       type="number"
                       value={dueNow}
                       onChange={(e) => handleDueNow(Number(e.target.value) || 0)}
-                      max={selectedRequest ? selectedRequest.remainingBalance : undefined}
+                      max={selectedRequest ? ((selectedRequest.remainingBalance ?? 0) + (selectedRequest.storageFee ?? 0)) : undefined}
                       min={0}
                     />
 
@@ -865,15 +1199,40 @@ export default function Payments() {
                   <p>{formatCurrency(selectedRequest.total)}</p>
                 </div>
 
-                <div className="summary-discount-row">
-                  <p className="bold">Amount Paid</p>
-                  <p>({formatCurrency(selectedRequest.amountPaid)})</p>
-                </div>
+                {/* Show individual payments (payment_id and amount) if available, otherwise show aggregated Amount Paid */}
+                {paymentsForSelected && paymentsForSelected.length > 0 ? (
+                  <div className="summary-discount-row flex flex-col gap-2">
+                    <p className="bold">Payments</p>
+                    <div className="pl-10">
+                      {paymentsForSelected.map((p) => (
+                        <div key={p.payment_id} className="flex justify-between">
+                          <p>Less: {p.payment_id}</p>
+                          <p>{formatCurrency(p.payment_amount)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="summary-discount-row">
+                    <p className="bold">Amount Paid</p>
+                    <p>({formatCurrency(selectedRequest.amountPaid)})</p>
+                  </div>
+                )}
+
+                {(() => {
+                  const storageFee = selectedRequest?.storageFee ?? 0
+                  return storageFee > 0 ? (
+                    <div className="summary-discount-row">
+                      <p className="bold text-red-600">Storage Fee</p>
+                      <p className="text-red-600">{formatCurrency(storageFee)}</p>
+                    </div>
+                  ) : null
+                })()}
 
                 <hr className="total" />
                 <div className="summary-discount-row">
                   <p className="bold">Balance</p>
-                  <p>{formatCurrency(selectedRequest.remainingBalance)}</p>
+                  <p>{formatCurrency((selectedRequest.remainingBalance ?? 0) + (selectedRequest.storageFee ?? 0))}</p>
                 </div>
 
                 <div className="summary-discount-row mt-5">
@@ -894,7 +1253,17 @@ export default function Payments() {
                 </div>
                 <div className="summary-balance-row">
                   <h2>Updated Status:</h2>
-                  <h2>{getPaymentStatus(updatedBalance, selectedRequest.total)}</h2>
+                  <h2>
+                    {(() => {
+                      // UI: compute status same as save/confirm handlers
+                      const prev = Number(selectedRequest.amountPaid ?? 0)
+                      const totalDueUI = Number(selectedRequest.total ?? 0) + Number(selectedRequest.storageFee ?? 0)
+                      const paidAfter = prev + Number(dueNow || 0)
+                      if (paidAfter === 0) return "NP"
+                      if (paidAfter >= totalDueUI) return "PAID"
+                      return "PARTIAL"
+                    })()}
+                  </h2>
                 </div>
                 <div className="flex items-center justify-center gap-2 mt-4 w-fullrounded">
                   <Checkbox
