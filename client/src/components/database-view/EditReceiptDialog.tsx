@@ -24,6 +24,7 @@ import { getDatesByLineItem } from "@/utils/api/getDatesByLineItem" // 👈 Add 
 import { getCustomerById } from "@/utils/api/getCustomerById" // 👈 Import the customer fetch utility
 import { updateTransaction } from "@/utils/api/updateTransaction"
 import { updateLineItem } from "@/utils/api/updateLineItem"
+import { updateDates } from "@/utils/api/updateDates" // 👈 Add this import
 import { toast } from "sonner" // Assuming you have toast set up
 
 // ✅ Import shared types
@@ -94,6 +95,30 @@ export function EditReceiptDialog({
     { key: "readyForPickup", label: "Ready for pickup" },
     { key: "pickedUp", label: "Picked up" },
   ]
+
+  // Add status mapping constant (place it with other constants)
+  const STATUS_TO_DB_FIELD: Record<string, string> = {
+    "queued": "srm_date",
+    "readyForDelivery": "rd_date",
+    "toWarehouse": "ibd_date",
+    "inProcess": "wh_date",
+    "returnToBranch": "rb_date",
+    "received": "is_date",
+    "readyForPickup": "rpu_date",
+    
+  }
+
+  // Add status to numeric value mapping
+  const STATUS_TO_NUMBER: Record<string, number> = {
+    "queued": 1,
+    "readyForDelivery": 2,
+    "toWarehouse": 3,
+    "inProcess": 4, 
+    "returnToBranch": 5,
+    "received": 6,
+    "readyForPickup": 7,
+    "pickedUp": 8
+  }
 
   // 👇 Fetch line items when dialog opens
   React.useEffect(() => {
@@ -276,7 +301,7 @@ export function EditReceiptDialog({
       // 2. Update the transaction record
       await updateTransaction(form.id, transactionUpdates)
       
-      // 3. Update each line item
+      // 3. Update each line item and its dates
       if (form.transactions && form.transactions.length > 0) {
         await Promise.all(
           form.transactions.map(async (tx) => {
@@ -292,53 +317,46 @@ export function EditReceiptDialog({
               }))
             ]
             
-            // Determine current status based on status dates
-            // Status order from earliest to latest
-            const statusOrder = ['queued', 'readyForDelivery', 'toWarehouse', 'inProcess', 'returnToBranch', 'received', 'readyForPickup', 'pickedUp']
-            let currentStatus = ""
-            for (let i = statusOrder.length - 1; i >= 0; i--) {
-              const key = statusOrder[i] as keyof TxStatusDates
-              if (tx.statusDates[key]) {
-                currentStatus = key
-                break
-              }
-            }
-            
-            // Map status to backend format
-            const statusMapping: Record<string, string> = {
-              'queued': 'srm',
-              'readyForDelivery': 'rd',
-              'toWarehouse': 'ibd',
-              'inProcess': 'wh',
-              'returnToBranch': 'rb',
-              'received': 'is',
-              'readyForPickup': 'rpu',
-              'pickedUp': 'pu'
-            }
-            
-            // Prepare line item update data
+            // Update line item
             const lineItemUpdates = {
               shoes: tx.shoeModel,
               priority: tx.rush ? "Rush" : "Normal",
-              services: services.filter(s => s.service_id), // Remove any empty service_ids
+              services: services.filter(s => s.service_id),
               before_img: tx.beforeImage || null,
               after_img: tx.afterImage || null,
-              current_status: statusMapping[currentStatus] || "srm", // Default to srm if no status
-              // Update due_date based on service type and rush status if needed
+              current_status: STATUS_TO_NUMBER[tx.status] || 1,
             }
             
             await updateLineItem(tx.id, lineItemUpdates)
+            
+            // Update dates for this line item
+            if (tx.statusDates) {
+              const dateUpdates: Record<string, string | null> = {}
+              
+              // Map UI date values to DB field names
+              Object.entries(tx.statusDates).forEach(([statusKey, dateValue]) => {
+                const dbFieldName = STATUS_TO_DB_FIELD[statusKey]
+                if (dbFieldName) {
+                  dateUpdates[dbFieldName] = dateValue ? new Date(dateValue).toISOString() : null
+                }
+              })
+              
+              // Add current status number
+              await updateDates(tx.id, {
+                ...dateUpdates,
+                current_status: STATUS_TO_NUMBER[tx.status] || 1
+              })
+            }
           })
         )
       }
       
-      toast.success("Transaction and line items updated successfully"); // Success toast
-      
+      toast.success("Transaction and line items updated successfully")
       onOpenChange(false) // Close dialog
     } catch (err: any) {
       console.error("Failed to save changes:", err)
       setError(err.message || "Failed to save changes")
-      toast.error(err.message || "An error occurred while saving changes"); // Error toast
+      toast.error(err.message || "An error occurred while saving changes")
     } finally {
       setIsSaving(false)
     }
@@ -666,17 +684,35 @@ export function EditReceiptDialog({
                                 variant="unselected"
                                 size="icon"
                                 className="absolute -left-3"
-                                onClick={() => {
+                                onClick={async () => {
+                                  // Get previous status key
+                                  const prevKey = statusEntries[lastFilledIndex - 1]?.key || "queued"
+                                  
+                                  // Update local state
                                   setForm((prev) => {
                                     const newTx = [...(prev.transactions ?? [])]
                                     newTx[idx].statusDates = {
                                       ...newTx[idx].statusDates,
                                       [key]: null,
                                     }
-                                    const prevKey = statusEntries[lastFilledIndex - 1]?.key
-                                    newTx[idx].status = prevKey ? prevKey : ""
+                                    newTx[idx].status = prevKey
                                     return { ...prev, transactions: newTx }
                                   })
+                                  
+                                  try {
+                                    // Update database - remove current date and set previous status
+                                    const dbFieldName = STATUS_TO_DB_FIELD[key]
+                                    if (dbFieldName) {
+                                      await updateDates(t.id, {
+                                        [dbFieldName]: null,
+                                        current_status: STATUS_TO_NUMBER[prevKey] || 1
+                                      })
+                                      toast.success(`${label} date removed successfully`)
+                                    }
+                                  } catch (err: any) {
+                                    console.error(`Failed to remove ${label} date:`, err)
+                                    toast.error(`Failed to remove ${label} date: ${err.message || "Unknown error"}`)
+                                  }
                                 }}
                               >
                                 <X className="w-4 h-4" />
@@ -687,8 +723,10 @@ export function EditReceiptDialog({
                             <Input
                               type="date"
                               value={value ?? ""}
-                              onChange={(e) => {
+                              onChange={async (e) => {
                                 const updatedDate = e.target.value
+                                
+                                // Update local state
                                 setForm((prev) => {
                                   const newTx = [...(prev.transactions ?? [])]
                                   newTx[idx].statusDates = {
@@ -698,6 +736,21 @@ export function EditReceiptDialog({
                                   newTx[idx].status = key
                                   return { ...prev, transactions: newTx }
                                 })
+                                
+                                try {
+                                  // Update date in database
+                                  const dbFieldName = STATUS_TO_DB_FIELD[key]
+                                  if (dbFieldName) {
+                                    await updateDates(t.id, {
+                                      [dbFieldName]: updatedDate ? new Date(updatedDate).toISOString() : null,
+                                      current_status: STATUS_TO_NUMBER[key] || 1
+                                    })
+                                    toast.success(`${label} date updated successfully`)
+                                  }
+                                } catch (err: any) {
+                                  console.error(`Failed to update ${label} date:`, err)
+                                  toast.error(`Failed to update ${label} date: ${err.message || "Unknown error"}`)
+                                }
                               }}
                             />
                           </div>
