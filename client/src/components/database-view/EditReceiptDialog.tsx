@@ -659,8 +659,8 @@ export function EditReceiptDialog({
                         const isCurrent = i === lastFilledIndex
                         return (
                           <div key={key} className="relative flex items-center gap-2">
-                            {/* Remove last status */}
-                            {isCurrent && (
+                            {/* Remove last status - don't show for queued status */}
+                            {isCurrent && key !== "queued" && (
                               <Button
                                 type="button"
                                 variant="unselected"

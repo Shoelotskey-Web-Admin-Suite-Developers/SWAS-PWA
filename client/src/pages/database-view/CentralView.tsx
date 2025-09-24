@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { getTransactions } from "@/utils/api/getTransactions"
+import { exportRecordsToCSV } from "@/utils/exportToCSV"
 
 /* ----------------------------- types ----------------------------- */
 export type PaymentStatus = "PAID" | "PARTIAL" | "NP"
@@ -274,14 +275,14 @@ export default function CentralView() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40">
-              <DropdownMenuItem onClick={() => console.log("Export clicked")}>
+              <DropdownMenuItem onClick={() => exportRecordsToCSV(filtered)}>
                 Export Records
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="text-red-600"
-                onClick={() => console.log("Delete clicked")}
+                onClick={() => console.log("Archive clicked")}
               >
-                Delete Records
+                Archive Records
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
