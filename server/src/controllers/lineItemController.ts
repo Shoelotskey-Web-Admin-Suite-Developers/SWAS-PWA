@@ -59,6 +59,54 @@ export const getAllLineItems = async (req: Request, res: Response) => {
   }
 };
 
+// GET /line-items/branch/:branch_id
+export const getLineItemsByBranchId = async (req: Request, res: Response) => {
+  const { branch_id } = req.params;
+
+  if (!branch_id) {
+    return res.status(400).json({ message: "branch_id is required in params" });
+  }
+
+  try {
+    const items = await LineItem.find({ branch_id });
+
+    if (!items || items.length === 0) {
+      return res.status(404).json({ message: `No line items found for branch_id "${branch_id}"` });
+    }
+
+    res.status(200).json(items);
+  } catch (error) {
+    console.error("Error fetching line items by branch_id:", error);
+    res.status(500).json({ message: "Server error fetching line items" });
+  }
+};
+
+// GET /line-items/location/:location
+export const getLineItemsByLocation = async (req: Request, res: Response) => {
+  const { location } = req.params;
+  if (!location) {
+    return res.status(400).json({ message: "location param is required" });
+  }
+
+  try {
+    const normalized = location.trim();
+
+    // Match by current_location only
+    const items = await LineItem.find({ current_location: normalized });
+
+    if (!items || items.length === 0) {
+      return res
+        .status(404)
+        .json({ message: `No line items found for current_location "${normalized}"` });
+    }
+
+    res.status(200).json(items);
+  } catch (error) {
+    console.error("Error fetching line items by current_location:", error);
+    res.status(500).json({ message: "Server error fetching line items by current_location" });
+  }
+};
+
 // PUT /line-items/status
 export const updateLineItemStatus = async (req: Request, res: Response) => {
   const { line_item_ids, new_status } = req.body;
@@ -154,5 +202,117 @@ export const updateLineItemStorageFee = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error updating storage fee for line item:', error);
     return res.status(500).json({ message: 'Server error updating storage fee' });
+  }
+};
+
+// PUT /line-items/:line_item_id/location
+export const updateLineItemLocation = async (req: Request, res: Response) => {
+  const { line_item_id } = req.params;
+  const { current_location } = req.body;
+
+  if (!line_item_id) {
+    return res.status(400).json({ message: "line_item_id is required in params" });
+  }
+
+  if (!current_location) {
+    return res.status(400).json({ message: "current_location is required in body" });
+  }
+
+  // Validate location value (based on your schema enum)
+  const validLocations = ["Hub", "Branch"];
+  if (!validLocations.includes(current_location)) {
+    return res.status(400).json({ 
+      message: `Invalid location. Must be one of: ${validLocations.join(", ")}` 
+    });
+  }
+
+  try {
+    const updated = await LineItem.findOneAndUpdate(
+      { line_item_id },
+      { 
+        current_location, 
+        latest_update: new Date() 
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ message: "Line item not found" });
+    }
+
+    res.status(200).json({ 
+      message: `Location updated to "${current_location}"`, 
+      lineItem: updated 
+    });
+  } catch (error) {
+    console.error("Error updating line item location:", error);
+    res.status(500).json({ message: "Server error updating location" });
+  }
+};
+
+// GET /line-items/transaction/:transaction_id
+export const getLineItemsByTransactionId = async (req: Request, res: Response) => {
+  const { transaction_id } = req.params;
+  if (!transaction_id) {
+    return res.status(400).json({ message: "transaction_id is required in params" });
+  }
+  try {
+    const items = await LineItem.find({ transaction_id });
+    if (!items || items.length === 0) {
+      return res.status(404).json({ message: `No line items found for transaction_id "${transaction_id}"` });
+    }
+    res.status(200).json(items);
+  } catch (error) {
+    console.error("Error fetching line items by transaction_id:", error);
+    res.status(500).json({ message: "Server error fetching line items" });
+  }
+};
+
+// PUT /line-items/:line_item_id
+export const updateLineItem = async (req: Request, res: Response) => {
+  try {
+    const { line_item_id } = req.params;
+    const updates = req.body;
+
+    if (!line_item_id) {
+      return res.status(400).json({ error: "line_item_id required" });
+    }
+
+    // Find line item by line_item_id
+    const lineItem = await LineItem.findOne({ line_item_id });
+    if (!lineItem) {
+      return res.status(404).json({ error: "Line item not found" });
+    }
+
+    // Fields that should not be directly updated
+    const restrictedFields = ['line_item_id', '_id', '__v', 'createdAt', 'updatedAt'];
+    
+    // Remove restricted fields from updates
+    restrictedFields.forEach(field => delete updates[field]);
+    
+    // Special handling for current_status - ensure it's valid if provided
+    if (updates.current_status) {
+      // You may want to add validation logic here if needed
+      // Also set latest_update when status changes
+      updates.latest_update = new Date();
+    }
+
+    // If updating current_location, validate the value
+    if (updates.current_location && !['Hub', 'Branch'].includes(updates.current_location)) {
+      return res.status(400).json({ error: "Invalid current_location. Must be 'Hub' or 'Branch'" });
+    }
+
+    // Update the line item with the filtered updates
+    Object.assign(lineItem, updates);
+    
+    // Save the updated line item
+    await lineItem.save();
+
+    return res.status(200).json({ success: true, lineItem });
+  } catch (err) {
+    console.error("Error updating line item:", err);
+    let message = "Unknown error";
+    if (err instanceof Error) message = err.message;
+    return res.status(500).json({ error: "Server error", message });
   }
 };

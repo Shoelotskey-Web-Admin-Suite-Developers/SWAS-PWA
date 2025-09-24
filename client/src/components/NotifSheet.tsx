@@ -176,7 +176,7 @@ export function NotifSheet({ children }: NotifSheetProps) {
                 >
                   <div>
                     <h3 className="text-sm font-medium">
-                      Transaction #{warning.transactId}
+                      Line Item #{warning.transactId}
                     </h3>
                     {warning.daysOverdue > 0 ? (
                       <p className="text-xs text-red-600 font-semibold">
@@ -188,7 +188,7 @@ export function NotifSheet({ children }: NotifSheetProps) {
                       </p>
                     )}
                   </div>
-                  <span className="text-xs text-red-500">View →</span>
+                  
                 </div>
               ))
             )}

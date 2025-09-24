@@ -188,6 +188,48 @@ export const applyPayment = async (req: Request, res: Response) => {
   }
 };
 
+// Update a transaction by ID
+export const updateTransaction = async (req: Request, res: Response) => {
+  try {
+    const { transaction_id } = req.params;
+    const updates = req.body;
+
+    if (!transaction_id) {
+      return res.status(400).json({ error: "transaction_id required" });
+    }
+
+    // Find transaction by transaction_id
+    const transaction = await Transaction.findOne({ transaction_id });
+    if (!transaction) {
+      return res.status(404).json({ error: "Transaction not found" });
+    }
+
+    // Fields that should not be directly updated
+    const restrictedFields = ['transaction_id', '_id', '__v', 'createdAt', 'updatedAt'];
+    
+    // Remove restricted fields from updates
+    restrictedFields.forEach(field => delete updates[field]);
+    
+    // Special handling for payment_status to ensure it's valid
+    if (updates.payment_status && !['NP', 'PARTIAL', 'PAID'].includes(updates.payment_status)) {
+      return res.status(400).json({ error: "Invalid payment_status. Must be NP, PARTIAL, or PAID" });
+    }
+
+    // Update the transaction with the filtered updates
+    Object.assign(transaction, updates);
+    
+    // Save the updated transaction
+    await transaction.save();
+
+    return res.status(200).json({ success: true, transaction });
+  } catch (err) {
+    console.error("Error updating transaction:", err);
+    let message = "Unknown error";
+    if (err instanceof Error) message = err.message;
+    return res.status(500).json({ error: "Server error", message });
+  }
+};
+
 // GET /transactions
 export const getAllTransactions = async (_req: Request, res: Response) => {
   try {

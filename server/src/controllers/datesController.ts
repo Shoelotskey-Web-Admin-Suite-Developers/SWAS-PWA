@@ -1,6 +1,28 @@
 import { Request, Response } from "express";
 import { Dates } from "../models/Dates";
 
+// Get Dates by line_item_id
+export const getDatesByLineItemId = async (req: Request, res: Response) => {
+  try {
+    const { line_item_id } = req.params;
+
+    if (!line_item_id) {
+      return res.status(400).json({ message: "line_item_id is required in params." });
+    }
+
+    const datesDoc = await Dates.findOne({ line_item_id });
+
+    if (!datesDoc) {
+      return res.status(404).json({ message: `No dates found for line_item_id "${line_item_id}"` });
+    }
+
+    res.status(200).json(datesDoc);
+  } catch (error) {
+    console.error("Error fetching dates by line_item_id:", error);
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
 // Create or update Dates by line_item_id
 export const upsertDatesByLineItemId = async (req: Request, res: Response) => {
   try {

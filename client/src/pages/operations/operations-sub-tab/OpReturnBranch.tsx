@@ -16,6 +16,7 @@ import { getLineItems } from "@/utils/api/getLineItems";
 import { editLineItemStatus } from "@/utils/api/editLineItemStatus";
 import { updateDates } from "@/utils/api/updateDates";
 import { getUpdateColor } from "@/utils/getUpdateColor";
+import { updateLineItemLocation } from "@/utils/api/editLocation";
 
 type Branch = "Valenzuela" | "SM Valenzuela" | "SM Grand";
 type Location = "Branch" | "Hub" | "To Branch" | "To Hub";
@@ -273,15 +274,26 @@ export default function OpReturnBranch({ readOnly = false }) {
                 // 1. Call API to update status
                 await editLineItemStatus(selected, "To Pack");
 
-                // 2. Remove updated items from local state
+                // 2. Update location to "Branch" for all selected items
+                await Promise.all(
+                  selected.map(async (lineItemId) => {
+                    try {
+                      await updateLineItemLocation(lineItemId, "Branch");
+                    } catch (err) {
+                      console.error(`Failed to update location for ${lineItemId}:`, err);
+                    }
+                  })
+                );
+
+                // 3. Remove updated items from local state
                 setRows((prevRows) =>
                   prevRows.filter((row) => !selected.includes(row.lineItemId))
                 );
 
-                // 3. Clear selection
+                // 4. Clear selection
                 setSelected([]);
 
-                // 4. Close modal
+                // 5. Close modal
                 setModalOpen(false);
 
                 toast.success("Selected items marked as Received!"); // Success toast

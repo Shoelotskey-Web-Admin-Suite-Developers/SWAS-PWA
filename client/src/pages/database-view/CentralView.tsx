@@ -15,13 +15,13 @@ import "@/styles/database-view/central-view.css"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Filters } from "@/components/database-view/Filters"
 import { CentralTable } from "@/components/database-view/CentralTable"
-
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { getTransactions } from "@/utils/api/getTransactions"
 
 /* ----------------------------- types ----------------------------- */
 export type PaymentStatus = "PAID" | "PARTIAL" | "NP"
@@ -51,6 +51,7 @@ export type Transaction = {
 
 export type Row = {
   id: string // receiptId
+  customerId: string // Added to match ReceiptRow
   customer: string
   customerBirthday?: string
   address?: string
@@ -73,165 +74,6 @@ export type Row = {
   transactions: Transaction[]
 }
 
-/* ----------------------------- dummy data ----------------------------- */
-const INITIAL_ROWS: Row[] = [
-  {
-    id: "2025-0001-VALEN",
-    customer: "Mark Dela Cruz",
-    customerBirthday: "1990-05-20",
-    address: "123 Mabini St, Manila",
-    email: "mark.delacruz@example.com",
-    contact: "09171234567",
-
-    branch: "Valenzuela",
-    branchLocation: "Valenzuela City",
-    receivedBy: "staffVALEN @JSantos",
-    dateIn: new Date("2025-04-01"),
-    dateOut: new Date("2025-04-15"),
-
-    status: "PAID",
-    total: 500,
-    amountPaid: 500,
-    remaining: 0,
-
-    pairs: 2,
-    released: 2,
-
-    transactions: [
-      {
-        id: "0001-VALEN-001",
-        shoeModel: "Nike Air Force 1",
-        serviceNeeded: ["Basic Cleaning"],
-        additional: ["Unyellowing"],
-        rush: false,
-        status: "In Process",
-        statusDates: {
-          queued: "2025-04-01",
-          readyForDelivery: "2025-04-02",
-          toWarehouse: "2025-04-02",
-          inProcess: "2025-04-03",
-          returnToBranch: null,
-          received: null,
-          readyForPickup: null,
-          pickedUp: null,
-        },
-        beforeImage: "/images/af1_before.jpg",
-        afterImage: "/images/af1_after.jpg",
-      },
-      {
-        id: "0001-VALEN-002",
-        shoeModel: "Nike Air Force 1",
-        serviceNeeded: ["Basic Cleaning"],
-        additional: ["Unyellowing"],
-        rush: false,
-        status: "In Process",
-        statusDates: {
-          queued: "2025-04-01",
-          readyForDelivery: "2025-04-02",
-          toWarehouse: "2025-04-02",
-          inProcess: "2025-04-03",
-          returnToBranch: null,
-          received: null,
-          readyForPickup: null,
-          pickedUp: null,
-        },
-        beforeImage: "/images/af1_before.jpg",
-        afterImage: "/images/af1_after.jpg",
-      },
-    ],
-  },
-  {
-    id: "2025-0002-VALEN",
-    customer: "Anna Rodriguez",
-    customerBirthday: "1990-01-20",
-    address: "Guadalupe Nuevo, Makati City",
-    email: "anna@yahoo.com",
-    contact: "09452368451",
-
-    branch: "Valenzuela",
-    branchLocation: "Valenzuela City",
-    receivedBy: "staffVALEN @KUy",
-    dateIn: new Date("2025-04-05"),
-    dateOut: new Date("2025-04-20"),
-
-    status: "PAID",
-    total: 250,
-    amountPaid: 250,
-    remaining: 0,
-
-    pairs: 1,
-    released: 1,
-
-    transactions: [
-      {
-        id: "0002-VALEN-001",
-        shoeModel: "Adidas UltraBoost",
-        serviceNeeded: ["Basic Cleaning"],
-        additional: [],
-        rush: true,
-        status: "In Process",
-        statusDates: {
-          queued: "2025-04-05",
-          readyForDelivery: "2025-04-05",
-          toWarehouse: "2025-04-05",
-          inProcess: "2025-04-05",
-          returnToBranch: null,
-          received: null,
-          readyForPickup: null,
-          pickedUp: null,
-        },
-        beforeImage: null,
-        afterImage: null,
-      },
-    ],
-  },
-  {
-    id: "2025-0003-VALEN",
-    customer: "Carlo Reyes",
-    customerBirthday: "1985-07-15",
-    address: "Caloocan City",
-    email: "carlo.reyes@example.com",
-    contact: "09281234567",
-
-    branch: "Valenzuela",
-    branchLocation: "Valenzuela City",
-    receivedBy: "staffVALEN @JSantos",
-    dateIn: new Date("2025-04-03"),
-    dateOut: new Date("2025-04-19"),
-
-    status: "PARTIAL",
-    total: 750,
-    amountPaid: 500,
-    remaining: 250,
-
-    pairs: 3,
-    released: 2,
-
-    transactions: [
-      {
-        id: "0003-VALEN-001",
-        shoeModel: "Converse Chuck Taylor",
-        serviceNeeded: ["Minor Reglue"],
-        additional: ["Minor Retouch"],
-        rush: false,
-        status: "Queued",
-        statusDates: {
-          queued: "2025-04-10",
-          readyForDelivery: null,
-          toWarehouse: null,
-          inProcess: null,
-          returnToBranch: null,
-          received: null,
-          readyForPickup: null,
-          pickedUp: null,
-        },
-        beforeImage: null,
-        afterImage: null,
-      },
-    ],
-  },
-]
-
 /* ----------------------------- component ----------------------------- */
 type SortKey =
   | "dateIn"
@@ -242,7 +84,9 @@ type SortKey =
   | "customer"
 
 export default function CentralView() {
-  const [rows] = React.useState<Row[]>(INITIAL_ROWS)
+  const [rows, setRows] = React.useState<Row[]>([])
+  const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState<string | null>(null)
 
   // filters
   const [search, setSearch] = React.useState("")
@@ -256,6 +100,48 @@ export default function CentralView() {
   const [sortKey, setSortKey] = React.useState<SortKey | "">("")
   const [sortOrder, setSortOrder] = React.useState<"asc" | "desc">("asc")
   const [advanced, setAdvanced] = React.useState<boolean>(false)
+
+  React.useEffect(() => {
+    setLoading(true)
+    getTransactions()
+      .then((data) => {
+        // Map backend transactions to Row[]
+        const mapped: Row[] = data.map((tx: any) => {
+          const legend = BRANCH_LEGEND[tx.branch_id] || { branch: tx.branch_id, location: "" }
+          return {
+            id: tx.transaction_id,
+            customerId: tx.cust_id,  // Store the raw customer ID
+            customer: tx.cust_id,    // Will be replaced with name once fetched
+            customerBirthday: undefined,
+            address: undefined,
+            email: undefined,
+            contact: undefined,
+
+            branch: legend.branch,
+            branchLocation: legend.location,
+            receivedBy: tx.received_by,
+            dateIn: new Date(tx.date_in),
+            dateOut: tx.date_out ? new Date(tx.date_out) : null,
+
+            status: tx.payment_status,
+            total: tx.total_amount,
+            amountPaid: tx.amount_paid,
+            remaining: (tx.total_amount || 0) - (tx.amount_paid || 0),
+
+            pairs: tx.no_pairs,
+            released: tx.no_released,
+
+            transactions: [],
+          }
+        })
+        setRows(mapped)
+        setLoading(false)
+      })
+      .catch((err) => {
+        setError(err.message || "Failed to fetch transactions")
+        setLoading(false)
+      })
+  }, [])
 
   const filtered = React.useMemo(() => {
     let data = [...rows]
@@ -324,6 +210,9 @@ export default function CentralView() {
     sortOrder,
     advanced,
   ])
+
+  if (loading) return <div>Loading...</div>
+  if (error) return <div className="text-red-500">{error}</div>
 
   return (
     <div className="cv-wrap">
@@ -434,4 +323,16 @@ function sameDay(a?: Date | null, b?: Date | null) {
     a.getMonth() === b.getMonth() &&
     a.getDate() === b.getDate()
   )
+}
+
+/* ----------------------------- constants ----------------------------- */
+const BRANCH_LEGEND: Record<
+  string,
+  { branch: string; location: string }
+> = {
+  "VAL-B-NCR": { branch: "Valenzuela Branch", location: "Valenzuela" },
+  "SMVAL-B-NCR": { branch: "SM Valenzuela Branch", location: "Valenzuela" },
+  "SMGRA-B-NCR": { branch: "SM Grand Branch", location: "Caloocan" },
+  "SWAS-SUPERADMIN": { branch: "Super Admin", location: "N/A" },
+  "HUBV-W-NCR": { branch: "Valenzuela Hub", location: "Valenzuela City" },
 }

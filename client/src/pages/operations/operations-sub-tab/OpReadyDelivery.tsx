@@ -16,6 +16,7 @@ import { getLineItems } from "@/utils/api/getLineItems";
 import { editLineItemStatus } from "@/utils/api/editLineItemStatus";
 import { updateDates } from "@/utils/api/updateDates";
 import { getUpdateColor } from "@/utils/getUpdateColor";
+import { updateLineItemLocation } from "@/utils/api/editLocation";
 
 type Branch = "Valenzuela" | "SM Valenzuela" | "SM Grand";
 type Location = "Branch" | "Hub" | "To Branch" | "To Hub";
@@ -270,7 +271,20 @@ export default function OpReadyDelivery({ readOnly = false }) {
                   })
                 );
 
+                // Update status to "Incoming Branch Delivery"
                 await editLineItemStatus(selected, "Incoming Branch Delivery");
+
+                // Update location to "Hub" for all selected items
+                await Promise.all(
+                  selected.map(async (lineItemId) => {
+                    try {
+                      await updateLineItemLocation(lineItemId, "Hub");
+                    } catch (err) {
+                      console.error(`Failed to update location for ${lineItemId}:`, err);
+                    }
+                  })
+                );
+
                 setRows((prevRows) =>
                   prevRows.filter((row) => !selected.includes(row.lineItemId))
                 );

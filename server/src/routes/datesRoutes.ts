@@ -1,7 +1,10 @@
 import express from "express";
-import { upsertDatesByLineItemId } from "../controllers/datesController";
+import { upsertDatesByLineItemId, getDatesByLineItemId } from "../controllers/datesController";
 
 const router = express.Router();
+
+// GET /api/dates/:line_item_id
+router.get("/:line_item_id", getDatesByLineItemId);
 
 // PUT /api/dates
 router.put("/", upsertDatesByLineItemId);

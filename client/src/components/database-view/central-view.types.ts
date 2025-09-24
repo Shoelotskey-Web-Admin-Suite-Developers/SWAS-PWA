@@ -21,6 +21,7 @@ export type ReceiptRow = {
   receivedBy: string
   dateOut?: Date | null
   customer: string
+  customerId: string  // Add this line to store the raw customer ID
   pairs: number
   released: number
   branch: Branch
