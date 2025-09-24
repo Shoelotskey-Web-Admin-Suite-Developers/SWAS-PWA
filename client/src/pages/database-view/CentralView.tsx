@@ -280,7 +280,7 @@ export default function CentralView() {
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="text-red-600"
-                onClick={() => console.log("Archive clicked")}
+                onClick={() => exportRecordsToCSV(filtered)}
               >
                 Archive Records
               </DropdownMenuItem>

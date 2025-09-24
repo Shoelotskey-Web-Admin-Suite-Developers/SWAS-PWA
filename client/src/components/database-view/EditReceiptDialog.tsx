@@ -25,7 +25,20 @@ import { getCustomerById } from "@/utils/api/getCustomerById" // 👈 Import the
 import { updateTransaction } from "@/utils/api/updateTransaction"
 import { updateLineItem } from "@/utils/api/updateLineItem"
 import { updateDates } from "@/utils/api/updateDates" // 👈 Add this import
+import { deleteTransaction } from "@/utils/api/deleteTransaction"
+import { deleteLineItemsByTransactionId } from "@/utils/api/deleteLineItemsByTransactionId"
+import { deleteDatesByLineItemId } from "@/utils/api/deleteDatesByLineItemId"
 import { toast } from "sonner" // Assuming you have toast set up
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 // ✅ Import shared types
 import { ReceiptRow, Branch, TxStatusDates, PaymentStatus, Transaction} from "./central-view.types"
@@ -54,9 +67,11 @@ export function EditReceiptDialog({
   const [form, setForm] = React.useState<ReceiptRow>(receipt)
   const [isLoading, setIsLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
-  const [customerLoading, setCustomerLoading] = React.useState(false) // 👈 Add customer loading state
-  const [customerError, setCustomerError] = React.useState<string | null>(null) // 👈 Add customer error state
-  const [isSaving, setIsSaving] = React.useState(false) // Add saving state
+  const [customerLoading, setCustomerLoading] = React.useState(false)
+  const [customerError, setCustomerError] = React.useState<string | null>(null)
+  const [isSaving, setIsSaving] = React.useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false) // Add this state
+  const [isDeleting, setIsDeleting] = React.useState(false) // Add this state
 
   // Add service ID to name mappings
   const SERVICE_ID_TO_NAME: Record<string, string> = {
@@ -362,6 +377,41 @@ export function EditReceiptDialog({
     }
   }
 
+  // Add this function to handle deletion
+  const handleDelete = async () => {
+    if (!form.id) return
+    
+    setIsDeleting(true)
+    setError(null)
+    
+    try {
+      // 1. Delete associated dates for each line item first
+      if (form.transactions && form.transactions.length > 0) {
+        await Promise.all(
+          form.transactions.map(async (tx) => {
+            await deleteDatesByLineItemId(tx.id);
+          })
+        );
+      }
+      
+      // 2. Delete all line items for this transaction
+      await deleteLineItemsByTransactionId(form.id);
+      
+      // 3. Finally delete the transaction itself
+      await deleteTransaction(form.id);
+      
+      toast.success("Receipt and all related records deleted successfully")
+      onOpenChange(false) // Close dialog
+    } catch (err: any) {
+      console.error("Failed to delete receipt:", err)
+      setError(err.message || "Failed to delete receipt and related records")
+      toast.error(err.message || "An error occurred while deleting")
+    } finally {
+      setIsDeleting(false)
+      setShowDeleteConfirm(false)
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[80vh] mt-[50px] overflow-y-auto [&>button]:hidden">
@@ -370,9 +420,7 @@ export function EditReceiptDialog({
           <Button
             variant="destructive"
             size="icon"
-            onClick={() => {
-              console.log("Delete receipt", form.id)
-            }}
+            onClick={() => setShowDeleteConfirm(true)}
           >
             <Trash2 className="w-5 h-5" />
           </Button>
@@ -814,7 +862,58 @@ export function EditReceiptDialog({
             {isSaving ? "Saving..." : "Save Changes"}
           </Button>
         </div>
+
+        {/* Delete Confirmation Dialog */}
+        {showDeleteConfirm && (
+          <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+            <DialogContent className="max-w-md mx-auto p-6">
+              <h3 className="text-lg font-semibold mb-4">Confirm Deletion</h3>
+              <p className="text-sm text-muted-foreground mb-6">
+                Are you sure you want to delete this receipt? This action cannot be undone.
+              </p>
+              
+              {/* Show error message if any */}
+              {error && <p className="text-red-500 text-sm mb-4">Error: {error}</p>}
+              
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} disabled={isDeleting}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? "Deleting..." : "Delete Receipt"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
       </DialogContent>
+      
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete receipt #{form.id}, all its line items,
+              and all associated date records. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "Deleting..." : "Yes, delete everything"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   )
 }

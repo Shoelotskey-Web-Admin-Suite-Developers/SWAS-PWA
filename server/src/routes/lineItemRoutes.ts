@@ -10,7 +10,8 @@ import {
   getLineItemsByLocation, 
   updateLineItemLocation, 
   getLineItemsByTransactionId,
-  updateLineItem // Add this import
+  updateLineItem, // Add this import
+  deleteLineItemsByTransactionId // Add this import
 } from "../controllers/lineItemController";
 
 const router = Router();
@@ -26,5 +27,6 @@ router.put("/:line_item_id/image", updateLineItemImage);
 router.put("/:line_item_id/storage-fee", updateLineItemStorageFee);
 router.put("/:line_item_id/location", updateLineItemLocation);
 router.put("/:line_item_id", updateLineItem); // Add this new general update route
+router.delete("/transaction/:transaction_id", deleteLineItemsByTransactionId); // Add this route
 
 export default router;

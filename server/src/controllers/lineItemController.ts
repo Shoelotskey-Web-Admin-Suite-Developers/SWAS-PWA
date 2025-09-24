@@ -316,3 +316,28 @@ export const updateLineItem = async (req: Request, res: Response) => {
     return res.status(500).json({ error: "Server error", message });
   }
 };
+
+// DELETE /line-items/transaction/:transaction_id
+export const deleteLineItemsByTransactionId = async (req: Request, res: Response) => {
+  try {
+    const { transaction_id } = req.params;
+
+    if (!transaction_id) {
+      return res.status(400).json({ message: "transaction_id is required in params" });
+    }
+
+    const result = await LineItem.deleteMany({ transaction_id });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ message: `No line items found for transaction_id "${transaction_id}"` });
+    }
+
+    res.status(200).json({ 
+      success: true,
+      message: `${result.deletedCount} line item(s) deleted for transaction_id "${transaction_id}"`
+    });
+  } catch (error) {
+    console.error("Error deleting line items by transaction_id:", error);
+    res.status(500).json({ message: "Server error deleting line items" });
+  }
+};

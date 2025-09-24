@@ -240,3 +240,27 @@ export const getAllTransactions = async (_req: Request, res: Response) => {
     res.status(500).json({ message: "Server error fetching transactions" });
   }
 };
+
+// DELETE /transactions/:transaction_id
+export const deleteTransaction = async (req: Request, res: Response) => {
+  try {
+    const { transaction_id } = req.params;
+
+    if (!transaction_id) {
+      return res.status(400).json({ error: "transaction_id required" });
+    }
+
+    const result = await Transaction.deleteOne({ transaction_id });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: "Transaction not found" });
+    }
+
+    return res.status(200).json({ success: true, message: "Transaction deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting transaction:", err);
+    let message = "Unknown error";
+    if (err instanceof Error) message = err.message;
+    return res.status(500).json({ error: "Server error", message });
+  }
+};
