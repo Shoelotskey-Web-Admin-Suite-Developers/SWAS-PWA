@@ -23,6 +23,18 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { getTransactions } from "@/utils/api/getTransactions"
 import { exportRecordsToCSV } from "@/utils/exportToCSV"
+import { deleteAllData } from "@/utils/batchApi"
+import { toast } from "sonner"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 /* ----------------------------- types ----------------------------- */
 export type PaymentStatus = "PAID" | "PARTIAL" | "NP"
@@ -101,6 +113,7 @@ export default function CentralView() {
   const [sortKey, setSortKey] = React.useState<SortKey | "">("")
   const [sortOrder, setSortOrder] = React.useState<"asc" | "desc">("asc")
   const [advanced, setAdvanced] = React.useState<boolean>(false)
+  const [isArchiveDialogOpen, setIsArchiveDialogOpen] = React.useState(false)
 
   React.useEffect(() => {
     setLoading(true)
@@ -212,6 +225,51 @@ export default function CentralView() {
     advanced,
   ])
 
+  const handleArchiveRecords = async () => {
+    try {
+      // First export the records (already implemented)
+      exportRecordsToCSV(filtered)
+      
+      // Show a toast indicating export is complete
+      toast.success("Records exported successfully", {
+        description: "CSV file has been downloaded to your device"
+      })
+      
+      // Close the dialog
+      setIsArchiveDialogOpen(false)
+      
+      // Show a loading toast
+      toast.loading("Archiving records...", { id: "archive" })
+      
+      // Call the batch API to delete records
+      // You might want to pass a confirmation code if your API requires it
+      const result = await deleteAllData("CONFIRM_DELETE")
+      
+      if (result.success) {
+        // Clear the local state to reflect the changes
+        setRows([])
+        
+        // Show success toast
+        toast.success("Records archived successfully", {
+          id: "archive", // This will replace the loading toast
+          description: "All records have been removed from the database"
+        })
+      } else {
+        // Show error toast
+        toast.error("Failed to archive records", {
+          id: "archive", // This will replace the loading toast
+          description: result.message || "An unknown error occurred"
+        })
+      }
+    } catch (error) {
+      // Handle any errors
+      toast.error("Archive operation failed", {
+        id: "archive", // This will replace the loading toast
+        description: error instanceof Error ? error.message : "Unknown error"
+      })
+    }
+  }
+
   if (loading) return <div>Loading...</div>
   if (error) return <div className="text-red-500">{error}</div>
 
@@ -280,7 +338,7 @@ export default function CentralView() {
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="text-red-600"
-                onClick={() => exportRecordsToCSV(filtered)}
+                onClick={() => setIsArchiveDialogOpen(true)}
               >
                 Archive Records
               </DropdownMenuItem>
@@ -312,6 +370,25 @@ export default function CentralView() {
       />
 
       <CentralTable rows={filtered} />
+
+      {/* Add confirmation dialog */}
+      <AlertDialog open={isArchiveDialogOpen} onOpenChange={setIsArchiveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive All Records</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action will export all records to CSV and then delete them from the database.
+              This cannot be undone. Are you sure you want to continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleArchiveRecords} className="bg-red-600 hover:bg-red-700">
+              Yes, Archive Records
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

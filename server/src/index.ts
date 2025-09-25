@@ -21,6 +21,7 @@ import paymentsRoutes from "./routes/paymentsRoutes";
 import { initSocket } from "./socket";
 import lineItemImageRoutes from "./routes/lineItemImageRoutes";
 import datesRoutes from "./routes/datesRoutes";
+import batchRoutes from "./routes/batchRoutes";
 
 dotenv.config();
 
@@ -54,6 +55,7 @@ app.use("/api/line-item-image", lineItemImageRoutes);
 app.use("/api/transactions", transactionRoutes);
 app.use("/api/dates", datesRoutes);
 app.use("/api/payments", paymentsRoutes);
+app.use("/api/batch", batchRoutes);
 
 // Test route
 app.get("/", (req: Request, res: Response) => {
