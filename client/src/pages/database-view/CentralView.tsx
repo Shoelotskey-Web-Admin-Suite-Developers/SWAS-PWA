@@ -64,7 +64,7 @@ export type Transaction = {
 
 export type Row = {
   id: string // receiptId
-  customerId: string // Added to match ReceiptRow
+  customerId: string
   customer: string
   customerBirthday?: string
   address?: string
@@ -85,6 +85,8 @@ export type Row = {
   pairs: number
   released: number
   transactions: Transaction[]
+  
+  deleted?: boolean // Add this property
 }
 
 /* ----------------------------- component ----------------------------- */
@@ -270,6 +272,21 @@ export default function CentralView() {
     }
   }
 
+  // Add a function to handle receipt updates
+  const handleReceiptUpdate = (updatedReceipt: Row) => {
+    if (updatedReceipt.deleted) {
+      // If the receipt was deleted, remove it from the rows
+      setRows(prevRows => prevRows.filter(row => row.id !== updatedReceipt.id));
+    } else {
+      // If the receipt was updated, replace it in the rows array
+      setRows(prevRows => 
+        prevRows.map(row => 
+          row.id === updatedReceipt.id ? updatedReceipt : row
+        )
+      );
+    }
+  };
+
   if (loading) return <div>Loading...</div>
   if (error) return <div className="text-red-500">{error}</div>
 
@@ -369,7 +386,8 @@ export default function CentralView() {
         setAdvanced={setAdvanced}
       />
 
-      <CentralTable rows={filtered} />
+      {/* Pass the update handler to CentralTable */}
+      <CentralTable rows={filtered} onReceiptUpdate={handleReceiptUpdate} />
 
       {/* Add confirmation dialog */}
       <AlertDialog open={isArchiveDialogOpen} onOpenChange={setIsArchiveDialogOpen}>

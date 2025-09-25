@@ -59,10 +59,12 @@ export function EditReceiptDialog({
   open,
   onOpenChange,
   receipt,
+  onReceiptUpdate, // Add this new prop
 }: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  receipt: ReceiptRow
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  receipt: ReceiptRow;
+  onReceiptUpdate?: (updatedReceipt: ReceiptRow) => void; // Add this callback prop
 }) {
   const [form, setForm] = React.useState<ReceiptRow>(receipt)
   const [isLoading, setIsLoading] = React.useState(false)
@@ -133,6 +135,17 @@ export function EditReceiptDialog({
     "received": 6,
     "readyForPickup": 7,
     "pickedUp": 8
+  }
+
+  const STATUS_TO_STRING: Record<string, string> = {
+    "queued": "Queued",
+    "readyForDelivery": "Ready for Delivery",
+    "toWarehouse": "To Warehouse", 
+    "inProcess": "In Process",
+    "returnToBranch": "Return to Branch",
+    "received": "Received",
+    "readyForPickup": "Ready for Pickup",
+    "pickedUp": "Picked Up"
   }
 
   // 👇 Fetch line items when dialog opens
@@ -297,10 +310,10 @@ export function EditReceiptDialog({
 
   // Add this function to handle saving changes
   const handleSaveChanges = async () => {
-    if (!form.id) return
+    if (!form.id) return;
     
-    setIsSaving(true)
-    setError(null)
+    setIsSaving(true);
+    setError(null);
     
     try {
       // 1. Prepare transaction update data
@@ -311,10 +324,10 @@ export function EditReceiptDialog({
         total_amount: form.total,
         amount_paid: form.amountPaid,
         payment_status: form.status,
-      }
+      };
       
       // 2. Update the transaction record
-      await updateTransaction(form.id, transactionUpdates)
+      await updateTransaction(form.id, transactionUpdates);
       
       // 3. Update each line item and its dates
       if (form.transactions && form.transactions.length > 0) {
@@ -339,7 +352,7 @@ export function EditReceiptDialog({
               services: services.filter(s => s.service_id),
               before_img: tx.beforeImage || null,
               after_img: tx.afterImage || null,
-              current_status: STATUS_TO_NUMBER[tx.status] || 1,
+              current_status: STATUS_TO_STRING[tx.status],
             }
             
             await updateLineItem(tx.id, lineItemUpdates)
@@ -367,13 +380,19 @@ export function EditReceiptDialog({
       }
       
       toast.success("Transaction and line items updated successfully")
-      onOpenChange(false) // Close dialog
+      
+      // Call the update callback with the updated receipt data
+      if (onReceiptUpdate) {
+        onReceiptUpdate(form);
+      }
+      
+      onOpenChange(false); // Close dialog
     } catch (err: any) {
       console.error("Failed to save changes:", err)
       setError(err.message || "Failed to save changes")
       toast.error(err.message || "An error occurred while saving changes")
     } finally {
-      setIsSaving(false)
+      setIsSaving(false);
     }
   }
 
@@ -401,6 +420,12 @@ export function EditReceiptDialog({
       await deleteTransaction(form.id);
       
       toast.success("Receipt and all related records deleted successfully")
+      
+      // Call the update callback with null to indicate deletion
+      if (onReceiptUpdate) {
+        onReceiptUpdate({...receipt, deleted: true});
+      }
+      
       onOpenChange(false) // Close dialog
     } catch (err: any) {
       console.error("Failed to delete receipt:", err)
@@ -566,6 +591,7 @@ export function EditReceiptDialog({
                 onChange={(e) =>
                   setForm({ ...form, total: Number(e.target.value) })
                 }
+                disabled
               />
             </div>
             <div>
@@ -576,6 +602,7 @@ export function EditReceiptDialog({
                 onChange={(e) =>
                   setForm({ ...form, amountPaid: Number(e.target.value) })
                 }
+                disabled
               />
             </div>
             <div>

@@ -18,9 +18,10 @@ import type { ReceiptRow } from "@/components/database-view/central-view.types"
 
 interface CentralTableProps {
   rows: ReceiptRow[]
+  onReceiptUpdate?: (updatedReceipt: ReceiptRow) => void
 }
 
-export function CentralTable({ rows }: CentralTableProps) {
+export function CentralTable({ rows, onReceiptUpdate }: CentralTableProps) {
   const [openRow, setOpenRow] = React.useState<string | null>(null)
   const [hiddenCols, setHiddenCols] = React.useState<Record<string, boolean>>({})
   const [selectedReceipt, setSelectedReceipt] = React.useState<ReceiptRow | null>(null)
@@ -153,6 +154,7 @@ export function CentralTable({ rows }: CentralTableProps) {
             if (!open) setSelectedReceipt(null)
           }}
           receipt={selectedReceipt}
+          onReceiptUpdate={onReceiptUpdate}
         />
       )}
     </div>
