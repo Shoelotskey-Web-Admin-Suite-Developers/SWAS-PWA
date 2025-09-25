@@ -496,8 +496,8 @@ export default function SRM() {
     try {
       setSubmitting(true);
       const result = await addServiceRequest(requestPayload as any);
-console.log("Service request created:", result);
-toast.success("Service request confirmed successfully!");
+    console.log("Service request created:", result);
+    toast.success("Service request confirmed successfully!");
 
 // --- Add Dates entry for each line item ---
 if (result?.lineItems && Array.isArray(result.lineItems)) {
@@ -515,6 +515,9 @@ if (result?.lineItems && Array.isArray(result.lineItems)) {
     })
   );
 }
+
+      // Clear all form fields after successful submission
+      clearAllFields();
 
       // --- 4. PDF Export logic ---
       const transactionId = result?.transaction?.transaction_id;
@@ -633,6 +636,41 @@ if (result?.lineItems && Array.isArray(result.lineItems)) {
 
   // Cashier input state
   const [cashier, setCashier] = useState("");
+
+  // Function to clear all form fields to initial state
+  const clearAllFields = () => {
+    // Reset customer form
+    setCustomerType('new');
+    setUseCustomDate(false);
+    setCustomDate(todayISODate());
+    setName('');
+    setBirthdate('');
+    setAddress('');
+    setEmail('');
+    setPhone('');
+    setCustomerId('NEW');
+    setReceivedBy('');
+    
+    // Reset shoes
+    setShoes([{
+      model: '',
+      services: [],
+      additionals: {},
+      rush: 'no',
+    }]);
+    
+    // Reset payment fields
+    setModeOfPayment('cash');
+    setPaymentType('full');
+    setAmountDueNow(0);
+    setCustomerPaid(0);
+    setChange(0);
+    setBalance(0);
+    setApplyDiscount(false);
+    setDiscountType('percent');
+    setDiscountValue('0');
+    setCashier('');
+  };
 
   return (
     <div className="srm-container">

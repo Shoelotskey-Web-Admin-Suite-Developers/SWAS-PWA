@@ -102,8 +102,8 @@ export async function exportReceiptPDF({ type: _type, data, branch }: ReceiptPDF
     if (Array.isArray(data.payments) && data.payments.length > 0) {
       yMeasure += data.payments.length * 5;
     }
-    // reserve space for storage fee line if present
-    const _storageFee = (typeof data.storageFee === 'number') || (data && data.uiSummary && typeof data.uiSummary.storageFee === 'number');
+    // reserve space for storage fee line if present and greater than zero
+    const _storageFee = ((typeof data.storageFee === 'number' && data.storageFee > 0) || (data && data.uiSummary && typeof data.uiSummary.storageFee === 'number' && data.uiSummary.storageFee > 0));
     if (_storageFee) yMeasure += 6;
     yMeasure += 7; // received by + spacing
     // reserve space for uiSummary (if present)
@@ -300,7 +300,7 @@ export async function exportReceiptPDF({ type: _type, data, branch }: ReceiptPDF
       // ignore rendering issues
     }
     try {
-      if (typeof storageFeeFromData === 'number') {
+      if (typeof storageFeeFromData === 'number' && storageFeeFromData > 0) {
         doc.setFont(undefined, 'normal');
         doc.setFontSize(10);
         doc.text(`Add: Storage Fee`, 10, y);
@@ -329,7 +329,10 @@ export async function exportReceiptPDF({ type: _type, data, branch }: ReceiptPDF
     doc.setFont(undefined, 'bold');
     doc.text(`Balance:`, 10, y);
     doc.setFont('helvetica', 'normal');
-    doc.text('PHP ' + formatCurrency(updatedBalanceFromData), 70, y, { align: 'right' });
+    // Use balance if no payment records exist, otherwise use updatedBalanceFromData
+    const hasPayments = Array.isArray(data.payments) && data.payments.length > 1;
+    const balanceToDisplay = hasPayments ? updatedBalanceFromData : balance;
+    doc.text('PHP ' + formatCurrency(balanceToDisplay), 70, y, { align: 'right' });
       y += 14;
     doc.setFontSize(10);
     doc.text(`${received_by}`, 45, y, { align: 'center' });
@@ -349,13 +352,20 @@ export async function exportReceiptPDF({ type: _type, data, branch }: ReceiptPDF
   // are displayed inline above so the printed receipt matches the UI without a duplicated summary block.
 
   // --- Save/download ---
-  // Build a safe filename: {transaction_id}_{YYYYMMDD}.pdf
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  const dateForFile = `${yyyy}${mm}${dd}`;
+  // Build a safe filename: {transaction_id}_{latest_payment_id}.pdf or {transaction_id}_{YYYYMMDD}.pdf
   const safeTxn = String(transaction_id || 'receipt').replace(/\s+/g, '_').replace(/[^A-Za-z0-9_\-]/g, '');
-  const filename = `${safeTxn}_${dateForFile}.pdf`;
+  
+  let filename;
+  if (data && data.latest_payment_id) {
+    const safePaymentId = String(data.latest_payment_id).replace(/\s+/g, '_').replace(/[^A-Za-z0-9_\-]/g, '');
+    filename = `${safeTxn}_${safePaymentId}.pdf`;
+  } else {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const dateForFile = `${yyyy}${mm}${dd}`;
+    filename = `${safeTxn}_${dateForFile}.pdf`;
+  }
   doc.save(filename);
 }

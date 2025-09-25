@@ -85,6 +85,17 @@ export default function Payments() {
   const [servicesList, setServicesList] = useState<IService[]>([])
   const [fetchedRequests, setFetchedRequests] = useState<Request[]>([])
   const [loading, setLoading] = useState<boolean>(false)
+
+  // Function to clear payment form fields
+  const clearPaymentFields = () => {
+    setDueNow(0);
+    setCustomerPaid(0);
+    setChange(0);
+    setUpdatedBalance(0);
+    setCashier("");
+    setModeOfPayment('cash');
+    setPaymentOnly(false);
+  };
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null)
   const [paymentsForSelected, setPaymentsForSelected] = useState<Array<{ payment_id: string; payment_amount: number; payment_mode?: string; payment_date?: string }>>([])
   const [selectedLineItemId, setSelectedLineItemId] = useState<string | null>(null)
@@ -639,6 +650,9 @@ export default function Payments() {
       // removed post-update export: we exported the receipt before saving to DB
 
       toast.success("Payment saved successfully!")
+      
+      // Clear payment fields after successful save
+      clearPaymentFields();
     } catch (err) {
       console.error(err)
       toast.error(`Failed to save payment: ${err instanceof Error ? err.message : String(err)}`)
@@ -933,6 +947,9 @@ export default function Payments() {
       // removed post-update export: we already exported the receipt before confirming
 
       toast.success("Payment updated & marked as picked up!")
+      
+      // Clear payment fields after successful confirm
+      clearPaymentFields();
     } catch (err) {
       console.error(err)
       toast.error(`Failed to confirm payment: ${err instanceof Error ? err.message : String(err)}`)

@@ -182,11 +182,8 @@ const createServiceRequest = async (req, res) => {
             await newLineItem.save({ session });
             createdLineItems.push(newLineItem);
         }
-        // Calculate total pairs (sum of service quantities)
-        const noPairs = createdLineItems.reduce((totalPairs, li) => {
-            const services = li.services;
-            return totalPairs + services.reduce((acc, svc) => acc + svc.quantity, 0);
-        }, 0);
+        // Calculate total pairs (number of line items/shoes)
+        const noPairs = createdLineItems.length;
         // Create transaction
         const transaction = new Transactions_1.Transaction({
             transaction_id: transactionId,

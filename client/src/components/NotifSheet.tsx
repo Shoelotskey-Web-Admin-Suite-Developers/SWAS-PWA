@@ -34,6 +34,7 @@ interface NotifSheetProps {
 
 export function NotifSheet({ children }: NotifSheetProps) {
   const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [loadingAppointment, setLoadingAppointment] = useState<string | null>(null)
 
   // --- PICKUP WARNINGS LOGIC ---
   const pickupRows = usePickupRows()
@@ -100,12 +101,53 @@ export function NotifSheet({ children }: NotifSheetProps) {
 
   const handleUpdateStatus = async (appointment_id: string, status: "Approved" | "Cancelled") => {
     try {
+      // Set loading state for this specific appointment
+      setLoadingAppointment(appointment_id)
+
+      // Find the appointment for better user feedback
+      const appointment = appointments.find(a => a.appointment_id === appointment_id)
+      const appointmentDate = appointment?.date_for_inquiry 
+        ? new Date(appointment.date_for_inquiry).toLocaleDateString('en-US', {
+            weekday: 'short',
+            month: 'short', 
+            day: 'numeric'
+          })
+        : 'Unknown date'
+
+      // Call the backend API - this now automatically sends push notifications
       await updateAppointmentStatus(appointment_id, status)
-      toast.success(`Appointment ${status === 'Approved' ? 'acknowledged' : 'cancelled'}`)
+      
+      // Show enhanced success message indicating customer was notified
+      if (status === 'Approved') {
+        toast.success(
+          `Appointment acknowledged for ${appointment?.name || 'customer'} on ${appointmentDate}. Customer notified via push notification.`,
+          { 
+            duration: 4000,
+            description: "The customer's mobile app will show the acknowledgment."
+          }
+        )
+      } else {
+        toast.success(
+          `Appointment cancelled for ${appointment?.name || 'customer'} on ${appointmentDate}. Customer notified via push notification.`,
+          { 
+            duration: 4000,
+            description: "The customer's mobile app will show the cancellation."
+          }
+        )
+      }
+
+      // Refresh the appointments list
       await fetchPending()
     } catch (err) {
       console.error("Failed to update appointment status:", err)
-      toast.error("Failed to update appointment")
+      toast.error(
+        `Failed to ${status === 'Approved' ? 'acknowledge' : 'cancel'} appointment. Please try again.`,
+        {
+          description: "The appointment status was not updated and no notification was sent."
+        }
+      )
+    } finally {
+      setLoadingAppointment(null)
     }
   }
 
@@ -197,49 +239,103 @@ export function NotifSheet({ children }: NotifSheetProps) {
           {/* Separator line */}
           <Separator className="my-4" />
 
-          {/* Pending Appointments Section */}
+          {/* Enhanced Pending Appointments Section */}
           <div className="flex items-center gap-2">
             <h3>Pending Appointments</h3>
+            {appointments.length > 0 && (
+              <span className="text-xs text-muted-foreground">({appointments.length})</span>
+            )}
           </div>
 
           <div className="space-y-2 max-h-[30vh] overflow-y-auto pr-2 scrollbar-thin">
             {appointments.length === 0 ? (
               <p className="text-sm text-muted-foreground">No pending appointments 🎉</p>
             ) : (
-              appointments.map((appt) => (
-                <div
-                  key={appt.appointment_id}
-                  className="rounded-md border p-3 flex justify-between items-start hover:bg-accent transition"
-                >
-                  <div>
-                    <h3 className="text-sm font-medium">{appt.name || appt.cust_id || appt.appointment_id}</h3>
-                    <p className="text-xs text-muted-foreground">{appt.date_for_inquiry ? new Date(appt.date_for_inquiry).toLocaleDateString() : ""}</p>
-                    <p className="text-xs text-muted-foreground">{appt.time_start || ""}{appt.time_end ? ` - ${appt.time_end}` : ""}</p>
-                  </div>
+              appointments.map((appt) => {
+                const isLoading = loadingAppointment === appt.appointment_id
 
-                  <div className="flex flex-col items-end gap-2">
-                    {/* Branch in upper right */}
-                    <h4 className="text-xs font-medium text-muted-foreground bold">{(appt as any).branch_name || appt.branch_id}</h4>
+                return (
+                  <div
+                    key={appt.appointment_id}
+                    className={`rounded-md border p-3 flex justify-between items-start transition-all ${
+                      isLoading ? 'opacity-60 cursor-wait' : 'hover:bg-accent'
+                    }`}
+                  >
+                    <div>
+                      <h3 className="text-sm font-medium">
+                        {appt.name || appt.cust_id || appt.appointment_id}
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        {appt.date_for_inquiry ? new Date(appt.date_for_inquiry).toLocaleDateString() : ""}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {appt.time_start || ""}{appt.time_end ? ` - ${appt.time_end}` : ""}
+                      </p>
+                    </div>
 
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleUpdateStatus(appt.appointment_id, "Approved")}
-                        className="px-2 py-1 text-xs rounded-md bg-green-100 text-green-700 hover:bg-green-200"
-                      >
-                        Acknowledge
-                      </button>
-                      <button
-                        onClick={() => handleUpdateStatus(appt.appointment_id, "Cancelled")}
-                        className="px-2 py-1 text-xs rounded-md bg-red-100 text-red-700 hover:bg-red-200"
-                      >
-                        Trash
-                      </button>
+                    <div className="flex flex-col items-end gap-2">
+                      {/* Branch in upper right */}
+                      <h4 className="text-xs font-medium text-muted-foreground bold">
+                        {(appt as any).branch_name || appt.branch_id}
+                      </h4>
+
+                      {/* Enhanced Action Buttons */}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleUpdateStatus(appt.appointment_id, "Approved")}
+                          disabled={isLoading}
+                          className={`px-3 py-1 text-xs rounded-md transition-all ${
+                            isLoading
+                              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                              : "bg-green-100 text-green-700 hover:bg-green-200 hover:scale-105"
+                          }`}
+                          title="Acknowledge appointment and notify customer"
+                        >
+                          {isLoading ? (
+                            <div className="flex items-center gap-1">
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-700"></div>
+                              <span>Processing...</span>
+                            </div>
+                          ) : (
+                            "✓ Acknowledge"
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleUpdateStatus(appt.appointment_id, "Cancelled")}
+                          disabled={isLoading}
+                          className={`px-3 py-1 text-xs rounded-md transition-all ${
+                            isLoading
+                              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                              : "bg-red-100 text-red-700 hover:bg-red-200 hover:scale-105"
+                          }`}
+                          title="Cancel appointment and notify customer"
+                        >
+                          {isLoading ? (
+                            <div className="flex items-center gap-1">
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-700"></div>
+                              <span>Processing...</span>
+                            </div>
+                          ) : (
+                            "✗ Cancel"
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
+                )
+              })
             )}
           </div>
+
+          {/* Information Footer */}
+          {appointments.length > 0 && (
+            <div className="mt-4 p-2 bg-blue-50 rounded-md">
+              <p className="text-xs text-blue-700">
+                💡 <strong>Push notifications are sent automatically</strong> when you acknowledge or cancel appointments. 
+                Customers receive notifications on their mobile devices instantly.
+              </p>
+            </div>
+          )}
         </div>
       </SheetContent>
     </Sheet>

@@ -18,6 +18,7 @@ import serviceRoutes from "./routes/serviceRoutes";
 import serviceRequestRoutes from "./routes/serviceRequestRoutes";
 import transactionRoutes from "./routes/transactionRoutes";
 import paymentsRoutes from "./routes/paymentsRoutes";
+import analyticsRoutes from "./routes/analyticsRoutes";
 import { initSocket } from "./socket";
 import lineItemImageRoutes from "./routes/lineItemImageRoutes";
 import datesRoutes from "./routes/datesRoutes";
@@ -56,6 +57,7 @@ app.use("/api/transactions", transactionRoutes);
 app.use("/api/dates", datesRoutes);
 app.use("/api/payments", paymentsRoutes);
 app.use("/api/batch", batchRoutes);
+app.use("/api/analytics", analyticsRoutes);
 
 // Test route
 app.get("/", (req: Request, res: Response) => {

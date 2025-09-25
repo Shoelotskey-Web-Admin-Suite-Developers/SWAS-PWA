@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { Pie, PieChart, Label } from "recharts"
+import { useEffect, useState } from "react"
 
 import {
   Card,
@@ -16,18 +17,35 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
+import { getSalesBreakdown, ISalesBreakdown } from "@/utils/api/getSalesBreakdown"
+import { PieChart as PieChartIcon } from "lucide-react"
 
 export const description = "A donut chart with text"
 
-const chartData = [
-  { status: "Unpaid", customers: 1875, fill: "#FF2056" },
-  { status: "Partially Paid", customers: 800, fill: "#78e8a1ff" },
-  { status: "Paid", customers: 800, fill: "#FACC15" },
-]
+// Helper function to format currency
+const formatCurrency = (amount: number): string => {
+  return new Intl.NumberFormat('en-PH', {
+    style: 'currency',
+    currency: 'PHP',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount)
+}
+
+// Helper function to format date
+const formatDate = (dateString: string | null): string => {
+  if (!dateString) return 'N/A'
+  const date = new Date(dateString)
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  })
+}
 
 const chartConfig = {
-  customers: {
-    label: "Customers",
+  transactions: {
+    label: "Transactions",
   },
   up: {
     label: "Unpaid",
@@ -43,48 +61,132 @@ const chartConfig = {
   },
 } satisfies ChartConfig
 
-export function SalesBreakdown() {
-  const totalCustomers = React.useMemo(() => {
-    return chartData.reduce((acc, curr) => acc + curr.customers, 0)
-  }, [])
+interface SalesBreakdownProps {
+  selectedBranches?: string[]
+}
+
+export function SalesBreakdown({ selectedBranches = [] }: SalesBreakdownProps) {
+  const [chartData, setChartData] = useState<ISalesBreakdown[]>([])
+  const [dateRange, setDateRange] = useState<{earliest: string | null, latest: string | null, totalTransactions: number} | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchSalesBreakdown = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const response = await getSalesBreakdown(selectedBranches)
+        setChartData(response.data)
+        setDateRange(response.dateRange)
+      } catch (err) {
+        console.error("Error fetching sales breakdown:", err)
+        setError("Failed to load sales breakdown data")
+        setChartData([])
+        setDateRange(null)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchSalesBreakdown()
+  }, [selectedBranches])
+
+  const totalTransactions = React.useMemo(() => {
+    return chartData.reduce((acc: number, curr: ISalesBreakdown) => acc + curr.transactions, 0)
+  }, [chartData])
+
+
+
+  if (loading) {
+    return (
+      <Card className="flex min-h-[140px]" style={{ width: "100%" }}>
+        <CardHeader className="items-left pb-0">
+          <CardTitle className="flex items-center gap-2">
+            <PieChartIcon className="h-5 w-5" />
+            <h3>Sales Breakdown</h3>
+          </CardTitle>
+          <CardDescription>Loading...</CardDescription>
+        </CardHeader>
+        <CardContent className="flex-1 flex justify-center items-center pb-0">
+          <div>Loading chart data...</div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (error) {
+    return (
+      <Card className="flex min-h-[140px]" style={{ width: "100%" }}>
+        <CardHeader className="items-left pb-0">
+          <CardTitle className="flex items-center gap-2">
+            <PieChartIcon className="h-5 w-5" />
+            <h3>Sales Breakdown</h3>
+          </CardTitle>
+          <CardDescription>Error loading data</CardDescription>
+        </CardHeader>
+        <CardContent className="flex-1 flex justify-center items-center pb-0">
+          <div className="text-red-500">{error}</div>
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
-    <Card className="flex" style={{ width: "100%", height: "140px" }}>
-      <CardHeader className="items-left pb-0">
-        <CardTitle>
-          <h3>Sales Breakdown</h3>
-        </CardTitle>
-        <CardDescription>January - June 2024</CardDescription>
-        <CardDescription>
-          <ul className="space-y-0">
-            <li className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-[#FF2056] rounded-sm"></div>
-              Unpaid
-            </li>
-            <li className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-[#78e8a1ff] rounded-sm"></div>
-              Partially Paid
-            </li>
-            <li className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-[#FACC15] rounded-sm"></div>
-              Paid
-            </li>
-          </ul>
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex-1 flex justify-center items-center pb-0">
-        <ChartContainer config={chartConfig} className="flex justify-center items-center w-[100px] h-[100px]">
-          <PieChart width={150} height={150}>
+    <Card className="flex min-h-[180px]" style={{ width: "100%" }}>
+      <div className="flex-1 flex flex-col">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <PieChartIcon className="h-5 w-5" />
+            <span className="font-semibold">Sales Breakdown</span>
+          </CardTitle>
+          <CardDescription className="text-sm text-gray-600">
+            {selectedBranches.length === 0 || selectedBranches.includes("4") 
+              ? "Payment status across all branches" 
+              : `Payment status - ${selectedBranches.length} branch${selectedBranches.length > 1 ? 'es' : ''}`}
+          </CardDescription>
+          {dateRange && dateRange.earliest && dateRange.latest && (
+            <div className="text-xs text-gray-500 mt-1">
+              {formatDate(dateRange.earliest)} - {formatDate(dateRange.latest)}
+              <span className="block">
+                {dateRange.totalTransactions} transaction{dateRange.totalTransactions !== 1 ? 's' : ''}
+              </span>
+            </div>
+          )}
+        </CardHeader>
+        <CardContent className="flex-1 pt-0">
+          <div className="space-y-2">
+            {chartData.map((item, index) => (
+              <div key={index} className="flex items-center justify-between py-1.5 px-2 bg-gray-50 rounded-md hover:bg-gray-100 transition-colors">
+                <div className="flex items-center gap-2">
+                  <div 
+                    className="w-3 h-3 rounded-full flex-shrink-0" 
+                    style={{ backgroundColor: item.fill }}
+                  ></div>
+                  <span className="text-sm font-medium text-gray-700">{item.status}</span>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm font-semibold text-gray-900">{item.transactions}</div>
+                  <div className="text-xs text-gray-500">{formatCurrency(item.amount)}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </div>
+      <div className="w-[200px] flex items-center justify-center p-2">
+        <ChartContainer config={chartConfig} className="w-full h-[160px]">
+          <PieChart width={160} height={160}>
             <ChartTooltip
               cursor={false}
               content={<ChartTooltipContent hideLabel />}
             />
             <Pie
               data={chartData}
-              dataKey="customers"
+              dataKey="transactions"
               nameKey="status"
-              innerRadius={30}
-              outerRadius={50}
+              innerRadius={35}
+              outerRadius={70}
             >
               <Label
                 content={({ viewBox }) => {
@@ -98,17 +200,17 @@ export function SalesBreakdown() {
                       >
                         <tspan
                           x={viewBox.cx}
-                          y={(viewBox.cy || 0) - 4}
-                          className="fill-foreground text-lg font-bold"
+                          y={(viewBox.cy || 0) - 6}
+                          className="fill-foreground text-xs font-bold"
                         >
-                          {totalCustomers.toLocaleString()}
+                          {totalTransactions.toLocaleString()}
                         </tspan>
                         <tspan
                           x={viewBox.cx}
-                          y={(viewBox.cy || 0) + 8}
-                          className="fill-muted-foreground text-[10px]"
+                          y={(viewBox.cy || 0) + 6}
+                          className="fill-muted-foreground text-[8px]"
                         >
-                          Customers
+                          Total
                         </tspan>
                       </text>
                     )
@@ -118,7 +220,7 @@ export function SalesBreakdown() {
             </Pie>
           </PieChart>
         </ChartContainer>
-      </CardContent>
+      </div>
     </Card>
   )
 }

@@ -22,6 +22,7 @@ const serviceRoutes_1 = __importDefault(require("./routes/serviceRoutes"));
 const serviceRequestRoutes_1 = __importDefault(require("./routes/serviceRequestRoutes"));
 const transactionRoutes_1 = __importDefault(require("./routes/transactionRoutes"));
 const paymentsRoutes_1 = __importDefault(require("./routes/paymentsRoutes"));
+const analyticsRoutes_1 = __importDefault(require("./routes/analyticsRoutes"));
 const socket_1 = require("./socket");
 const lineItemImageRoutes_1 = __importDefault(require("./routes/lineItemImageRoutes"));
 dotenv_1.default.config();
@@ -51,6 +52,7 @@ app.use("/transactions", transactionRoutes_1.default);
 app.use("/api/line-item-image", lineItemImageRoutes_1.default);
 app.use("/api/transactions", transactionRoutes_1.default);
 app.use("/api/payments", paymentsRoutes_1.default);
+app.use("/api/analytics", analyticsRoutes_1.default);
 // Test route
 app.get("/", (req, res) => {
     res.send("API is running...");

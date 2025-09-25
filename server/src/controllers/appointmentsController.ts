@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import { Appointment, IAppointment } from "../models/Appointments";
 import { IUnavailability } from "../models/Unavailability";
 import { cancelAffectedAppointments as cancelAppointmentsService } from "../controllers/appointmentsService";
+import { sendPushNotification } from "../utils/pushNotifications";
 
 // Get all approved appointments
 export const getApprovedAppointments = async (req: Request, res: Response) => {
@@ -48,7 +49,7 @@ export const cancelAffectedAppointmentsController = async (req: Request, res: Re
   }
 };
 
-// Update appointment status (approve/cancel)
+// Update appointment status (approve/cancel) with push notification
 export const updateAppointmentStatus = async (req: Request, res: Response) => {
   try {
     const { appointment_id } = req.params;
@@ -72,7 +73,62 @@ export const updateAppointmentStatus = async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: "Appointment not found" });
     }
 
-    return res.status(200).json({ success: true, data: updated });
+    // Send push notification to customer after successful status update
+    if (updated.cust_id && updated.date_for_inquiry) {
+      try {
+        const appointmentDate = new Date(updated.date_for_inquiry).toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+
+        let notificationTitle = '';
+        let notificationBody = '';
+
+        if (status === 'Approved') {
+          notificationTitle = 'Appointment Acknowledged';
+          notificationBody = `Your appointment on ${appointmentDate} has been acknowledged.`;
+        } else if (status === 'Cancelled') {
+          notificationTitle = 'Appointment Cancelled';
+          notificationBody = `Your appointment on ${appointmentDate} has been cancelled.`;
+        }
+
+        if (notificationTitle && notificationBody) {
+          const notificationData = {
+            appointmentId: updated.appointment_id,
+            status: status,
+            date: updated.date_for_inquiry,
+            timeStart: updated.time_start,
+            timeEnd: updated.time_end
+          };
+
+          // Send push notification (non-blocking)
+          const pushResult = await sendPushNotification(
+            updated.cust_id,
+            notificationTitle,
+            notificationBody,
+            notificationData
+          );
+
+          if (!pushResult.success) {
+            // Log push notification failure but don't fail the request
+            console.warn(`Push notification failed for appointment ${appointment_id}:`, pushResult.error);
+          } else {
+            console.log(`Push notification sent successfully for appointment ${appointment_id}`);
+          }
+        }
+      } catch (notificationError) {
+        // Log notification error but don't fail the appointment status update
+        console.error(`Failed to send push notification for appointment ${appointment_id}:`, notificationError);
+      }
+    }
+
+    return res.status(200).json({ 
+      success: true, 
+      data: updated,
+      message: `Appointment ${status.toLowerCase()} successfully${updated.cust_id ? ' and customer notified' : ''}`
+    });
   } catch (error) {
     console.error("Error updating appointment status:", error);
     return res.status(500).json({ success: false, message: "Server error" });

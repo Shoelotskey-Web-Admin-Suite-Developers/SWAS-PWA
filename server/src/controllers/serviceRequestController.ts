@@ -240,11 +240,8 @@ export const createServiceRequest = async (req: Request, res: Response) => {
       createdLineItems.push(newLineItem);
     }
 
-    // Calculate total pairs (sum of service quantities)
-    const noPairs = createdLineItems.reduce((totalPairs: number, li: ILineItem) => {
-      const services = li.services as ILineItemService[];
-      return totalPairs + services.reduce((acc: number, svc: ILineItemService) => acc + svc.quantity, 0);
-    }, 0);
+    // Calculate total pairs (number of line items/shoes)
+    const noPairs = createdLineItems.length;
 
     // Create transaction
     const transaction = new Transaction({

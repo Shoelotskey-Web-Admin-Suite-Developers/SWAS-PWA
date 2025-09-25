@@ -4,9 +4,24 @@
   flex-grow: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  background-color: #F0F0F0;
+  min-height: 100vh;
+  background: transparent;
+  padding: 20px 0;
+}
+
+.analyticsContent.with-header {
+  padding-top: 24px;
+}
+
+.analyticsContent.without-header {
+  padding-top: 24px;
+}
+
+/* Enhanced responsive grid utilities */
+@media (min-width: 1024px) {
+  .analyticsContent {
+    padding: 32px 0;
+  }
 }
 
 .card {
@@ -93,7 +108,7 @@
 
 .line-div {
   width: 90%;
-  margin: 0px 0 20px 0;
+  margin: 0px 0 10px 0;
 }
 
 .upper-part {

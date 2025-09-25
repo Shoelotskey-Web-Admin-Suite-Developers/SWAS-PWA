@@ -5,143 +5,277 @@ import { MonthlyGrowthRate } from '@/components/analytics/charts/MonthlyGrowth'
 import { TopServices } from '@/components/analytics/charts/TopServices'
 import { SalesBreakdown } from '@/components/analytics/charts/SalesBreak'
 import { TopCustomers } from '@/components/analytics/charts/TopCust'
+
+import { ExportButton } from '@/components/analytics/ExportButton'
 import {
   Card,
   CardContent,
+  CardHeader,
+  CardTitle,
 } from "@/components/ui/card"
-import Navbar from '@/components/Navbar'
-import { useState } from 'react'
-
+import { useState, useEffect } from 'react'
+import { getBranches } from '@/utils/api/getBranches'
+import { getBranchType } from '@/utils/api/getBranchType'
 // shadcn components
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command"
-import { Check, ChevronsUpDown } from "lucide-react"
+import { Check, ChevronsUpDown, Building } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-const branchOptions = [
-  { value: "1", label: "SM Valenzuela" },
-  { value: "2", label: "Valenzuela" },
-  { value: "3", label: "SM Grand" },
-  { value: "4", label: "Total of Branches" },
-]
+// branchOptions will be loaded from the API on mount
 
 function Analytics() {
   const [branchOpen, setBranchOpen] = useState(false)
   const [selectedBranches, setSelectedBranches] = useState<string[]>([])
+  const [branchOptions, setBranchOptions] = useState<{ value: string; label: string }[]>([])
+  const [isAdminBranch, setIsAdminBranch] = useState(false)
+  const [currentBranchId, setCurrentBranchId] = useState<string | null>(null)
+  const [branchIdToNumericMap, setBranchIdToNumericMap] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    let mounted = true
+    
+    // Get current branch ID from sessionStorage
+    const branchId = sessionStorage.getItem("branch_id")
+    setCurrentBranchId(branchId)
+    
+    async function checkBranchType() {
+      try {
+        const branchType = await getBranchType()
+        if (!mounted) return
+        setIsAdminBranch(branchType === "A")
+      } catch (err) {
+        console.error("Failed to get branch type", err)
+        setIsAdminBranch(false)
+      }
+    }
+
+    async function loadBranches() {
+      try {
+        const data = await getBranches()
+        if (!mounted) return
+        // Only include branches of type 'B' (regular branches)
+        const filtered = data.filter((b: any) => b.type === "B")
+        // Determine ordering for chart-friendly keys without hard-coding numeric IDs.
+        // Prefer known branches in this order: SM Valenzuela, Valenzuela, SM Grand — any others follow.
+        function branchPriority(b: any) {
+          const id = (b.branch_id || "").toUpperCase()
+          const name = (b.branch_name || "").toUpperCase()
+          if (id.includes("SMVAL") || name.includes("SM VAL")) return 0
+          if (id.includes("VAL") || name.includes("VALENZ")) return 1
+          if (id.includes("SMGRA") || name.includes("SM GRAND")) return 2
+          return 3
+        }
+
+        const ordered = [...filtered].sort((a, b) => {
+          const pa = branchPriority(a)
+          const pb = branchPriority(b)
+          if (pa !== pb) return pa - pb
+          return (a.branch_name || "").localeCompare(b.branch_name || "")
+        })
+
+        // Assign numeric IDs based on computed order
+        const options = ordered.map((b: any, idx: number) => ({
+          value: String(idx + 1),
+          label: b.branch_name,
+        }))
+
+        const numericMap: Record<string, string> = {}
+        const reverseMap: Record<string, string> = {}
+        ordered.forEach((b: any, idx: number) => {
+          const numericId = String(idx + 1)
+          numericMap[numericId] = b.branch_id
+          reverseMap[b.branch_id] = numericId
+        })
+
+        const totalValue = String(ordered.length + 1)
+        options.push({ value: totalValue, label: "Total of Branches" })
+        numericMap[totalValue] = "TOTAL"
+
+        setBranchOptions(options)
+        setBranchIdToNumericMap(reverseMap)
+      } catch (err) {
+        // If fetching fails, fallback to an empty list with only Total option
+        setBranchOptions([{ value: "1", label: "Total of Branches" }])
+        console.error("Failed to load branches", err)
+      }
+    }
+
+    checkBranchType()
+    loadBranches()
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  // Auto-select branch for non-admin users
+  useEffect(() => {
+    if (!isAdminBranch && currentBranchId && Object.keys(branchIdToNumericMap).length > 0) {
+      const numericId = branchIdToNumericMap[currentBranchId]
+      if (numericId) {
+        setSelectedBranches([numericId])
+      }
+    }
+  }, [isAdminBranch, currentBranchId, branchIdToNumericMap])
+
+
 
   const toggleBranch = (value: string) => {
     setSelectedBranches((prev) => {
-      if (value === "4") {
+      // Find the "Total of Branches" option dynamically
+      const totalOption = branchOptions.find(option => option.label === "Total of Branches");
+      const totalValue = totalOption?.value || "1"; // fallback if not found
+      
+      if (value === totalValue) {
         // If "Total of Branches" is clicked, deselect others
-        return prev.includes("4") ? [] : ["4"];
+        return prev.includes(totalValue) ? [] : [totalValue];
       } else {
-        // If any other branch is clicked, remove "Total of Branches"
+        // If any other branch is clicked, remove "Total"
         const newSelection = prev.includes(value)
           ? prev.filter((v) => v !== value)
-          : [...prev.filter((v) => v !== "4"), value];
+          : [...prev.filter((v) => v !== totalValue), value];
         return newSelection;
       }
     });
   };
 
+  // For non-admin branches, filter to show only their branch data
+  const effectiveSelectedBranches = isAdminBranch 
+    ? selectedBranches 
+    : (currentBranchId && branchIdToNumericMap[currentBranchId] 
+        ? [branchIdToNumericMap[currentBranchId]] 
+        : selectedBranches);
+
+
+
   return (
-    <>
+    <div className={`analyticsContent ${isAdminBranch ? 'with-header' : 'without-header'}`}>
 
-      <div className='analyticsContent'>
-        <div className='header'>
-          <Card className="rounded-3xl flex-1">
-            <CardContent>
-              <div className='branch-select-card'>
-                <h2>Branch Selector</h2>
-                
-                {/* Multi-select dropdown */}
-                <Popover open={branchOpen} onOpenChange={setBranchOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={branchOpen}
-                      className="w-[200px] justify-between"
-                    >
-                      {selectedBranches.length > 0
-                        ? `${selectedBranches.length} selected`
-                        : "Select branches"}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[200px] p-0">
-                    <Command>
-                      <CommandInput placeholder="Search..." />
-                      <CommandEmpty>No branch found.</CommandEmpty>
-                      <CommandGroup>
-                        {branchOptions.map((branch) => (
-                          <CommandItem
-                            key={branch.value}
-                            onSelect={() => toggleBranch(branch.value)}
+
+      {/* Controls Section */}
+      <div className="w-full px-8 mb-6">
+        {/* Branch Selector - Only for admin */}
+        {isAdminBranch && (
+          <Card className="rounded-3xl w-full">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Building className="h-5 w-5" />
+                <h1>Branch Selection</h1>
+              </CardTitle>
+              <ExportButton />
+            </CardHeader>
+            <CardContent className="space-y-4 pt-2">
+              <Popover open={branchOpen} onOpenChange={setBranchOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={branchOpen}
+                    className="w-full justify-between"
+                  >
+                    {selectedBranches.length > 0
+                      ? `${selectedBranches.length} selected`
+                      : "Select branches"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0">
+                  <Command>
+                    <CommandInput placeholder="Search branches..." />
+                    <CommandEmpty>No branch found.</CommandEmpty>
+                    <CommandGroup>
+                      {branchOptions.map((branch) => (
+                        <CommandItem
+                          key={branch.value}
+                          onSelect={() => toggleBranch(branch.value)}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              selectedBranches.includes(branch.value)
+                                ? "opacity-100"
+                                : "opacity-0"
+                            )}
+                          />
+                          {branch.label}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              
+              {/* Selected Branches Display */}
+              {branchOptions.length > 0 && selectedBranches.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Selected Branches:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {branchOptions
+                      .filter(branch => selectedBranches.includes(branch.value))
+                      .map((branch, index) => {
+                        const colors = ['#22C55E', '#9747FF', '#0D55F1', '#CE1616'];
+                        const color = branch.label === "Total of Branches" 
+                          ? '#CE1616' 
+                          : colors[index % colors.length];
+                        
+                        return (
+                          <div 
+                            key={branch.value} 
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 rounded-full text-sm border"
+                            style={{ borderColor: color }}
                           >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                selectedBranches.includes(branch.value)
-                                  ? "opacity-100"
-                                  : "opacity-0"
-                              )}
+                            <div 
+                              className="w-2 h-2 rounded-full" 
+                              style={{ backgroundColor: color }}
                             />
-                            {branch.label}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-
-                <button className='refresh-button'>Refresh</button>
-              </div>
+                            <span className="font-medium text-gray-700">{branch.label}</span>
+                          </div>
+                        );
+                      })
+                    }
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
-
-          <Card className="rounded-3xl flex-1">
-            <CardContent>
-              <div className='branches-card'>
-                <h2>Branches</h2>
-                <ul>
-                  <li style={{ '--bullet-color': '#22C55E' } as React.CSSProperties}>SM Valenzuela</li>
-                  <li style={{ '--bullet-color': '#9747FF' } as React.CSSProperties}>Valenzuela</li>
-                </ul>
-                <ul>
-                  <li style={{ '--bullet-color': '#0D55F1' } as React.CSSProperties}>SM Grand</li>
-                  <li style={{ '--bullet-color': '#CE1616' } as React.CSSProperties}>Total of Branches</li>
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className='line-div'>
-          <svg width="100%" height="7">
-            <line x1="0" y1="5" x2="100%" y2="5" stroke="#797979" strokeWidth="1" />
-          </svg>
-        </div>
-
-        <div className="upper-part">
-          <DailyRevenueTrend selectedBranches={selectedBranches}/>
-          <SalesOverTime selectedBranches={selectedBranches}/>
-        </div>
-
-        <div className='lower-part'>
-          <div className='lower-part-1'>
-            <TopServices />
-            <SalesBreakdown />
+        )}
+        
+        {/* For non-admin users, show export button in top right */}
+        {!isAdminBranch && (
+          <div className="flex justify-end">
+            <ExportButton />
           </div>
-          <div className='lower-part-2'>
-            <MonthlyGrowthRate selectedBranches={selectedBranches}/>
-            <TopCustomers />
-          </div>
-        </div>
-        <hr className="mt-4" />
+        )}
       </div>
-    </>
+
+      {/* Main Content Area */}
+      <div className="w-full px-8">
+        <div className="space-y-6">
+          {/* Daily Revenue Trend - Full Width */}
+          <div className="w-full">
+            <DailyRevenueTrend selectedBranches={effectiveSelectedBranches}/>
+          </div>
+
+          {/* Sales Over Time with Day Details - Full Row */}
+          <div className="w-full">
+            <SalesOverTime selectedBranches={effectiveSelectedBranches}/>
+          </div>
+
+          {/* Secondary Charts */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="space-y-6">
+              <TopServices selectedBranches={effectiveSelectedBranches} />
+              <SalesBreakdown selectedBranches={effectiveSelectedBranches} />
+            </div>
+            <div className="lg:col-span-2 space-y-6">
+              <MonthlyGrowthRate selectedBranches={effectiveSelectedBranches}/>
+              <TopCustomers />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
 
