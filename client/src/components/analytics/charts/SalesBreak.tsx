@@ -138,7 +138,7 @@ export function SalesBreakdown({ selectedBranches = [] }: SalesBreakdownProps) {
         <CardHeader className="pb-4">
           <CardTitle className="flex items-center gap-2 text-base">
             <PieChartIcon className="h-5 w-5" />
-            <span className="font-semibold">Sales Breakdown</span>
+            <h2 className="font-semibold">Sales Breakdown</h2>
           </CardTitle>
           <CardDescription className="text-sm text-gray-600">
             {selectedBranches.length === 0 || selectedBranches.includes("4") 

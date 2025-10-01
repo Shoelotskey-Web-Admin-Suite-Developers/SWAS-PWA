@@ -35,6 +35,7 @@ interface NotifSheetProps {
 export function NotifSheet({ children }: NotifSheetProps) {
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [loadingAppointment, setLoadingAppointment] = useState<string | null>(null)
+  const [isLoadingAppointments, setIsLoadingAppointments] = useState(true)
 
   // --- PICKUP WARNINGS LOGIC ---
   const pickupRows = usePickupRows()
@@ -54,6 +55,7 @@ export function NotifSheet({ children }: NotifSheetProps) {
 
   const fetchPending = async () => {
     try {
+      setIsLoadingAppointments(true)
       const data = await getAppointmentsPending();
       const items = data || []
       // filter to keep present and future only
@@ -82,6 +84,8 @@ export function NotifSheet({ children }: NotifSheetProps) {
       setAppointments(enriched)
     } catch (err) {
       console.error("Failed to fetch pending appointments:", err)
+    } finally {
+      setIsLoadingAppointments(false)
     }
   }
 
@@ -248,7 +252,14 @@ export function NotifSheet({ children }: NotifSheetProps) {
           </div>
 
           <div className="space-y-2 max-h-[30vh] overflow-y-auto pr-2 scrollbar-thin">
-            {appointments.length === 0 ? (
+            {isLoadingAppointments ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                  <p className="text-sm text-muted-foreground">Loading appointments...</p>
+                </div>
+              </div>
+            ) : appointments.length === 0 ? (
               <p className="text-sm text-muted-foreground">No pending appointments 🎉</p>
             ) : (
               appointments.map((appt) => {

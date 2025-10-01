@@ -19,9 +19,50 @@ export const getDailyRevenue = async (req: Request, res: Response) => {
 
 export const getForecast = async (req: Request, res: Response) => {
   try {
-    // Return all forecast records sorted by date ascending
+    // Fetch all forecast records sorted by date ascending
     const records = await Forecast.find().sort({ date: 1 }).lean()
-    return res.status(200).json(records)
+    if (!records || records.length === 0) {
+      return res.status(200).json([])
+    }
+
+    // Transform each record to a normalized dynamic shape:
+    // { date: 'yyyy-MM-dd', total: number, branches: { [branch_id]: value } }
+    const transformed = records.map((r: any) => {
+      const dateStr = new Date(r.date).toISOString().slice(0,10)
+      const branchEntries: Record<string, number> = {}
+
+      // If record already has a branches object/map structure, copy numeric values
+      if (r.branches && typeof r.branches === 'object') {
+        if (Array.isArray(r.branches)) {
+          r.branches.forEach((el: any) => {
+            if (!el || typeof el !== 'object') return
+            const id = el.branch_id || el.code || el.id || el.branch || el.name
+            const val = el.value ?? el.amount ?? el.total ?? el.revenue
+            if (id && typeof val === 'number') branchEntries[id] = val || 0
+          })
+        } else {
+          Object.entries(r.branches).forEach(([bk, bv]) => {
+            if (typeof bv === 'number') branchEntries[bk] = (bv as number) || 0
+          })
+        }
+      }
+
+      // Also scan top-level keys that look like branch identifiers (contain '-') with numeric values
+      Object.keys(r).forEach(k => {
+        if (k === 'date' || k === '_id' || k === '__v' || k === 'createdAt' || k === 'updatedAt' || k === 'branches' || k === 'total') return
+        if (k.includes('-') && typeof r[k] === 'number') {
+          if (branchEntries[k] == null) branchEntries[k] = r[k] || 0
+        }
+      })
+
+      const total = typeof r.total === 'number'
+        ? r.total
+        : Object.values(branchEntries).reduce((s,v)=> s + (v||0), 0)
+
+      return { date: dateStr, total, branches: branchEntries }
+    })
+
+    return res.status(200).json(transformed)
   } catch (err) {
     console.error("Error fetching forecast:", err)
     return res.status(500).json({ error: "Failed to fetch forecast" })
@@ -30,57 +71,44 @@ export const getForecast = async (req: Request, res: Response) => {
 
 export const getMonthlyRevenue = async (req: Request, res: Response) => {
   try {
-    // Return all monthly revenue records sorted by Year first
-    const records = await MonthlyRevenue.find().sort({ Year: 1 }).lean()
-    
-    console.log("Found monthly revenue records:", records.length)
-    if (records.length > 0) {
-      console.log("Sample record:", records[0])
-      console.log("Record keys:", Object.keys(records[0]))
-    }
-    
-    // If no records found, return empty array
-    if (records.length === 0) {
-      console.log("No monthly revenue records found in database")
-      return res.status(200).json([])
-    }
-    
-    // Month names to numbers mapping
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    
-    // Transform the data and add month numbers for sorting
-    const transformedData = records.map((record: any) => {
-      // Convert month name to month number
-      const monthIndex = monthNames.indexOf(record.month)
-      const monthNumber = monthIndex !== -1 ? monthIndex + 1 : 1
-      
-      const monthStr = record.Year.toString() + "-" + monthNumber.toString().padStart(2, "0")
-      
-      // Get branch values - use the correct branch codes from the data structure
+    const records = await MonthlyRevenue.find().sort({ Year: 1 }).lean();
+    if (records.length === 0) return res.status(200).json([]);
+
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    const transformed = records.map((record: any) => {
+      const monthIndex = monthNames.indexOf(record.month);
+      const monthNumber = monthIndex !== -1 ? monthIndex + 1 : 1;
+      const monthStr = `${record.Year}-${String(monthNumber).padStart(2,'0')}`;
+      // Dynamically collect branch fields: heuristic - keys containing '-' and number value, excluding known meta keys.
+      const branchEntries: Record<string, number> = {};
+      Object.keys(record).forEach(k => {
+        if (k === 'total' || k === 'month' || k === 'Year' || k === '_id' || k === '__v') return;
+        if (k.includes('-') && typeof record[k] === 'number') {
+          branchEntries[k] = record[k] || 0;
+        }
+      });
+      // Fallback: some records may store a Map-like 'branches'
+      if (record.branches && typeof record.branches === 'object') {
+        Object.entries(record.branches).forEach(([bk, bv]) => {
+          if (typeof bv === 'number') branchEntries[bk] = (bv as number) || 0;
+        });
+      }
+      const total = typeof record.total === 'number' ? record.total : Object.values(branchEntries).reduce((s,v)=> s + (v||0), 0);
       return {
         month: monthStr,
-        total: record.total || 0,
-        SMVal: record["SMVAL-B-NCR"] || 0,
-        Val: record["VAL-B-NCR"] || 0,  
-        SMGra: record["SMGRA-B-NCR"] || 0,
-        sortKey: record.Year * 100 + monthNumber // For proper chronological sorting
-      }
-    })
-    
-    // Sort by year and month chronologically
-    const sortedData = transformedData.sort((a, b) => a.sortKey - b.sortKey)
-    
-    // Remove the sortKey before sending response
-    const finalData = sortedData.map(({ sortKey, ...item }) => item)
-    
-    console.log("Transformed data sample:", finalData.slice(0, 2))
-    return res.status(200).json(finalData)
+        total,
+        branches: branchEntries,
+        sortKey: record.Year * 100 + monthNumber
+      };
+    }).sort((a,b)=> a.sortKey - b.sortKey).map(({sortKey, ...rest}) => rest);
+
+    return res.status(200).json(transformed);
   } catch (err) {
-    console.error("Error fetching monthly revenue:", err)
-    return res.status(500).json({ error: "Failed to fetch monthly revenue" })
+    console.error('Error fetching monthly revenue (dynamic):', err);
+    return res.status(500).json({ error: 'Failed to fetch monthly revenue' });
   }
-}
+};
 
 export const getTopServices = async (req: Request, res: Response) => {
   try {
@@ -270,19 +298,22 @@ export const getSalesBreakdown = async (req: Request, res: Response) => {
         status: "Unpaid",
         transactions: statusData.NP.count,
         amount: statusData.NP.amount,
-        fill: "#FF2056"
+        // brand danger variant (accessible on light bg)
+        fill: "#DC2626"
       },
       {
         status: "Partially Paid", 
         transactions: statusData.PARTIAL.count,
         amount: statusData.PARTIAL.amount,
-        fill: "#78e8a1ff"
+        // neutral/info accent
+        fill: "#2563EB"
       },
       {
         status: "Paid",
         transactions: statusData.PAID.count,
         amount: statusData.PAID.amount,
-        fill: "#FACC15"
+        // success / highlight
+        fill: "#16A34A"
       }
     ]
     
@@ -305,11 +336,12 @@ export const getSalesBreakdown = async (req: Request, res: Response) => {
 
 // Helper function to assign colors to services
 function getServiceColor(serviceId: string): string {
+  // Updated to align with curated palette & ensure distinctness
   const colorMap: { [key: string]: string } = {
-    "SERVICE-1": "#FF2056",
-    "SERVICE-2": "#FACC15", 
-    "SERVICE-3": "#FB923C",
-    "COLOR-RENEWAL": "#8B5CF6"
+    "SERVICE-1": "#2563EB",    // blue
+    "SERVICE-2": "#16A34A",    // green
+    "SERVICE-3": "#F59E0B",    // amber
+    "COLOR-RENEWAL": "#7C3AED"  // violet
   }
-  return colorMap[serviceId] || "#888888"
+  return colorMap[serviceId] || "#6366F1" // fallback indigo
 }

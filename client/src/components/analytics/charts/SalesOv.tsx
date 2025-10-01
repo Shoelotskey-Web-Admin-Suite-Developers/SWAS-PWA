@@ -21,30 +21,21 @@ import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { format as formatDate } from "date-fns"
 import { cn } from "@/lib/utils"
-import { getDailyRevenue, DailyRevenueItem } from "@/utils/api/getDailyRevenue"
+// Replaced legacy static daily revenue util with dynamic branch-aware version
+import { getDailyRevenueDynamic } from "@/utils/api/getDailyRevenueDynamic"
+import { BranchMeta } from "@/utils/analytics/branchMeta"
 
 export const description = "A simple area chart"
 
-interface ChartLineLinearProps {
-  selectedBranches: string[];
-}
+interface ChartLineLinearProps { selectedBranches: string[]; branchMeta: BranchMeta[] }
 
-const chartConfig = {
-  total: { label: "Total of Branches", color: "#CE1616" },
-  SMVal: { label: "SM Valenzuela", color: "#22C55E" },
-  Val: { label: "Valenzuela", color: "#9747FF" },
-  SMGra: { label: "SM Grand", color: "#0D55F1" },
-} satisfies ChartConfig
+// chartConfig will be built dynamically from branchMeta inside the component
 
 interface DayRevenueData {
-  date: string
-  totalRevenue: number
-  branchBreakdown: {
-    SMVal: number
-    Val: number
-    SMGra: number
-  }
-  revenueLevel: "low" | "medium" | "high"
+  date: string;
+  totalRevenue: number;
+  branchBreakdown: Record<string, number>; // keyed by branchMeta.dataKey
+  revenueLevel: "low" | "medium" | "high";
 }
 
 const getRevenueLevel = (revenue: number, avgRevenue: number): "low" | "medium" | "high" => {
@@ -61,14 +52,13 @@ const getRevenueColor = (level: "low" | "medium" | "high") => {
   }
 }
 
-export function SalesOverTime({ selectedBranches }: ChartLineLinearProps) {
-  const [rawData, setRawData] = useState<DailyRevenueItem[]>([])
+export function SalesOverTime({ selectedBranches, branchMeta }: ChartLineLinearProps) {
+  const [rawData, setRawData] = useState<any[]>([])
   const [startDate, setStartDate] = useState<string>("")
   const [endDate, setEndDate] = useState<string>("")
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string>("")
   const [selectedDayData, setSelectedDayData] = useState<DayRevenueData | null>(null)
-  const [avgRevenue, setAvgRevenue] = useState(0)
 
   // Function to get daily revenue data from API
   const fetchDailyRevenue = async () => {
@@ -76,16 +66,11 @@ export function SalesOverTime({ selectedBranches }: ChartLineLinearProps) {
       setLoading(true)
       setError("")
       
-      const sortedData = await getDailyRevenue()
-      setRawData(sortedData)
-      
-      // Debug: Log some sample data to verify totals
-      console.debug("SalesOverTime: Sample data with totals", sortedData.slice(0, 5))
-      
-      // Set initial date range to show all data
-      if (sortedData.length > 0) {
-        setStartDate(sortedData[0].date)
-        setEndDate(sortedData[sortedData.length - 1].date)
+      const dynamicData = await getDailyRevenueDynamic(branchMeta)
+      setRawData(dynamicData)
+      if (dynamicData.length > 0) {
+        setStartDate(dynamicData[0].date)
+        setEndDate(dynamicData[dynamicData.length - 1].date)
       }
       
     } catch (err) {
@@ -97,8 +82,9 @@ export function SalesOverTime({ selectedBranches }: ChartLineLinearProps) {
   }
 
   useEffect(() => {
-    fetchDailyRevenue()
-  }, [])
+    if (!branchMeta || branchMeta.length === 0) return;
+    fetchDailyRevenue();
+  }, [branchMeta])
 
 
 
@@ -111,90 +97,41 @@ export function SalesOverTime({ selectedBranches }: ChartLineLinearProps) {
            (!endDate || item.date <= endDate)
   })
 
+  const totalMeta = branchMeta.find(m => m.branch_id === 'TOTAL')
+  const totalNumericId = totalMeta?.numericId
+  const isTotalSelected = totalNumericId ? selectedBranches.includes(totalNumericId) : false
+
   const filteredData = filteredByDate.map(item => {
-    const visibleSMVal = selectedBranches.includes("1") || selectedBranches.length === 0 ? item.SMVal : null
-    const visibleVal = selectedBranches.includes("2") || selectedBranches.length === 0 ? item.Val : null
-    const visibleSMGra = selectedBranches.includes("3") || selectedBranches.length === 0 ? item.SMGra : null
-    
-    // Show total from API data (not calculated) when total is selected or no branches selected
-    const showTotal = selectedBranches.includes("4") || selectedBranches.length === 0
-    
-    return {
-      date: item.date,
-      SMVal: visibleSMVal,
-      Val: visibleVal,
-      SMGra: visibleSMGra,
-      total: showTotal ? item.total : null,
-    }
+    const showAll = selectedBranches.length === 0
+    const row: any = { date: item.date }
+    if (showAll || isTotalSelected) row.total = item.total ?? null
+    branchMeta.filter(m => m.branch_id !== 'TOTAL').forEach(m => {
+      if (showAll || selectedBranches.includes(m.numericId)) {
+        row[m.dataKey] = item[m.dataKey] ?? null
+      }
+    })
+    return row
   })
+  if (filteredData.length > 0) {
+    console.debug('[SalesOverTime] Sample row keys after filter:', Object.keys(filteredData[0]));
+  }
 
-  // Debug: Log filtered data to verify totals are present
-  console.debug("SalesOverTime: Filtered data sample", filteredData.slice(0, 3))
-  console.debug("SalesOverTime: Selected branches", selectedBranches)
+  const calculateSelectedBranchTotal = (row: any): number => {
+    if (selectedBranches.length === 0 || isTotalSelected) return row.total ?? 0
+    return branchMeta.filter(m => m.branch_id !== 'TOTAL' && selectedBranches.includes(m.numericId))
+      .reduce((s, m) => s + (row[m.dataKey] ?? 0), 0)
+  }
 
-  // Helper function to calculate revenue total for selected branches
-  const calculateSelectedBranchTotal = (item: DailyRevenueItem): number => {
-    let total = 0;
-    
-    if (selectedBranches.length === 0) {
-      // If no branches selected, show overall total
-      return item.total || 0;
-    }
-    
-    if (selectedBranches.includes("1") && item.SMVal) {
-      total += item.SMVal;
-    }
-    if (selectedBranches.includes("2") && item.Val) {
-      total += item.Val;
-    }
-    if (selectedBranches.includes("3") && item.SMGra) {
-      total += item.SMGra;
-    }
-    if (selectedBranches.includes("4")) {
-      // If "total" branch is selected, add the overall total
-      total = item.total || 0;
-    }
-    
-    return total;
-  };
-
-  // Helper function to get revenue for analysis (branch-specific for single, combined for multiple/all)
-  const getBranchSpecificRevenue = (item: DailyRevenueItem): number => {
-    // If no branches selected or "Total of Branches" is selected (type "A"), use API total
-    if (selectedBranches.length === 0 || selectedBranches.includes("4")) {
-      return item.total || 0;
-    }
-    
-    // For single branch selection, return ONLY that branch's revenue (no totals)
-    if (selectedBranches.length === 1) {
-      if (selectedBranches.includes("1")) return item.SMVal || 0;
-      if (selectedBranches.includes("2")) return item.Val || 0;
-      if (selectedBranches.includes("3")) return item.SMGra || 0;
-    }
-    
-    // For multiple specific branches (not including total), sum only those branches
-    let total = 0;
-    if (selectedBranches.includes("1")) total += item.SMVal || 0;
-    if (selectedBranches.includes("2")) total += item.Val || 0;
-    if (selectedBranches.includes("3")) total += item.SMGra || 0;
-    
-    return total;
-  };
+  const getBranchSpecificRevenue = (row: any): number => {
+    if (selectedBranches.length === 0 || isTotalSelected) return row.total ?? 0
+    const active = branchMeta.filter(m => m.branch_id !== 'TOTAL' && selectedBranches.includes(m.numericId))
+    if (active.length === 1) return row[active[0].dataKey] ?? 0
+    return active.reduce((s, m) => s + (row[m.dataKey] ?? 0), 0)
+  }
 
   // Calculate average revenue whenever rawData or selectedBranches changes
   useEffect(() => {
-    if (rawData.length > 0) {
-      const validData = rawData.filter(item => {
-        const revenueForAnalysis = getBranchSpecificRevenue(item)
-        return revenueForAnalysis > 0
-      })
-      if (validData.length > 0) {
-        const totalRevenue = validData.reduce((sum, item) => sum + getBranchSpecificRevenue(item), 0)
-        const average = totalRevenue / validData.length
-        setAvgRevenue(average)
-        console.debug("SalesOverTime: Calculated average for branches", selectedBranches, "=", average, "from", validData.length, "valid days")
-      }
-    }
+    if (!rawData.length) return
   }, [rawData, selectedBranches])
 
   // Clear selected day data when branches change
@@ -202,6 +139,13 @@ export function SalesOverTime({ selectedBranches }: ChartLineLinearProps) {
     setSelectedDayData(null)
   }, [selectedBranches])
 
+  const avgRevenue = (() => {
+    if (!rawData.length) return 0
+    const valid = rawData.filter(r => getBranchSpecificRevenue(r) > 0)
+    if (!valid.length) return 0
+    const total = valid.reduce((s, r) => s + getBranchSpecificRevenue(r), 0)
+    return total / valid.length
+  })()
   const maxTicks = 6
 
   if (loading) {
@@ -247,7 +191,7 @@ export function SalesOverTime({ selectedBranches }: ChartLineLinearProps) {
         </CardHeader>
         <CardContent>
         <ChartContainer
-          config={chartConfig}
+          config={branchMeta.reduce((acc, m) => { if (m.branch_id !== 'TOTAL') acc[m.dataKey] = { label: m.branch_name, color: m.color }; else acc.total = { label: m.branch_name, color: '#CE1616' }; return acc }, {} as ChartConfig)}
           style={{ width: "100%", height: "250px", overflow: "hidden" }}
         >
           <AreaChart
@@ -291,31 +235,26 @@ export function SalesOverTime({ selectedBranches }: ChartLineLinearProps) {
             />
 
             <defs>
-              <clipPath id="chartClip">
-                <rect width="100%" height="100%" />
-              </clipPath>
+              <clipPath id="chartClip"><rect width="100%" height="100%" /></clipPath>
               <linearGradient id="totalGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#CE1616" stopOpacity={0.8} />
-                <stop offset="100%" stopColor="#CE1616" stopOpacity={0.1} />
+                <stop offset="0%" stopColor="#CE1616" stopOpacity={0.85} />
+                <stop offset="100%" stopColor="#CE1616" stopOpacity={0.15} />
               </linearGradient>
-              <linearGradient id="smValGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#22C55E" stopOpacity={0.5} />
-                <stop offset="100%" stopColor="#22C55E" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="valGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#9747FF" stopOpacity={0.5} />
-                <stop offset="100%" stopColor="#9747FF" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="smGrandGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#0D55F1" stopOpacity={0.5} />
-                <stop offset="100%" stopColor="#0D55F1" stopOpacity={0} />
-              </linearGradient>
+              {branchMeta.filter(m=> m.branch_id !== 'TOTAL').map(m => (
+                <linearGradient key={m.dataKey} id={`${m.dataKey}Gradient`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={m.color} stopOpacity={0.55} />
+                  <stop offset="100%" stopColor={m.color} stopOpacity={0} />
+                </linearGradient>
+              ))}
             </defs>
-
-            <Area dataKey="total" type="natural" fill="url(#totalGradient)" stroke="#CE1616" strokeWidth={2} clipPath="url(#chartClip)" />
-            <Area dataKey="SMGra" type="natural" fill="url(#smGrandGradient)" stroke="#0D55F1" strokeWidth={2} clipPath="url(#chartClip)" />
-            <Area dataKey="Val" type="natural" fill="url(#valGradient)" stroke="#9747FF" strokeWidth={2} clipPath="url(#chartClip)" />
-            <Area dataKey="SMVal" type="natural" fill="url(#smValGradient)" stroke="#22C55E" strokeWidth={2} clipPath="url(#chartClip)" />
+            {(selectedBranches.length === 0 || isTotalSelected) && (
+              <Area dataKey="total" type="natural" fill="url(#totalGradient)" stroke="#CE1616" strokeWidth={2} clipPath="url(#chartClip)" />
+            )}
+            {branchMeta.filter(m=> m.branch_id !== 'TOTAL').map(m => {
+              const active = selectedBranches.length === 0 || selectedBranches.includes(m.numericId)
+              if (!active) return null
+              return <Area key={m.dataKey} dataKey={m.dataKey} type="natural" fill={`url(#${m.dataKey}Gradient)`} stroke={m.color} strokeWidth={2} clipPath="url(#chartClip)" />
+            })}
           </AreaChart>
         </ChartContainer>
       </CardContent>
@@ -436,20 +375,15 @@ export function SalesOverTime({ selectedBranches }: ChartLineLinearProps) {
                 if (selectedDate) {
                   const dayData = rawData.find(item => item.date === selectedDate)
                   if (dayData) {
-                    // Use branch-specific revenue for analysis
                     const revenueForComparison = getBranchSpecificRevenue(dayData)
-                    
-                    const dayDetails: DayRevenueData = {
+                    const breakdown: Record<string, number> = {}
+                    branchMeta.filter(m=> m.branch_id !== 'TOTAL').forEach(m => { breakdown[m.dataKey] = dayData[m.dataKey] ?? 0 })
+                    setSelectedDayData({
                       date: dayData.date,
                       totalRevenue: revenueForComparison,
-                      branchBreakdown: {
-                        SMVal: dayData.SMVal || 0,
-                        Val: dayData.Val || 0,
-                        SMGra: dayData.SMGra || 0,
-                      },
-                      revenueLevel: getRevenueLevel(revenueForComparison, avgRevenue),
-                    }
-                    setSelectedDayData(dayDetails)
+                      branchBreakdown: breakdown,
+                      revenueLevel: getRevenueLevel(revenueForComparison, avgRevenue)
+                    })
                   }
                 } else {
                   setSelectedDayData(null)
@@ -483,14 +417,14 @@ export function SalesOverTime({ selectedBranches }: ChartLineLinearProps) {
       <Card className="rounded-3xl w-full lg:w-80 lg:flex-shrink-0">
         <CardHeader className="pb-4">
           <CardTitle className="text-lg">
-            {format(new Date(selectedDayData.date), "EEEE, MMMM d, yyyy")}
+            <h3>{format(new Date(selectedDayData.date), "EEEE, MMMM d, yyyy")}</h3>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Total/Branch Revenue */}
           <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
             <span className="font-medium">
-              {(selectedBranches.length === 0 || selectedBranches.includes("4")) 
+              {(selectedBranches.length === 0 || isTotalSelected) 
                 ? "Total Revenue" 
                 : "Branch Revenue"
               }
@@ -509,54 +443,28 @@ export function SalesOverTime({ selectedBranches }: ChartLineLinearProps) {
           </div>
 
           {/* Branch Breakdown */}
-          {(selectedBranches.length === 0 || selectedBranches.includes("4")) ? (
-            // Show all branches when "All" is selected
+          {(selectedBranches.length === 0 || isTotalSelected) ? (
             <div className="space-y-3">
               <h4 className="font-medium text-sm">Branch Breakdown</h4>
               <div className="space-y-2">
-                <div className="flex justify-between items-center p-2 bg-green-50 rounded">
-                  <span className="text-sm">SM Valenzuela</span>
-                  <span className="font-medium">{formatCurrency(selectedDayData.branchBreakdown.SMVal)}</span>
-                </div>
-                <div className="flex justify-between items-center p-2 bg-purple-50 rounded">
-                  <span className="text-sm">Valenzuela</span>
-                  <span className="font-medium">{formatCurrency(selectedDayData.branchBreakdown.Val)}</span>
-                </div>
-                <div className="flex justify-between items-center p-2 bg-blue-50 rounded">
-                  <span className="text-sm">SM Grand</span>
-                  <span className="font-medium">{formatCurrency(selectedDayData.branchBreakdown.SMGra)}</span>
-                </div>
+                {branchMeta.filter(m=> m.branch_id !== 'TOTAL').map(m => (
+                  <div key={m.dataKey} className="flex justify-between items-center p-2 rounded" style={{ backgroundColor: `${m.color}15` }}>
+                    <span className="text-sm">{m.branch_name}</span>
+                    <span className="font-medium">{formatCurrency(selectedDayData.branchBreakdown[m.dataKey] || 0)}</span>
+                  </div>
+                ))}
               </div>
             </div>
           ) : (
-            // Show only selected branch when specific branch is selected
             <div className="space-y-3">
               <h4 className="font-medium text-sm">Branch Performance</h4>
               <div className="grid gap-3">
-                {selectedBranches.includes("1") && (
-                  <div className="p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
-                    <div className="font-medium text-sm mb-1">SM Valenzuela</div>
-                    <div className="text-lg font-bold text-green-700">
-                      {formatCurrency(selectedDayData.branchBreakdown.SMVal)}
-                    </div>
+                {branchMeta.filter(m=> m.branch_id !== 'TOTAL' && selectedBranches.includes(m.numericId)).map(m => (
+                  <div key={m.dataKey} className="p-3 rounded-lg border-l-4" style={{ backgroundColor: `${m.color}15`, borderColor: m.color }}>
+                    <div className="font-medium text-sm mb-1">{m.branch_name}</div>
+                    <div className="text-lg font-bold" style={{ color: m.color }}>{formatCurrency(selectedDayData.branchBreakdown[m.dataKey] || 0)}</div>
                   </div>
-                )}
-                {selectedBranches.includes("2") && (
-                  <div className="p-3 bg-purple-50 rounded-lg border-l-4 border-purple-500">
-                    <div className="font-medium text-sm mb-1">Valenzuela</div>
-                    <div className="text-lg font-bold text-purple-700">
-                      {formatCurrency(selectedDayData.branchBreakdown.Val)}
-                    </div>
-                  </div>
-                )}
-                {selectedBranches.includes("3") && (
-                  <div className="p-3 bg-blue-50 rounded-lg border-l-4 border-blue-500">
-                    <div className="font-medium text-sm mb-1">SM Grand</div>
-                    <div className="text-lg font-bold text-blue-700">
-                      {formatCurrency(selectedDayData.branchBreakdown.SMGra)}
-                    </div>
-                  </div>
-                )}
+                ))}
               </div>
             </div>
           )}
@@ -564,7 +472,7 @@ export function SalesOverTime({ selectedBranches }: ChartLineLinearProps) {
           {/* Comparison to Average */}
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">
-              {(selectedBranches.length === 0 || selectedBranches.includes("4")) 
+              {(selectedBranches.length === 0 || isTotalSelected) 
                 ? "vs Daily Average" 
                 : "vs Branch Average"
               }

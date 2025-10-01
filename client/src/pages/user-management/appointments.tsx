@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 
 // API imports
 import { addUnavailability } from "@/utils/api/addUnavailability"
@@ -30,6 +31,7 @@ import { getUnavailabilityPartial } from "@/utils/api/getUnavailabilityPartialDa
 import { deleteUnavailability } from "@/utils/api/deleteUnavailability"
 import { getAppointmentsApproved } from "@/utils/api/getAppointmentsApproved";
 import { useAppointmentUpdates } from "@/hooks/useAppointmentUpdates"
+import { useUnavailabilityUpdates } from "@/hooks/useUnavailabilityUpdates"
 
 // Types
 interface Appointment {
@@ -61,10 +63,19 @@ export default function Appointments() {
   const [appointments, setAppointments] = useState<Record<string, Appointment[]>>({});
 
   const [unavailability, setUnavailability] = useState<Unavailability[]>([])
+  
+  // Loading states
+  const [isLoadingUnavailability, setIsLoadingUnavailability] = useState(true)
+  const [isLoadingAppointments, setIsLoadingAppointments] = useState(true)
+  const [isAddingUnavailability, setIsAddingUnavailability] = useState(false)
+  
+  // Real-time update indicators
+  const [isUpdating, setIsUpdating] = useState(false)
 
   // Fetch unavailability from API
   const fetchUnavailability = async () => {
     try {
+      setIsLoadingUnavailability(true)
       const whole: Unavailability[] = (await getUnavailabilityWhole()).map((u: any) => ({
         id: u.unavailability_id,
         date: u.date_unavailable?.split("T")[0] || "",
@@ -84,11 +95,14 @@ export default function Appointments() {
       setUnavailability([...whole, ...partial])
     } catch (err) {
       console.error("Failed to fetch unavailability:", err)
+    } finally {
+      setIsLoadingUnavailability(false)
     }
   }
   
   const fetchAppointments = async () => {
     try {
+      setIsLoadingAppointments(true)
       const data = await getAppointmentsApproved();
       const formatted: Record<string, Appointment[]> = {};
 
@@ -116,6 +130,8 @@ export default function Appointments() {
       setAppointments(formatted);
     } catch (err) {
       console.error("Failed to fetch appointments:", err);
+    } finally {
+      setIsLoadingAppointments(false)
     }
   };
 
@@ -128,10 +144,53 @@ export default function Appointments() {
   const { changes: appointmentChanges } = useAppointmentUpdates()
   useEffect(() => {
     if (appointmentChanges) {
-      const t = setTimeout(() => fetchAppointments(), 300)
+      console.log("📢 Real-time appointment update detected:", appointmentChanges.operationType)
+      setIsUpdating(true)
+      
+      // Show toast for significant changes
+      if (appointmentChanges.operationType === 'insert') {
+        toast.info("New appointment added", { duration: 2000 })
+      } else if (appointmentChanges.operationType === 'update') {
+        toast.info("Appointment updated", { duration: 2000 })
+      } else if (appointmentChanges.operationType === 'delete') {
+        toast.info("Appointment removed", { duration: 2000 })
+      }
+      
+      const t = setTimeout(() => {
+        fetchAppointments().finally(() => setIsUpdating(false))
+      }, 300)
       return () => clearTimeout(t)
     }
   }, [appointmentChanges])
+
+  // subscribe to unavailability updates and refresh when they occur
+  const { changes: unavailabilityChanges } = useUnavailabilityUpdates()
+  useEffect(() => {
+    if (unavailabilityChanges) {
+      console.log("📢 Real-time unavailability update detected:", unavailabilityChanges.operationType)
+      setIsUpdating(true)
+      
+      // Show toast for unavailability changes
+      if (unavailabilityChanges.operationType === 'insert') {
+        toast.info("New unavailability period added", { duration: 2000 })
+      } else if (unavailabilityChanges.operationType === 'update') {
+        toast.info("Unavailability period updated", { duration: 2000 })
+      } else if (unavailabilityChanges.operationType === 'delete') {
+        toast.info("Unavailability period removed", { duration: 2000 })
+      }
+      
+      const t = setTimeout(async () => {
+        try {
+          await fetchUnavailability()
+          // Also refresh appointments in case unavailability changes affected them
+          await fetchAppointments()
+        } finally {
+          setIsUpdating(false)
+        }
+      }, 300)
+      return () => clearTimeout(t)
+    }
+  }, [unavailabilityChanges])
 
   // Convert 24-hour time to 12-hour AM/PM
   const formatAMPM = (hour: number, minute: number) => {
@@ -236,11 +295,25 @@ export default function Appointments() {
     }
 
     // No affected appointments, just add
-    await addUnavailability(dateStr, type, type === "Partial Day" ? opening : undefined, type === "Partial Day" ? closing : undefined, note)
-    fetchUnavailability()
-    setNote("")
-    setOpening("09:00")
-    setClosing("17:00")
+    try {
+      setIsAddingUnavailability(true)
+      await addUnavailability(dateStr, type, type === "Partial Day" ? opening : undefined, type === "Partial Day" ? closing : undefined, note)
+      await fetchUnavailability()
+      setNote("")
+      setOpening("09:00")
+      setClosing("17:00")
+      
+      // Show success message
+      toast.success("Unavailability added successfully.", {
+        description: "No existing appointments were affected.",
+        duration: 3000
+      })
+    } catch (err) {
+      console.error("Failed to add unavailability:", err)
+      toast.error("Failed to add unavailability. Please try again.")
+    } finally {
+      setIsAddingUnavailability(false)
+    }
   }
 
   const handleConfirmCancelAppointments = async () => {
@@ -272,8 +345,23 @@ export default function Appointments() {
       setNote("");
       setOpening("09:00");
       setClosing("17:00");
+
+      // 4️⃣ Show success message with notification info
+      const affectedAppointments = appointments[pendingUnavailability.date]?.length || 0;
+      if (affectedAppointments > 0) {
+        toast.success(
+          `Unavailability added and ${affectedAppointments} appointment${affectedAppointments > 1 ? 's' : ''} cancelled.`,
+          {
+            description: "Affected customers have been notified via push notification about the cancellation.",
+            duration: 5000
+          }
+        );
+      } else {
+        toast.success("Unavailability added successfully.");
+      }
     } catch (err) {
       console.error("Failed to add unavailability and cancel appointments:", err);
+      toast.error("Failed to add unavailability. Please try again.");
     }
   }
 
@@ -293,6 +381,13 @@ export default function Appointments() {
 
   return (
     <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 w-full h-full">
+      {/* Real-time Update Indicator */}
+      {isUpdating && (
+        <div className="fixed top-20 right-4 z-50 bg-blue-500 text-white px-3 py-1 rounded-md shadow-lg text-sm flex items-center gap-2">
+          <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+          Updating...
+        </div>
+      )}
       {/* Calendar */}
       <div className="md:col-span-2 w-full h-full">
         <Calendar
@@ -428,8 +523,19 @@ export default function Appointments() {
               </div>
             </div>
 
-            <Button onClick={handleAddUnavailability} className="mt-4 bg-[#CE1616] hover:bg-red-500 text-white extra-bold">
-              Confirm
+            <Button 
+              onClick={handleAddUnavailability} 
+              disabled={isAddingUnavailability || isLoadingAppointments || isLoadingUnavailability}
+              className="mt-4 bg-[#CE1616] hover:bg-red-500 text-white extra-bold disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isAddingUnavailability ? (
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>Adding...</span>
+                </div>
+              ) : (
+                "Confirm"
+              )}
             </Button>
           </div>
 
@@ -438,16 +544,25 @@ export default function Appointments() {
             <h3 className="font-semibold mb-2">Full-Day Unv</h3>
             <ScrollArea className="h-32 border rounded-md bg-[#F0F0F0]">
               <div className="p-2 space-y-2">
-                {unavailability
-                  .filter(u => u.type === "full")
-                  .sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""))
-                  .map(u => (
-                    <div key={u.id} className="grid grid-cols-[1fr_2fr_auto] items-center text-sm bg-[#F0F0F0] border-b-2 border-[#C7C7C7] p-1">
-                      <span className="font-medium">{u.date}</span>
-                      <span>{u.note}</span>
-                      <Trash2 onClick={() => handleDeleteUnavailability(u)} className="w-4 h-4 text-red-600 cursor-pointer justify-self-end" />
+                {isLoadingUnavailability ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="flex items-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                      <span className="text-sm text-muted-foreground">Loading...</span>
                     </div>
-                  ))}
+                  </div>
+                ) : (
+                  unavailability
+                    .filter(u => u.type === "full")
+                    .sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""))
+                    .map(u => (
+                      <div key={u.id} className="grid grid-cols-[1fr_2fr_auto] items-center text-sm bg-[#F0F0F0] border-b-2 border-[#C7C7C7] p-1">
+                        <span className="font-medium">{u.date}</span>
+                        <span>{u.note}</span>
+                        <Trash2 onClick={() => handleDeleteUnavailability(u)} className="w-4 h-4 text-red-600 cursor-pointer justify-self-end" />
+                      </div>
+                    ))
+                )}
               </div>
             </ScrollArea>
           </div>
@@ -457,17 +572,26 @@ export default function Appointments() {
             <h3 className="font-semibold mb-2">Partial-Day Unv</h3>
             <ScrollArea className="h-32 border rounded-md bg-[#F0F0F0]">
               <div className="p-2 space-y-2">
-                {unavailability
-                  .filter(u => u.type === "partial")
-                  .sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""))
-                  .map(u => (
-                    <div key={u.id} className="grid grid-cols-[1fr_1fr_2fr_auto] items-center text-sm bg-[#F0F0F0] border-b-2 border-[#C7C7C7] p-1">
-                      <span className="font-medium">{u.date}</span>
-                      <span>{u.opening || "--"} - {u.closing || "--"}</span>
-                      <span>{u.note}</span>
-                      <Trash2 onClick={() => handleDeleteUnavailability(u)} className="w-4 h-4 text-red-600 cursor-pointer justify-self-end" />
+                {isLoadingUnavailability ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="flex items-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                      <span className="text-sm text-muted-foreground">Loading...</span>
                     </div>
-                  ))}
+                  </div>
+                ) : (
+                  unavailability
+                    .filter(u => u.type === "partial")
+                    .sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""))
+                    .map(u => (
+                      <div key={u.id} className="grid grid-cols-[1fr_1fr_2fr_auto] items-center text-sm bg-[#F0F0F0] border-b-2 border-[#C7C7C7] p-1">
+                        <span className="font-medium">{u.date}</span>
+                        <span>{u.opening || "--"} - {u.closing || "--"}</span>
+                        <span>{u.note}</span>
+                        <Trash2 onClick={() => handleDeleteUnavailability(u)} className="w-4 h-4 text-red-600 cursor-pointer justify-self-end" />
+                      </div>
+                    ))
+                )}
               </div>
             </ScrollArea>
           </div>
@@ -483,8 +607,12 @@ export default function Appointments() {
             <AlertDialogDescription>
               <p>
                 Adding this unavailability will cancel affected existing appointments on this day.
-                Customers will be notified.
               </p>
+              <div className="mt-3 p-3 bg-blue-50 rounded-md border-l-4 border-blue-400">
+                <p className="text-sm text-blue-800">
+                  📱 <strong>Customers will be automatically notified</strong> via push notifications about the cancellation and the reason for unavailability.
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

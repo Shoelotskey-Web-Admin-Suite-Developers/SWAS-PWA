@@ -7,598 +7,813 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
-import { Download, FileText, FileSpreadsheet, File } from "lucide-react"
-import { getPairedRevenueData } from "@/utils/api/getForecastChart"
-import { getDailyRevenue } from "@/utils/api/getDailyRevenue"
-import { getMonthlyRevenue } from "@/utils/api/getMonthlyRevenue"
+import { Download, FileText, FileSpreadsheet } from "lucide-react"
+import { getBranchType } from '@/utils/api/getBranchType'
+import { getPairedRevenueDataDynamic } from '@/utils/api/getPairedRevenueDataDynamic'
+import { getDailyRevenueDynamic } from '@/utils/api/getDailyRevenueDynamic'
+import { getMonthlyRevenueDynamic } from '@/utils/api/getMonthlyRevenueDynamic'
+import { getBranches } from '@/utils/api/getBranches'
+import { buildBranchMeta, buildTotalMeta, BranchMeta } from '@/utils/analytics/branchMeta'
 import { format } from "date-fns"
 import * as XLSX from 'xlsx'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
+import { useState } from 'react'
+import { Loader2 } from "lucide-react"
 
 
+type ExportType = 'excel' | 'report'
 
 export function ExportButton() {
-  
-  const exportToExcel = async () => {
+  const [isExporting, setIsExporting] = useState<ExportType | null>(null)
+
+  // Helper function to get branch info using API like analytics component
+  const getBranchInfo = async () => {
     try {
-      // Fetch daily revenue, monthly growth, and forecast data
-      const [salesOverTimeData, monthlyGrowthData, forecastData] = await Promise.all([
-        getDailyRevenue(),
-        getMonthlyRevenue(),
-        getPairedRevenueData()
-      ])
-
-      // Create a new workbook
-      const workbook = XLSX.utils.book_new()
-
-      // Calculate daily averages for performance analysis
-      const validDailyData = salesOverTimeData.filter(item => item.total && item.total > 0)
-      const totalRevenue = validDailyData.reduce((sum, item) => sum + (item.total || 0), 0)
-      const dailyAverage = validDailyData.length > 0 ? totalRevenue / validDailyData.length : 0
+      const branchId = sessionStorage.getItem('branch_id')
+      console.log('Export: Raw branch_id from sessionStorage:', branchId)
       
-      const smValAvg = validDailyData.reduce((sum, item) => sum + (item.SMVal || 0), 0) / validDailyData.length
-      const valAvg = validDailyData.reduce((sum, item) => sum + (item.Val || 0), 0) / validDailyData.length
-      const smGraAvg = validDailyData.reduce((sum, item) => sum + (item.SMGra || 0), 0) / validDailyData.length
-
-      // Sheet 1: Sales Over Time with Daily Performance
-      const salesData = salesOverTimeData.map((item) => {
-        const dailyTotal = item.total || 0
-        const vsAverage = dailyTotal > 0 ? ((dailyTotal - dailyAverage) / dailyAverage * 100) : 0
-        const performance = dailyTotal >= dailyAverage * 1.1 ? 'Above Average' : 
-                           dailyTotal >= dailyAverage * 0.9 ? 'Average' : 'Below Average'
-        
-        return {
-          'Date': item.date,
-          'SM Valenzuela': item.SMVal || 0,
-          'SM Val vs Avg': item.SMVal ? (((item.SMVal - smValAvg) / smValAvg * 100).toFixed(2) + '%') : '0%',
-          'Valenzuela': item.Val || 0,
-          'Val vs Avg': item.Val ? (((item.Val - valAvg) / valAvg * 100).toFixed(2) + '%') : '0%',
-          'SM Grand': item.SMGra || 0,
-          'SM Grand vs Avg': item.SMGra ? (((item.SMGra - smGraAvg) / smGraAvg * 100).toFixed(2) + '%') : '0%',
-          'Total Daily Revenue': dailyTotal,
-          'Daily Average': dailyAverage.toFixed(2),
-          'Vs Daily Average': vsAverage.toFixed(2) + '%',
-          'Performance': performance
-        }
-      })
-
-      const salesWorksheet = XLSX.utils.json_to_sheet(salesData)
-      
-      // Format the sales worksheet
-      const salesRange = XLSX.utils.decode_range(salesWorksheet['!ref'] || 'A1')
-      
-      // Add column widths
-      salesWorksheet['!cols'] = [
-        { width: 12 }, // Date
-        { width: 15 }, // SM Valenzuela
-        { width: 12 }, // SM Val vs Avg
-        { width: 12 }, // Valenzuela
-        { width: 12 }, // Val vs Avg
-        { width: 12 }, // SM Grand
-        { width: 15 }, // SM Grand vs Avg
-        { width: 18 }, // Total Daily Revenue
-        { width: 15 }, // Daily Average
-        { width: 15 }, // Vs Daily Average
-        { width: 15 }  // Performance
-      ]
-
-      // Format headers (row 1)
-      for (let col = salesRange.s.c; col <= salesRange.e.c; col++) {
-        const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col })
-        if (!salesWorksheet[cellAddress]) continue
-        
-        salesWorksheet[cellAddress].s = {
-          font: { bold: true, color: { rgb: "FFFFFF" } },
-          fill: { fgColor: { rgb: "4F46E5" } },
-          border: {
-            top: { style: "thin", color: { rgb: "000000" } },
-            bottom: { style: "thin", color: { rgb: "000000" } },
-            left: { style: "thin", color: { rgb: "000000" } },
-            right: { style: "thin", color: { rgb: "000000" } }
-          },
-          alignment: { horizontal: "center", vertical: "center" }
-        }
+      if (!branchId) {
+        console.log('Export: No branch_id found in sessionStorage')
+        return null
       }
 
-      // Format data rows
-      for (let row = 1; row <= salesRange.e.r; row++) {
-        for (let col = salesRange.s.c; col <= salesRange.e.c; col++) {
-          const cellAddress = XLSX.utils.encode_cell({ r: row, c: col })
-          if (!salesWorksheet[cellAddress]) continue
-
-          // Base formatting for all cells
-          if (!salesWorksheet[cellAddress].s) salesWorksheet[cellAddress].s = {}
-          
-          // Add borders
-          salesWorksheet[cellAddress].s.border = {
-            top: { style: "thin", color: { rgb: "E5E7EB" } },
-            bottom: { style: "thin", color: { rgb: "E5E7EB" } },
-            left: { style: "thin", color: { rgb: "E5E7EB" } },
-            right: { style: "thin", color: { rgb: "E5E7EB" } }
-          }
-
-          // Number formatting for currency columns
-          if (col === 1 || col === 3 || col === 5 || col === 7 || col === 8) { // Revenue columns
-            salesWorksheet[cellAddress].s.numFmt = "#,##0.00"
-          }
-          
-          // Center alignment for percentage and performance columns
-          if (col === 2 || col === 4 || col === 6 || col === 9 || col === 10) { // Percentage columns
-            salesWorksheet[cellAddress].s.alignment = { horizontal: "center" }
-          }
-
-          // Performance column conditional formatting
-          if (col === 10) { // Performance column
-            const value = salesWorksheet[cellAddress].v
-            if (value === "Above Average") {
-              salesWorksheet[cellAddress].s.fill = { fgColor: { rgb: "D1FAE5" } }
-              salesWorksheet[cellAddress].s.font = { color: { rgb: "065F46" } }
-            } else if (value === "Below Average") {
-              salesWorksheet[cellAddress].s.fill = { fgColor: { rgb: "FEE2E2" } }
-              salesWorksheet[cellAddress].s.font = { color: { rgb: "991B1B" } }
-            }
-          }
-        }
+      // Use getBranchType API like analytics component
+      const branchType = await getBranchType(branchId)
+      console.log('Export: Branch type from API:', branchType)
+      
+      // Parse session storage for additional branch info
+      let branchData
+      try {
+        branchData = JSON.parse(branchId)
+        console.log('Export: Parsed branch data:', branchData)
+      } catch {
+        // If it's just a string ID, create minimal object
+        branchData = { id: branchId }
+        console.log('Export: Using fallback branch data:', branchData)
       }
-
-      XLSX.utils.book_append_sheet(workbook, salesWorksheet, 'Sales Over Time')
-
-      // Sheet 2: Monthly Growth Analysis
-      const monthlyData = monthlyGrowthData.map((item, index) => {
-        const prevMonth = index > 0 ? monthlyGrowthData[index - 1] : null
-        const growthRate = prevMonth ? 
-          ((item.total - prevMonth.total) / prevMonth.total * 100).toFixed(2) + '%' : 
-          'N/A'
-        
-        return {
-          'Month': item.month,
-          'SM Valenzuela': item.SMVal,
-          'Valenzuela': item.Val,
-          'SM Grand': item.SMGra,
-          'Total Monthly Revenue': item.total,
-          'Growth Rate (%)': growthRate
-        }
-      })
-
-      const monthlyWorksheet = XLSX.utils.json_to_sheet(monthlyData)
       
-      // Format the monthly worksheet
-      const monthlyRange = XLSX.utils.decode_range(monthlyWorksheet['!ref'] || 'A1')
-      
-      // Add column widths for monthly sheet
-      monthlyWorksheet['!cols'] = [
-        { width: 12 }, // Month
-        { width: 15 }, // SM Valenzuela
-        { width: 12 }, // Valenzuela
-        { width: 12 }, // SM Grand
-        { width: 20 }, // Total Monthly Revenue
-        { width: 15 }  // Growth Rate
-      ]
-
-      // Format headers (row 1)
-      for (let col = monthlyRange.s.c; col <= monthlyRange.e.c; col++) {
-        const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col })
-        if (!monthlyWorksheet[cellAddress]) continue
-        
-        monthlyWorksheet[cellAddress].s = {
-          font: { bold: true, color: { rgb: "FFFFFF" } },
-          fill: { fgColor: { rgb: "059669" } },
-          border: {
-            top: { style: "thin", color: { rgb: "000000" } },
-            bottom: { style: "thin", color: { rgb: "000000" } },
-            left: { style: "thin", color: { rgb: "000000" } },
-            right: { style: "thin", color: { rgb: "000000" } }
-          },
-          alignment: { horizontal: "center", vertical: "center" }
-        }
+      const result = {
+        branchType,
+        branchId: branchData.id || branchId,
+        branchName: branchData.name || branchData.branch_name || branchData.branch_id || 'Branch'
       }
-
-      // Format data rows
-      for (let row = 1; row <= monthlyRange.e.r; row++) {
-        for (let col = monthlyRange.s.c; col <= monthlyRange.e.c; col++) {
-          const cellAddress = XLSX.utils.encode_cell({ r: row, c: col })
-          if (!monthlyWorksheet[cellAddress]) continue
-
-          // Base formatting for all cells
-          if (!monthlyWorksheet[cellAddress].s) monthlyWorksheet[cellAddress].s = {}
-          
-          // Add borders
-          monthlyWorksheet[cellAddress].s.border = {
-            top: { style: "thin", color: { rgb: "E5E7EB" } },
-            bottom: { style: "thin", color: { rgb: "E5E7EB" } },
-            left: { style: "thin", color: { rgb: "E5E7EB" } },
-            right: { style: "thin", color: { rgb: "E5E7EB" } }
-          }
-
-          // Number formatting for currency columns
-          if (col === 1 || col === 2 || col === 3 || col === 4) { // Revenue columns
-            monthlyWorksheet[cellAddress].s.numFmt = "#,##0.00"
-          }
-          
-          // Center alignment for growth rate column
-          if (col === 5) { // Growth Rate column
-            monthlyWorksheet[cellAddress].s.alignment = { horizontal: "center" }
-          }
-
-          // Growth rate conditional formatting
-          if (col === 5) { // Growth Rate column
-            const value = monthlyWorksheet[cellAddress].v
-            if (typeof value === 'string' && value.includes('%')) {
-              const percentage = parseFloat(value.replace('%', ''))
-              if (percentage > 0) {
-                monthlyWorksheet[cellAddress].s.font = { color: { rgb: "059669" } }
-              } else if (percentage < 0) {
-                monthlyWorksheet[cellAddress].s.font = { color: { rgb: "DC2626" } }
-              }
-            }
-          }
-        }
-      }
-
-      XLSX.utils.book_append_sheet(workbook, monthlyWorksheet, 'Monthly Growth')
-
-      // Sheet 3: Forecast vs Actual Analysis
-      const forecastComparisonData = forecastData.map((item: any) => {
-        const hasActual = (item.SMVal != null) || (item.Val != null) || (item.SMGra != null)
-        const actualTotal = hasActual ? (Number(item.SMVal ?? 0) + Number(item.Val ?? 0) + Number(item.SMGra ?? 0)) : null
-        const forecastTotal = (Number(item.SMValFC ?? 0) + Number(item.ValFC ?? 0) + Number(item.SMGraFC ?? 0))
-        
-        const smValVariance = item.SMVal && item.SMValFC ? (((item.SMVal - item.SMValFC) / item.SMValFC) * 100).toFixed(2) + '%' : 'N/A'
-        const valVariance = item.Val && item.ValFC ? (((item.Val - item.ValFC) / item.ValFC) * 100).toFixed(2) + '%' : 'N/A'
-        const smGraVariance = item.SMGra && item.SMGraFC ? (((item.SMGra - item.SMGraFC) / item.SMGraFC) * 100).toFixed(2) + '%' : 'N/A'
-        const totalVariance = actualTotal && forecastTotal ? (((actualTotal - forecastTotal) / forecastTotal) * 100).toFixed(2) + '%' : 'N/A'
-        
-        return {
-          'Date': item.date,
-          'SM Val Actual': item.SMVal || 0,
-          'SM Val Forecast': item.SMValFC || 0,
-          'SM Val Variance': smValVariance,
-          'Val Actual': item.Val || 0,
-          'Val Forecast': item.ValFC || 0,
-          'Val Variance': valVariance,
-          'SM Grand Actual': item.SMGra || 0,
-          'SM Grand Forecast': item.SMGraFC || 0,
-          'SM Grand Variance': smGraVariance,
-          'Total Actual': actualTotal || 0,
-          'Total Forecast': forecastTotal,
-          'Total Variance': totalVariance,
-          'Accuracy': actualTotal ? (100 - Math.abs(((actualTotal - forecastTotal) / forecastTotal) * 100)).toFixed(1) + '%' : 'N/A'
-        }
-      })
-
-      const forecastWorksheet = XLSX.utils.json_to_sheet(forecastComparisonData)
+      console.log('Export: Final branch info:', result)
       
-      // Format the forecast worksheet
-      const forecastRange = XLSX.utils.decode_range(forecastWorksheet['!ref'] || 'A1')
-      
-      // Add column widths for forecast sheet
-      forecastWorksheet['!cols'] = [
-        { width: 12 }, // Date
-        { width: 15 }, // SM Val Actual
-        { width: 15 }, // SM Val Forecast
-        { width: 15 }, // SM Val Variance
-        { width: 15 }, // Val Actual
-        { width: 15 }, // Val Forecast
-        { width: 15 }, // Val Variance
-        { width: 15 }, // SM Grand Actual
-        { width: 15 }, // SM Grand Forecast
-        { width: 15 }, // SM Grand Variance
-        { width: 15 }, // Total Actual
-        { width: 15 }, // Total Forecast
-        { width: 15 }, // Total Variance
-        { width: 12 }  // Accuracy
-      ]
-
-      // Format headers (row 1)
-      for (let col = forecastRange.s.c; col <= forecastRange.e.c; col++) {
-        const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col })
-        if (!forecastWorksheet[cellAddress]) continue
-        
-        forecastWorksheet[cellAddress].s = {
-          font: { bold: true, color: { rgb: "FFFFFF" } },
-          fill: { fgColor: { rgb: "7C3AED" } },
-          border: {
-            top: { style: "thin", color: { rgb: "000000" } },
-            bottom: { style: "thin", color: { rgb: "000000" } },
-            left: { style: "thin", color: { rgb: "000000" } },
-            right: { style: "thin", color: { rgb: "000000" } }
-          },
-          alignment: { horizontal: "center", vertical: "center" }
-        }
-      }
-
-      // Format data rows
-      for (let row = 1; row <= forecastRange.e.r; row++) {
-        for (let col = forecastRange.s.c; col <= forecastRange.e.c; col++) {
-          const cellAddress = XLSX.utils.encode_cell({ r: row, c: col })
-          if (!forecastWorksheet[cellAddress]) continue
-
-          // Base formatting for all cells
-          if (!forecastWorksheet[cellAddress].s) forecastWorksheet[cellAddress].s = {}
-          
-          // Add borders
-          forecastWorksheet[cellAddress].s.border = {
-            top: { style: "thin", color: { rgb: "E5E7EB" } },
-            bottom: { style: "thin", color: { rgb: "E5E7EB" } },
-            left: { style: "thin", color: { rgb: "E5E7EB" } },
-            right: { style: "thin", color: { rgb: "E5E7EB" } }
-          }
-
-          // Number formatting for currency columns (actual and forecast)
-          if ([1, 2, 4, 5, 7, 8, 10, 11].includes(col)) {
-            forecastWorksheet[cellAddress].s.numFmt = "#,##0.00"
-          }
-          
-          // Center alignment for variance and accuracy columns
-          if ([3, 6, 9, 12, 13].includes(col)) {
-            forecastWorksheet[cellAddress].s.alignment = { horizontal: "center" }
-          }
-
-          // Variance column conditional formatting
-          if ([3, 6, 9, 12].includes(col)) { // Variance columns
-            const value = forecastWorksheet[cellAddress].v
-            if (typeof value === 'string' && value.includes('%') && value !== 'N/A') {
-              const percentage = parseFloat(value.replace('%', ''))
-              if (Math.abs(percentage) <= 5) { // Within 5% is good
-                forecastWorksheet[cellAddress].s.fill = { fgColor: { rgb: "D1FAE5" } }
-                forecastWorksheet[cellAddress].s.font = { color: { rgb: "065F46" } }
-              } else if (Math.abs(percentage) > 20) { // Over 20% is concerning
-                forecastWorksheet[cellAddress].s.fill = { fgColor: { rgb: "FEE2E2" } }
-                forecastWorksheet[cellAddress].s.font = { color: { rgb: "991B1B" } }
-              }
-            }
-          }
-
-          // Accuracy column conditional formatting
-          if (col === 13) { // Accuracy column
-            const value = forecastWorksheet[cellAddress].v
-            if (typeof value === 'string' && value.includes('%') && value !== 'N/A') {
-              const accuracy = parseFloat(value.replace('%', ''))
-              if (accuracy >= 95) {
-                forecastWorksheet[cellAddress].s.fill = { fgColor: { rgb: "D1FAE5" } }
-                forecastWorksheet[cellAddress].s.font = { color: { rgb: "065F46" } }
-              } else if (accuracy < 80) {
-                forecastWorksheet[cellAddress].s.fill = { fgColor: { rgb: "FEE2E2" } }
-                forecastWorksheet[cellAddress].s.font = { color: { rgb: "991B1B" } }
-              }
-            }
-          }
-        }
-      }
-
-      XLSX.utils.book_append_sheet(workbook, forecastWorksheet, 'Forecast Analysis')
-
-      // Sheet 4: Report Summary & Descriptions
-      const summaryData = [
-        { 'Section': 'ANALYTICS REPORT SUMMARY', 'Description': '', 'Value': '' },
-        { 'Section': '', 'Description': '', 'Value': '' },
-        { 'Section': 'Report Information', 'Description': '', 'Value': '' },
-        { 'Section': 'Generated Date', 'Description': format(new Date(), 'PPPP'), 'Value': '' },
-        { 'Section': 'Data Period', 'Description': `${validDailyData.length} days of sales data`, 'Value': '' },
-        { 'Section': 'Branches Included', 'Description': 'SM Valenzuela, Valenzuela, SM Grand Central', 'Value': '' },
-        { 'Section': '', 'Description': '', 'Value': '' },
-        { 'Section': 'Sheet Descriptions', 'Description': '', 'Value': '' },
-        { 'Section': 'Sales Over Time', 'Description': 'Daily revenue with performance vs averages', 'Value': 'Performance indicators and variance analysis' },
-        { 'Section': 'Monthly Growth', 'Description': 'Monthly totals with growth rate calculations', 'Value': 'Month-over-month percentage changes' },
-        { 'Section': 'Forecast Analysis', 'Description': 'Actual vs forecasted revenue comparison', 'Value': 'Variance analysis and accuracy metrics' },
-        { 'Section': '', 'Description': '', 'Value': '' },
-        { 'Section': 'Key Metrics', 'Description': '', 'Value': '' },
-        { 'Section': 'Daily Average Revenue', 'Description': `₱${dailyAverage.toFixed(2)}`, 'Value': `Based on ${validDailyData.length} days` },
-        { 'Section': 'Total Revenue (Period)', 'Description': `₱${totalRevenue.toLocaleString()}`, 'Value': 'All branches combined' },
-        { 'Section': 'SM Valenzuela Avg', 'Description': `₱${smValAvg.toFixed(2)}`, 'Value': 'Daily average' },
-        { 'Section': 'Valenzuela Avg', 'Description': `₱${valAvg.toFixed(2)}`, 'Value': 'Daily average' },
-        { 'Section': 'SM Grand Avg', 'Description': `₱${smGraAvg.toFixed(2)}`, 'Value': 'Daily average' },
-        { 'Section': '', 'Description': '', 'Value': '' },
-        { 'Section': 'Performance Classifications', 'Description': '', 'Value': '' },
-        { 'Section': 'Above Average', 'Description': '≥110% of average revenue', 'Value': 'Green highlighting' },
-        { 'Section': 'Average', 'Description': '90-110% of average revenue', 'Value': 'Standard formatting' },
-        { 'Section': 'Below Average', 'Description': '<90% of average revenue', 'Value': 'Red highlighting' },
-        { 'Section': '', 'Description': '', 'Value': '' },
-        { 'Section': 'Forecast Accuracy', 'Description': '', 'Value': '' },
-        { 'Section': 'Excellent', 'Description': '≥95% accuracy', 'Value': 'Green highlighting' },
-        { 'Section': 'Good', 'Description': '80-94% accuracy', 'Value': 'Standard formatting' },
-        { 'Section': 'Needs Improvement', 'Description': '<80% accuracy', 'Value': 'Red highlighting' },
-      ]
-
-      const summaryWorksheet = XLSX.utils.json_to_sheet(summaryData)
-      
-      // Add column widths for summary sheet
-      summaryWorksheet['!cols'] = [
-        { width: 25 }, // Section
-        { width: 40 }, // Description
-        { width: 30 }  // Value
-      ]
-
-      // Format summary sheet
-      const summaryRange = XLSX.utils.decode_range(summaryWorksheet['!ref'] || 'A1')
-      
-      for (let row = 0; row <= summaryRange.e.r; row++) {
-        for (let col = summaryRange.s.c; col <= summaryRange.e.c; col++) {
-          const cellAddress = XLSX.utils.encode_cell({ r: row, c: col })
-          if (!summaryWorksheet[cellAddress]) continue
-
-          if (!summaryWorksheet[cellAddress].s) summaryWorksheet[cellAddress].s = {}
-          
-          // Header row styling
-          if (row === 0) {
-            summaryWorksheet[cellAddress].s = {
-              font: { bold: true, size: 16, color: { rgb: "FFFFFF" } },
-              fill: { fgColor: { rgb: "1F2937" } },
-              alignment: { horizontal: "center", vertical: "center" }
-            }
-          }
-          // Section headers
-          else if (summaryWorksheet[cellAddress].v && col === 0 && 
-                   ['Report Information', 'Sheet Descriptions', 'Key Metrics', 'Performance Classifications', 'Forecast Accuracy'].includes(summaryWorksheet[cellAddress].v)) {
-            summaryWorksheet[cellAddress].s = {
-              font: { bold: true, size: 12, color: { rgb: "1F2937" } },
-              fill: { fgColor: { rgb: "F3F4F6" } },
-              alignment: { horizontal: "left", vertical: "center" }
-            }
-          }
-          // Regular content
-          else {
-            summaryWorksheet[cellAddress].s = {
-              font: { size: 10 },
-              alignment: { horizontal: "left", vertical: "center", wrapText: true }
-            }
-          }
-        }
-      }
-
-      XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Report Summary')
-
-      // Generate Excel file and download
-      const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
-      const blob = new Blob([excelBuffer], { 
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' 
-      })
-      
-      const link = document.createElement("a")
-      const url = URL.createObjectURL(blob)
-      link.setAttribute("href", url)
-      link.setAttribute("download", `analytics-report-${format(new Date(), "yyyy-MM-dd")}.xlsx`)
-      link.style.visibility = "hidden"
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
+      return result
     } catch (error) {
-      console.error("Error exporting Excel:", error)
+      console.error('Error getting branch info:', error)
+      return null
     }
   }
 
-  const exportToJSON = async () => {
+  // NEW helper: build dynamic meta
+  const buildMeta = async (): Promise<BranchMeta[]> => {
     try {
-      const rawData = await getPairedRevenueData()
-      
-      // Process data
-      const exportData = rawData.map((item: any) => {
-        const hasActual = (item.SMVal != null) || (item.Val != null) || (item.SMGra != null)
-        return {
-          date: item.date,
-          actual: {
-            SMValenzuela: Number(item.SMVal ?? 0),
-            Valenzuela: Number(item.Val ?? 0),
-            SMGrand: Number(item.SMGra ?? 0),
-            total: hasActual ? (Number(item.SMVal ?? 0) + Number(item.Val ?? 0) + Number(item.SMGra ?? 0)) : null,
-          },
-          forecast: {
-            SMValenzuela: Number(item.SMValFC ?? 0),
-            Valenzuela: Number(item.ValFC ?? 0),
-            SMGrand: Number(item.SMGraFC ?? 0),
-            total: Number(item.SMValFC ?? 0) + Number(item.ValFC ?? 0) + Number(item.SMGraFC ?? 0),
+      const branches = await getBranches();
+      const filtered = branches.filter((b:any)=> b.type === 'B');
+      const meta = buildBranchMeta(filtered);
+  return [...meta, buildTotalMeta()];
+    } catch (e) {
+      console.error('Export: failed to load branches, falling back to total only');
+  return [buildTotalMeta()];
+    }
+  }
+
+  const exportToExcel = async () => {
+    try {
+      setIsExporting('excel')
+      const branchInfo = await getBranchInfo();
+      const isSuper = !branchInfo || branchInfo.branchType === 'A';
+      const meta = await buildMeta();
+      const [dailyRaw, monthlyRaw, pairedRaw] = await Promise.all([
+        getDailyRevenueDynamic(meta),
+        getMonthlyRevenueDynamic(meta),
+        getPairedRevenueDataDynamic(meta)
+      ]);
+      const filterDynamicData = (data: any[], bInfo: any) => {
+        if (!bInfo || bInfo.branchType === 'A') return data;
+        const target = meta.find(m => m.branch_id !== 'TOTAL' && (bInfo.branchId && m.branch_id.toUpperCase().includes(bInfo.branchId.toUpperCase())) )
+          || meta.find(m => m.branch_id !== 'TOTAL' && (bInfo.branchName && m.branch_name.toUpperCase().includes(bInfo.branchName.toUpperCase())));
+        if (!target) return data.map(r=> ({ date: r.date || r.month, month: r.month, total: r.total }));
+        return data.map(r => {
+          const base:any = { date: r.date || r.month };
+          if (r.month) base.month = r.month;
+          base[target.dataKey] = r[target.dataKey] ?? 0;
+          if (r[target.forecastKey] != null) base[target.forecastKey] = r[target.forecastKey];
+          base.total = r[target.dataKey] ?? 0;
+          return base;
+        });
+      };
+      const salesOverTimeData = filterDynamicData(dailyRaw, branchInfo);
+      const monthlyGrowthData = filterDynamicData(monthlyRaw, branchInfo);
+      const forecastData = filterDynamicData(pairedRaw, branchInfo);
+
+      // Compute daily averages
+      const validDailyData = salesOverTimeData.filter((item:any) => item.total && item.total > 0);
+      const totalRevenue = validDailyData.reduce((sum:number, item:any) => sum + (item.total || 0), 0)
+      const dailyAverage = validDailyData.length > 0 ? totalRevenue / validDailyData.length : 0
+
+      // Dynamic branch averages
+      const branchAverages: Record<string, number> = {};
+      meta.filter(m=> m.branch_id !== 'TOTAL').forEach(m => {
+        branchAverages[m.dataKey] = validDailyData.reduce((s:number,row:any)=> s + (row[m.dataKey]||0),0) / (validDailyData.length || 1);
+      });
+
+      // Sheet 1: Sales Over Time with Daily Performance (dynamic)
+      const salesData = salesOverTimeData.map((item:any) => {
+        const dailyTotal = item.total || 0;
+        const vsAverage = dailyTotal > 0 && dailyAverage > 0 ? ((dailyTotal - dailyAverage) / dailyAverage * 100) : 0;
+        const performance = dailyTotal >= dailyAverage * 1.1 ? 'Above Average' : dailyTotal >= dailyAverage * 0.9 ? 'Average' : 'Below Average';
+        if (isSuper) {
+          const base: any = { 'Date': item.date, 'Total Daily Revenue': Number(dailyTotal.toFixed(0)) };
+          meta.filter(m=> m.branch_id !== 'TOTAL').forEach(m => {
+            base[m.branch_name] = Number((item[m.dataKey]||0).toFixed(0));
+            const avg = branchAverages[m.dataKey] || 0;
+            base[`${m.branch_name} vs Avg`] = avg > 0 && item[m.dataKey] ? (((item[m.dataKey]-avg)/avg)*100).toFixed(2)+'%' : '0%';
+          });
+          base['Daily Average'] = Number(dailyAverage.toFixed(0));
+          base['Vs Daily Average'] = vsAverage.toFixed(2)+'%';
+          base['Performance'] = performance;
+          return base;
+        } else {
+          const targetMeta = meta.find(m=> m.branch_id !== 'TOTAL' && item[m.dataKey] != null);
+            const val = targetMeta ? item[targetMeta.dataKey] || 0 : dailyTotal;
+            const avg = targetMeta ? branchAverages[targetMeta.dataKey] : dailyAverage;
+            return {
+              'Date': item.date,
+              [targetMeta?.branch_name || 'Branch Revenue']: Number(val.toFixed?.(0) || val),
+              'vs Average': (avg>0 && val>0) ? (((val-avg)/avg)*100).toFixed(2)+'%' : '0%',
+              'Performance': performance
+            };
+        }
+      });
+
+      const workbook = XLSX.utils.book_new();
+      const salesWorksheet = XLSX.utils.json_to_sheet(salesData);
+      const salesRange = XLSX.utils.decode_range(salesWorksheet['!ref'] || 'A1');
+      // Column widths
+      if (isSuper) {
+        const widthArray = [12]; // Date
+        meta.filter(m=> m.branch_id !== 'TOTAL').forEach(()=> { widthArray.push(15); widthArray.push(12); });
+        widthArray.push(18,15,15,15); // Total, Daily Avg, Vs Avg, Performance
+        salesWorksheet['!cols'] = widthArray.map(w => ({ width: w }));
+      } else {
+        salesWorksheet['!cols'] = [ { width: 15 }, { width: 25 }, { width: 15 }, { width: 15 } ];
+      }
+      // Header styling
+      for (let col = salesRange.s.c; col <= salesRange.e.c; col++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col })
+        if (!salesWorksheet[cellAddress]) continue
+        salesWorksheet[cellAddress].s = {
+          font: { bold: true, color: { rgb: 'FFFFFF' }, size: 12 },
+          fill: { fgColor: { rgb: 'CE1616' } },
+          border: { top:{style:'thick',color:{rgb:'000000'}}, bottom:{style:'thick',color:{rgb:'000000'}}, left:{style:'thick',color:{rgb:'000000'}}, right:{style:'thick',color:{rgb:'000000'}} },
+          alignment: { horizontal: 'center', vertical: 'center' }
+        };
+      }
+      // Data styling
+      for (let row = 1; row <= salesRange.e.r; row++) {
+        for (let col = salesRange.s.c; col <= salesRange.e.c; col++) {
+          const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+          if (!salesWorksheet[cellAddress]) continue;
+          if (!salesWorksheet[cellAddress].s) salesWorksheet[cellAddress].s = {};
+          const isEvenRow = row % 2 === 0;
+          const performanceCol = isSuper ? salesRange.e.c : 3; // Last column for super includes Performance
+          if (isEvenRow && col !== performanceCol) salesWorksheet[cellAddress].s.fill = { fgColor: { rgb: 'F9FAFB' } };
+          salesWorksheet[cellAddress].s.border = { top:{style:'thin',color:{rgb:'E5E7EB'}}, bottom:{style:'thin',color:{rgb:'E5E7EB'}}, left:{style:'thin',color:{rgb:'E5E7EB'}}, right:{style:'thin',color:{rgb:'E5E7EB'}} };
+          // Revenue columns: detect by header text pattern
+          const header = XLSX.utils.encode_cell({ r:0, c:col });
+          const headerVal = salesWorksheet[header]?.v as string;
+          if (/Total Daily Revenue|Daily Average|vs Avg|Revenue$/.test(headerVal) || meta.some(m=> m.branch_name === headerVal)) {
+            if (!/vs Avg/.test(headerVal) && !/Average/.test(headerVal)) {
+              salesWorksheet[cellAddress].s.numFmt = '"PHP "#,##0';
+            } else {
+              salesWorksheet[cellAddress].s.alignment = { horizontal: 'center' };
+            }
+          }
+          if (col === performanceCol) {
+            const value = salesWorksheet[cellAddress].v;
+            if (value === 'Above Average') {
+              salesWorksheet[cellAddress].s.fill = { fgColor: { rgb: 'DCFCE7' } };
+              salesWorksheet[cellAddress].s.font = { color: { rgb: '166534' }, bold: true };
+              salesWorksheet[cellAddress].s.border = { ...salesWorksheet[cellAddress].s.border, left:{style:'thick',color:{rgb:'22C55E'}} };
+            } else if (value === 'Below Average') {
+              salesWorksheet[cellAddress].s.fill = { fgColor: { rgb: 'FEF2F2' } };
+              salesWorksheet[cellAddress].s.font = { color: { rgb: 'DC2626' }, bold: true };
+              salesWorksheet[cellAddress].s.border = { ...salesWorksheet[cellAddress].s.border, left:{style:'thick',color:{rgb:'EF4444'}} };
+            } else {
+              salesWorksheet[cellAddress].s.fill = { fgColor: { rgb: 'FEF3C7' } };
+              salesWorksheet[cellAddress].s.font = { color: { rgb: '92400E' }, bold: true };
+              salesWorksheet[cellAddress].s.border = { ...salesWorksheet[cellAddress].s.border, left:{style:'thick',color:{rgb:'F59E0B'}} };
+            }
           }
         }
-      })
+      }
+      XLSX.utils.book_append_sheet(workbook, salesWorksheet, 'Sales Over Time');
 
-      // Create JSON content
-      const jsonContent = JSON.stringify({
-        exportDate: new Date().toISOString(),
-        dataPoints: exportData.length,
-        data: exportData
-      }, null, 2)
+      // Monthly sheet dynamic (Excel) -- reuse monthlyGrowthData already shaped
+      const monthlySheetDataExcel = monthlyGrowthData.map((item:any, index:number) => {
+        const prev = index>0 ? monthlyGrowthData[index-1] : null;
+        if (isSuper) {
+          const growthRate = prev && prev.total ? (((item.total||0)-(prev.total||0))/(prev.total||1)*100).toFixed(2)+'%' : 'N/A';
+          const base:any = { 'Month': item.month };
+          meta.filter(m=> m.branch_id !== 'TOTAL').forEach(m => { base[m.branch_name] = Number((item[m.dataKey]||0).toFixed(0)); });
+          base['Total Monthly Revenue'] = Number((item.total||0).toFixed(0));
+          base['Growth Rate (%)'] = growthRate;
+          return base;
+        } else {
+          const targetMeta = meta.find(m=> m.branch_id !== 'TOTAL' && item[m.dataKey] != null);
+          const prevVal = prev && targetMeta ? prev[targetMeta.dataKey] : 0;
+          const val = targetMeta ? item[targetMeta.dataKey] || 0 : (item.total||0);
+            const growth = prevVal ? (((val - prevVal)/prevVal)*100).toFixed(2)+'%' : 'N/A';
+          return { 'Month': item.month, [targetMeta?.branch_name || 'Branch Revenue']: Number(val.toFixed?.(0) || val), 'Growth Rate (%)': growth };
+        }
+      });
+      const monthlyWorksheet = XLSX.utils.json_to_sheet(monthlySheetDataExcel);
+      const monthlyRange = XLSX.utils.decode_range(monthlyWorksheet['!ref'] || 'A1');
+      if (isSuper) {
+        const widths = [12]; // Month
+        meta.filter(m=> m.branch_id !== 'TOTAL').forEach(()=> widths.push(15));
+        widths.push(20,15); // Total, Growth
+        monthlyWorksheet['!cols'] = widths.map(w=> ({ width: w }));
+      } else {
+        monthlyWorksheet['!cols'] = [ { width: 15 }, { width: 25 }, { width: 15 } ];
+      }
+      for (let c=monthlyRange.s.c; c<=monthlyRange.e.c; c++) {
+        const addr = XLSX.utils.encode_cell({r:0,c});
+        if (!monthlyWorksheet[addr]) continue;
+        monthlyWorksheet[addr].s = { font:{bold:true,color:{rgb:'FFFFFF'},size:12}, fill:{fgColor:{rgb:'B91C1C'}}, border:{top:{style:'thick',color:{rgb:'000000'}},bottom:{style:'thick',color:{rgb:'000000'}},left:{style:'thick',color:{rgb:'000000'}},right:{style:'thick',color:{rgb:'000000'}}}, alignment:{horizontal:'center',vertical:'center'} };
+      }
+      for (let r=1; r<=monthlyRange.e.r; r++) {
+        for (let c=monthlyRange.s.c; c<=monthlyRange.e.c; c++) {
+          const addr = XLSX.utils.encode_cell({r,c});
+          if (!monthlyWorksheet[addr]) continue;
+          if (!monthlyWorksheet[addr].s) monthlyWorksheet[addr].s = {};
+          const isEven = r % 2 === 0;
+          const growthCol = isSuper ? monthlyRange.e.c : 2;
+          if (isEven && c !== growthCol) monthlyWorksheet[addr].s.fill = { fgColor: { rgb: 'F9FAFB' } };
+          monthlyWorksheet[addr].s.border = { top:{style:'thin',color:{rgb:'E5E7EB'}},bottom:{style:'thin',color:{rgb:'E5E7EB'}},left:{style:'thin',color:{rgb:'E5E7EB'}},right:{style:'thin',color:{rgb:'E5E7EB'}} };
+          const headerAddr = XLSX.utils.encode_cell({r:0,c});
+          const headerVal = monthlyWorksheet[headerAddr]?.v as string;
+          if (/Monthly Revenue$|Revenue$|Total Monthly Revenue/.test(headerVal)) {
+            monthlyWorksheet[addr].s.numFmt = '"PHP "#,##0';
+          } else if (/Growth Rate/.test(headerVal)) {
+            monthlyWorksheet[addr].s.alignment = { horizontal: 'center' };
+          }
+        }
+      }
+      XLSX.utils.book_append_sheet(workbook, monthlyWorksheet, 'Monthly Growth');
 
-      // Download JSON
-      const blob = new Blob([jsonContent], { type: "application/json;charset=utf-8;" })
-      const link = document.createElement("a")
-      const url = URL.createObjectURL(blob)
-      link.setAttribute("href", url)
-      link.setAttribute("download", `analytics-data-${format(new Date(), "yyyy-MM-dd")}.json`)
-      link.style.visibility = "hidden"
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-    } catch (error) {
-      console.error("Error exporting JSON:", error)
+      // Forecast vs Actual dynamic sheet
+      const forecastComparisonData = forecastData.map((item:any) => {
+        if (isSuper) {
+          const base:any = { 'Date': item.date };
+          let actualSum = 0; let forecastSum = 0;
+          meta.filter(m=> m.branch_id !== 'TOTAL').forEach(m => {
+            const a = item[m.dataKey] || 0; const f = item[m.forecastKey] || 0;
+            base[`${m.branch_name} Actual`] = Number(a.toFixed?.(0) || a);
+            base[`${m.branch_name} Forecast`] = Number(f.toFixed?.(0) || f);
+            base[`${m.branch_name} Variance`] = (f && a) ? (((a-f)/f)*100).toFixed(2)+'%' : 'N/A';
+            actualSum += a; forecastSum += f;
+          });
+          base['Total Actual'] = Number(actualSum.toFixed(0));
+          base['Total Forecast'] = Number(forecastSum.toFixed(0));
+          base['Total Variance'] = (forecastSum && actualSum) ? (((actualSum-forecastSum)/forecastSum)*100).toFixed(2)+'%' : 'N/A';
+          base['Accuracy'] = (forecastSum && actualSum) ? (100 - Math.abs(((actualSum-forecastSum)/forecastSum)*100)).toFixed(1)+'%' : 'N/A';
+          return base;
+        } else {
+          const targetMeta = meta.find(m=> m.branch_id !== 'TOTAL' && item[m.dataKey] != null);
+          const a = targetMeta ? item[targetMeta.dataKey] : null;
+          const f = targetMeta ? item[targetMeta.forecastKey] : null;
+          const variance = (f && a) ? (((a - f)/f)*100).toFixed(2)+'%' : 'N/A';
+          const accuracy = (f && a) ? (100 - Math.abs(((a-f)/f)*100)).toFixed(1)+'%' : 'N/A';
+          return { 'Date': item.date, 'Actual Revenue': a != null ? Number(a.toFixed?.(0) || a) : 'N/A', 'Forecast Revenue': f != null ? Number(f.toFixed?.(0) || f) : 'N/A', 'Variance': variance, 'Accuracy': accuracy };
+        }
+      });
+      const hasForecastData = forecastComparisonData.some((row:any) => {
+        if (isSuper) return Object.keys(row).some(k => /(Actual|Forecast)$/.test(k) && typeof row[k] === 'number' && row[k] > 0);
+        const ar = row['Actual Revenue']; const fr = row['Forecast Revenue'];
+        return (typeof ar === 'number' && ar>0) || (typeof fr === 'number' && fr>0);
+      });
+      if (hasForecastData) {
+        const forecastWorksheet = XLSX.utils.json_to_sheet(forecastComparisonData);
+        const forecastRange = XLSX.utils.decode_range(forecastWorksheet['!ref'] || 'A1');
+        if (isSuper) {
+          // dynamic columns: Date + per-branch Actual/Forecast/Variance + Totals + Accuracy
+          const cols:number[] = [12];
+          meta.filter(m=> m.branch_id !== 'TOTAL').forEach(()=> cols.push(15,15,15));
+          cols.push(15,15,15,12);
+          forecastWorksheet['!cols'] = cols.map(w=> ({ width: w }));
+        } else {
+          forecastWorksheet['!cols'] = [ { width: 15 }, { width: 20 }, { width: 20 }, { width: 15 }, { width: 15 } ];
+        }
+        for (let c=forecastRange.s.c; c<=forecastRange.e.c; c++) {
+          const addr = XLSX.utils.encode_cell({r:0,c}); if (!forecastWorksheet[addr]) continue;
+          forecastWorksheet[addr].s = { font:{bold:true,color:{rgb:'FFFFFF'},size:12}, fill:{fgColor:{rgb:'EF4444'}}, border:{top:{style:'thick',color:{rgb:'000000'}},bottom:{style:'thick',color:{rgb:'000000'}},left:{style:'thick',color:{rgb:'000000'}},right:{style:'thick',color:{rgb:'000000'}}}, alignment:{horizontal:'center',vertical:'center'} };
+        }
+        for (let r=1; r<=forecastRange.e.r; r++) {
+          for (let c=forecastRange.s.c; c<=forecastRange.e.c; c++) {
+            const addr = XLSX.utils.encode_cell({r,c}); if (!forecastWorksheet[addr]) continue;
+            if (!forecastWorksheet[addr].s) forecastWorksheet[addr].s = {};
+            const isEven = r % 2 === 0;
+            // Detect variance/accuracy columns by header
+            const headerAddr = XLSX.utils.encode_cell({r:0,c});
+            const headerVal = forecastWorksheet[headerAddr]?.v as string;
+            if (isEven && !/Variance|Accuracy/.test(headerVal)) forecastWorksheet[addr].s.fill = { fgColor:{rgb:'F9FAFB'} };
+            forecastWorksheet[addr].s.border = { top:{style:'thin',color:{rgb:'E5E7EB'}},bottom:{style:'thin',color:{rgb:'E5E7EB'}},left:{style:'thin',color:{rgb:'E5E7EB'}},right:{style:'thin',color:{rgb:'E5E7EB'}} };
+            if (/Actual$|Forecast$|Total Actual|Total Forecast/.test(headerVal)) forecastWorksheet[addr].s.numFmt = '"PHP "#,##0';
+            if (/Variance|Accuracy/.test(headerVal)) forecastWorksheet[addr].s.alignment = { horizontal: 'center' };
+            if (/Variance/.test(headerVal)) {
+              const value = forecastWorksheet[addr].v;
+              if (typeof value === 'string' && value.includes('%') && value !== 'N/A') {
+                const pct = parseFloat(value); // approximate
+                if (!isNaN(pct)) {
+                  if (Math.abs(pct) <= 5) { forecastWorksheet[addr].s.fill = { fgColor:{rgb:'D1FAE5'} }; forecastWorksheet[addr].s.font = { color:{rgb:'065F46'}, bold:true }; }
+                  else if (Math.abs(pct) > 20) { forecastWorksheet[addr].s.fill = { fgColor:{rgb:'FEE2E2'} }; forecastWorksheet[addr].s.font = { color:{rgb:'991B1B'}, bold:true }; }
+                }
+              }
+            }
+            if (/Accuracy/.test(headerVal)) {
+              const value = forecastWorksheet[addr].v;
+              if (typeof value === 'string' && value.includes('%') && value !== 'N/A') {
+                const acc = parseFloat(value);
+                if (!isNaN(acc)) {
+                  if (acc >= 95) { forecastWorksheet[addr].s.fill = { fgColor:{rgb:'D1FAE5'} }; forecastWorksheet[addr].s.font = { color:{rgb:'065F46'}, bold:true }; }
+                  else if (acc < 80) { forecastWorksheet[addr].s.fill = { fgColor:{rgb:'FEE2E2'} }; forecastWorksheet[addr].s.font = { color:{rgb:'991B1B'}, bold:true }; }
+                }
+              }
+            }
+          }
+        }
+        XLSX.utils.book_append_sheet(workbook, forecastWorksheet, 'Forecast Analysis');
+      }
+
+      const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.href = url;
+      link.download = `analytics-report-${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Dynamic export failed', e);
+    } finally {
+      setIsExporting(null);
     }
   }
 
   const generateReport = async () => {
     try {
-      const rawData = await getPairedRevenueData()
+      setIsExporting('report')
+      const branchInfo = await getBranchInfo();
+      const isSuper = !branchInfo || branchInfo.branchType === 'A';
+      const meta = await buildMeta();
+      const [dailyRaw, monthlyRaw, pairedRaw] = await Promise.all([
+        getDailyRevenueDynamic(meta),
+        getMonthlyRevenueDynamic(meta),
+        getPairedRevenueDataDynamic(meta)
+      ]);
+      const filterDynamicData = (data: any[], bInfo: any) => {
+        if (!bInfo || bInfo.branchType === 'A') return data;
+        const target = meta.find(m => m.branch_id !== 'TOTAL' && (bInfo.branchId && m.branch_id.toUpperCase().includes(bInfo.branchId.toUpperCase())) )
+          || meta.find(m => m.branch_id !== 'TOTAL' && (bInfo.branchName && m.branch_name.toUpperCase().includes(bInfo.branchName.toUpperCase())));
+        if (!target) return data.map(r=> ({ date: r.date || r.month, month: r.month, total: r.total }));
+        return data.map(r => {
+          const base:any = { date: r.date || r.month };
+          if (r.month) base.month = r.month;
+          base[target.dataKey] = r[target.dataKey] ?? 0;
+          if (r[target.forecastKey] != null) base[target.forecastKey] = r[target.forecastKey];
+          base.total = r[target.dataKey] ?? 0;
+          return base;
+        });
+      };
+      const salesOverTimeData = filterDynamicData(dailyRaw, branchInfo);
+      const monthlyGrowthData = filterDynamicData(monthlyRaw, branchInfo);
+      const forecastData = filterDynamicData(pairedRaw, branchInfo);
+
+      const validDailyData = salesOverTimeData.filter((item:any) => item.total && item.total > 0);
+      const totalRevenue = validDailyData.reduce((sum:number, item:any) => sum + (item.total || 0), 0)
+      const dailyAverage = validDailyData.length > 0 ? totalRevenue / validDailyData.length : 0
+
+      const branchTotals: Record<string, number> = {};
+      meta.filter(m=> m.branch_id !== 'TOTAL').forEach(m => {
+        branchTotals[m.branch_name] = validDailyData.reduce((s:number, row:any) => s + (row[m.dataKey]||0), 0);
+      });
+
+      // Init PDF
+      const pdf = new jsPDF('p', 'mm', 'a4')
+      const pageWidth = pdf.internal.pageSize.getWidth()
+      const pageHeight = pdf.internal.pageSize.getHeight()
       
-      // Process data for report
-      const processedData = rawData.map((item: any) => {
-        const hasActual = (item.SMVal != null) || (item.Val != null) || (item.SMGra != null)
-        return {
-          ...item,
-          total: hasActual ? (Number(item.SMVal ?? 0) + Number(item.Val ?? 0) + Number(item.SMGra ?? 0)) : null,
-        }
-      })
+      // Colors using brand color #CE1616
+      const primaryColor: [number, number, number] = [206, 22, 22] // Brand Red #CE1616
+      const grayColor: [number, number, number] = [75, 85, 99] // Gray
+
+      let yPosition = 20
+
+      // Header with logo placeholder and title
+      pdf.setFillColor(...primaryColor)
+      pdf.rect(0, 0, pageWidth, 30, 'F')
       
-      const actualRows = processedData.filter((d: any) => d.total != null)
+      pdf.setTextColor(255, 255, 255)
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(24)
+      pdf.text('SWAS ANALYTICS REPORT', pageWidth/2, 20, { align: 'center' })
       
-      // Calculate analytics
-      const totalRevenue = actualRows.reduce((sum, row) => sum + Number(row.total ?? 0), 0)
-      const avgDailyRevenue = totalRevenue / actualRows.length
+      yPosition = 45
+
+      // Report Info Box
+      pdf.setFillColor(249, 250, 251)
+      pdf.setDrawColor(229, 231, 235)
+      pdf.rect(15, yPosition, pageWidth-30, 25, 'FD')
       
-      const branchTotals = {
-        SMVal: actualRows.reduce((sum, row) => sum + Number(row.SMVal ?? 0), 0),
-        Val: actualRows.reduce((sum, row) => sum + Number(row.Val ?? 0), 0),
-        SMGra: actualRows.reduce((sum, row) => sum + Number(row.SMGra ?? 0), 0),
+      pdf.setTextColor(...grayColor)
+      pdf.setFont('helvetica', 'normal')
+      pdf.setFontSize(11)
+      pdf.text(`Generated: ${format(new Date(), "PPP")}`, 20, yPosition + 8)
+      pdf.text(`Data Period: ${validDailyData.length} days`, 20, yPosition + 16)
+      pdf.text(`Report Period: ${validDailyData[0]?.date} to ${validDailyData[validDailyData.length - 1]?.date}`, 20, yPosition + 24)
+
+      yPosition += 35
+
+      // Executive Summary
+      pdf.setTextColor(0, 0, 0)
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(16)
+      pdf.text('EXECUTIVE SUMMARY', 15, yPosition)
+      yPosition += 10
+
+      // Summary metrics in cards
+      const cardWidth = (pageWidth - 45) / 2
+      const cardHeight = 20
+
+      // Total Revenue Card
+      pdf.setFillColor(249, 250, 251)
+      pdf.setDrawColor(156, 163, 175)
+      pdf.rect(15, yPosition, cardWidth, cardHeight, 'FD')
+      pdf.setTextColor(0, 0, 0)
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(12)
+      pdf.text('Total Revenue', 20, yPosition + 8)
+      pdf.setFontSize(14)
+      pdf.text(`PHP ${totalRevenue.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, 20, yPosition + 16)
+
+      // Daily Average Card
+      pdf.setFillColor(249, 250, 251)
+      pdf.setDrawColor(156, 163, 175)
+      pdf.rect(15 + cardWidth + 15, yPosition, cardWidth, cardHeight, 'FD')
+      pdf.setTextColor(0, 0, 0)
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(12)
+      pdf.text('Daily Average', 20 + cardWidth + 15, yPosition + 8)
+      pdf.setFontSize(14)
+      pdf.text(`PHP ${Math.round(dailyAverage).toLocaleString('en-US', { maximumFractionDigits: 0 })}`, 20 + cardWidth + 15, yPosition + 16)
+
+      yPosition += 35
+
+      // Branch Performance Section (dynamic)
+      pdf.setTextColor(0, 0, 0)
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(16)
+      pdf.text('BRANCH PERFORMANCE', 15, yPosition)
+      yPosition += 15
+
+      const branchMetas = meta.filter(m => m.branch_id !== 'TOTAL')
+      const averagePerBranch = branchMetas.length ? totalRevenue / branchMetas.length : 0
+      const performanceFor = (value:number) => value >= averagePerBranch * 1.1 ? 'Above Average' : value <= averagePerBranch * 0.9 ? 'Below Average' : 'Average'
+
+      if (isSuper) {
+        const tableBody = branchMetas.map(m => {
+          const sum = branchTotals[m.branch_name] || 0
+            return [
+              m.branch_name,
+              `PHP ${sum.toLocaleString('en-US',{maximumFractionDigits:0})}`,
+              totalRevenue ? `${(sum/totalRevenue*100).toFixed(1)}%` : '0%',
+              performanceFor(sum)
+            ]
+        })
+        autoTable(pdf, {
+          startY: yPosition,
+          head: [['Branch','Revenue','Percentage','Performance']],
+          body: tableBody,
+          theme: 'grid',
+          headStyles: { fillColor:[206,22,22], textColor:[255,255,255], fontStyle:'bold', fontSize:11 },
+          bodyStyles: { fontSize:10, textColor: grayColor },
+          alternateRowStyles: { fillColor:[249,250,251] },
+          styles: { cellPadding:4, lineColor:[229,231,235], lineWidth:0.5 },
+          columnStyles: { 0:{cellWidth:45},1:{cellWidth:50,halign:'right'},2:{cellWidth:40,halign:'center'},3:{cellWidth:45,halign:'center'} },
+          didParseCell: function(data){
+            if (data.section==='body' && data.column.index===3) {
+              const val = data.cell.text[0];
+              if (val==='Above Average') { data.cell.styles.textColor=[5,150,105]; data.cell.styles.fontStyle='bold'; }
+              if (val==='Below Average') { data.cell.styles.textColor=[239,68,68]; data.cell.styles.fontStyle='bold'; }
+            }
+          }
+        })
+      } else {
+        const targetMeta = branchMetas.find(m => branchInfo?.branchId && m.branch_id.toUpperCase().includes(branchInfo.branchId.toUpperCase()))
+          || branchMetas.find(m => branchInfo?.branchName && m.branch_name.toUpperCase().includes((branchInfo.branchName||'').toUpperCase()))
+          || branchMetas[0]
+        const sum = targetMeta ? (branchTotals[targetMeta.branch_name] || 0) : 0
+        autoTable(pdf, {
+          startY: yPosition,
+          head: [['Branch','Revenue','Performance']],
+          body: [[ targetMeta?.branch_name || 'Branch', `PHP ${sum.toLocaleString('en-US',{maximumFractionDigits:0})}`, performanceFor(sum) ]],
+          theme: 'grid',
+          headStyles: { fillColor:[206,22,22], textColor:[255,255,255], fontStyle:'bold', fontSize:11 },
+          bodyStyles: { fontSize:10, textColor: grayColor },
+          alternateRowStyles: { fillColor:[249,250,251] },
+          styles: { cellPadding:4, lineColor:[229,231,235], lineWidth:0.5 },
+          columnStyles: { 0:{cellWidth:60},1:{cellWidth:60,halign:'right'},2:{cellWidth:60,halign:'center'} }
+        })
       }
 
-      // Create report content
-      const reportContent = `
-SWAS Analytics Report
-Generated: ${format(new Date(), "PPPP")}
-==================================================
+      yPosition = (pdf as any).lastAutoTable.finalY + 20
 
-SUMMARY METRICS
-- Total Revenue: ₱${totalRevenue.toLocaleString()}
-- Average Daily Revenue: ₱${Math.round(avgDailyRevenue).toLocaleString()}
-- Data Period: ${actualRows.length} days
-- Report Period: ${actualRows[0]?.date} to ${actualRows[actualRows.length - 1]?.date}
+      // Check if we need a new page
+      if (yPosition > pageHeight - 60) {
+        pdf.addPage()
+        yPosition = 20
+      }
 
-BRANCH PERFORMANCE
-- SM Valenzuela: ₱${branchTotals.SMVal.toLocaleString()} (${(branchTotals.SMVal/totalRevenue*100).toFixed(1)}%)
-- Valenzuela: ₱${branchTotals.Val.toLocaleString()} (${(branchTotals.Val/totalRevenue*100).toFixed(1)}%)  
-- SM Grand: ₱${branchTotals.SMGra.toLocaleString()} (${(branchTotals.SMGra/totalRevenue*100).toFixed(1)}%)
+      // Sales Over Time - Complete Analysis (matching Excel export)
+      pdf.setTextColor(0, 0, 0)
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(16)
+      pdf.text('SALES OVER TIME ANALYSIS', 15, yPosition)
+      yPosition += 15
 
-DAILY BREAKDOWN
-${actualRows.map(row => 
-  `${row.date}: ₱${Number(row.total).toLocaleString()}`
-).join('\n')}
+      // Calculate performance indicators for PDF table (same logic as Excel)
+      const recentDaily = validDailyData.slice(-15)
+      const salesTableData = recentDaily.map((item:any) => {
+        const dailyTotal = item.total || 0
+        const vsAverage = dailyAverage ? ((dailyTotal - dailyAverage) / dailyAverage * 100) : 0
+        const performance = dailyTotal >= dailyAverage * 1.1 ? 'Above Avg' : dailyTotal >= dailyAverage * 0.9 ? 'Average' : 'Below Avg'
+        if (isSuper) {
+          const branchCells = branchMetas.map(m => `PHP ${(item[m.dataKey]||0).toLocaleString('en-US',{maximumFractionDigits:0})}`)
+          return [ item.date, ...branchCells, `PHP ${dailyTotal.toLocaleString('en-US',{maximumFractionDigits:0})}`, `${vsAverage.toFixed(1)}%`, performance ]
+        } else {
+          const targetMeta = branchMetas.find(m => item[m.dataKey] != null) || branchMetas[0]
+          const val = targetMeta ? (item[targetMeta.dataKey]||0) : dailyTotal
+          return [ item.date, `PHP ${val.toLocaleString('en-US',{maximumFractionDigits:0})}`, `${vsAverage.toFixed(1)}%`, performance ]
+        }
+      })
 
-==================================================
-This report was automatically generated by SWAS Analytics.
-      `.trim()
+      autoTable(pdf, {
+        startY: yPosition,
+        head: [ isSuper ? ['Date', ...branchMetas.map(b=> b.branch_name), 'Total', 'vs Avg %', 'Performance'] : ['Date', branchInfo?.branchName || 'Branch Revenue', 'vs Avg %', 'Performance'] ],
+        body: salesTableData,
+        theme: 'grid',
+        headStyles: {
+          fillColor: [185, 28, 28],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 10
+        },
+        bodyStyles: {
+          fontSize: 9,
+          textColor: grayColor
+        },
+        alternateRowStyles: {
+          fillColor: [249, 250, 251]
+        },
+        styles: {
+          cellPadding: 3,
+          lineColor: [229, 231, 235],
+          lineWidth: 0.5
+        },
+        columnStyles: isSuper ? {
+          0: { cellWidth: 25 },
+          1: { cellWidth: 26, halign: 'right' },
+          2: { cellWidth: 26, halign: 'right' },
+          3: { cellWidth: 26, halign: 'right' },
+          4: { cellWidth: 30, halign: 'right' },
+          5: { cellWidth: 22, halign: 'center' },
+          6: { cellWidth: 25, halign: 'center' }
+        } : {
+          0: { cellWidth: 40 },
+          1: { cellWidth: 50, halign: 'right' },
+          2: { cellWidth: 30, halign: 'center' },
+          3: { cellWidth: 30, halign: 'center' }
+        },
+        didParseCell: function(data) {
+          // Color code performance column (different index for branch vs superadmin)
+          const performanceColumnIndex = isSuper ? (branchMetas.length + 3) : 3
+          if (data.section === 'body' && data.column.index === performanceColumnIndex) {
+            if (data.cell.text[0] === 'Above Avg') {
+              data.cell.styles.textColor = [5, 150, 105]
+              data.cell.styles.fontStyle = 'bold'
+            } else if (data.cell.text[0] === 'Below Avg') {
+              data.cell.styles.textColor = [239, 68, 68]
+              data.cell.styles.fontStyle = 'bold'
+            }
+          }
+          // Color code vs Average percentage (different index for branch vs superadmin)
+          const vsAvgColumnIndex = isSuper ? (branchMetas.length + 2) : 2
+          if (data.section === 'body' && data.column.index === vsAvgColumnIndex) {
+            const value = data.cell.text[0]
+            if (typeof value === 'string' && value.includes('%')) {
+              const percentage = parseFloat(value.replace('%', ''))
+              if (percentage > 10) {
+                data.cell.styles.textColor = [5, 150, 105]
+              } else if (percentage < -10) {
+                data.cell.styles.textColor = [239, 68, 68]
+              }
+            }
+          }
+        }
+      })
 
-      // Download report
-      const blob = new Blob([reportContent], { type: "text/plain;charset=utf-8;" })
-      const link = document.createElement("a")
-      const url = URL.createObjectURL(blob)
-      link.setAttribute("href", url)
-      link.setAttribute("download", `analytics-report-${format(new Date(), "yyyy-MM-dd")}.txt`)
-      link.style.visibility = "hidden"
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
+      yPosition = (pdf as any).lastAutoTable.finalY + 20
+
+      // Add new page for monthly data if needed
+      if (yPosition > pageHeight - 80) {
+        pdf.addPage()
+        yPosition = 20
+      }
+
+      // Monthly Growth Analysis (dynamic)
+      pdf.setTextColor(0,0,0);
+      pdf.setFont('helvetica','bold');
+      pdf.setFontSize(16);
+      pdf.text('MONTHLY GROWTH ANALYSIS',15,yPosition);
+      yPosition += 15;
+      const filteredMonthlyPDF = monthlyGrowthData.filter((m:any)=> (m.total||0)>0);
+      const monthlyHeadPDF = isSuper ? ['Month', ...meta.filter(m=> m.branch_id!=='TOTAL').map(m=> m.branch_name), 'Total', 'Growth %'] : ['Month', branchInfo?.branchName || 'Branch Revenue', 'Growth %'];
+      const monthlyRowsPDF = filteredMonthlyPDF.map((m:any,i:number)=>{
+        const prev = i>0 ? filteredMonthlyPDF[i-1] : null;
+        if (isSuper) {
+          const growth = prev && prev.total ? (((m.total - prev.total)/prev.total)*100).toFixed(1)+'%' : 'N/A';
+          const branchVals = meta.filter(b=> b.branch_id!=='TOTAL').map(b=> `PHP ${(m[b.dataKey]||0).toLocaleString('en-US',{maximumFractionDigits:0})}`);
+          return [ m.month, ...branchVals, `PHP ${(m.total||0).toLocaleString('en-US',{maximumFractionDigits:0})}`, growth ];
+        } else {
+          const targetMeta = meta.find(b=> b.branch_id!=='TOTAL' && m[b.dataKey] != null);
+          const prevVal = prev && targetMeta ? prev[targetMeta.dataKey] : 0;
+          const val = targetMeta ? m[targetMeta.dataKey] || 0 : (m.total||0);
+          const growth = prevVal ? (((val - prevVal)/prevVal)*100).toFixed(1)+'%' : 'N/A';
+          return [ m.month, `PHP ${val.toLocaleString('en-US',{maximumFractionDigits:0})}`, growth ];
+        }
+      });
+      autoTable(pdf, {
+        startY: yPosition,
+        head: [monthlyHeadPDF],
+        body: monthlyRowsPDF,
+        theme: 'grid',
+        headStyles: { fillColor:[206,22,22], textColor:[255,255,255], fontStyle:'bold', fontSize:10 },
+        bodyStyles: { fontSize:9, textColor: grayColor },
+        alternateRowStyles: { fillColor:[249,250,251] },
+        styles: { cellPadding:3, lineColor:[229,231,235], lineWidth:0.5 },
+        didParseCell: function(data){
+          const growthIdx = monthlyHeadPDF.length -1;
+          if (data.section==='body' && data.column.index===growthIdx) {
+            const txt = data.cell.text[0];
+            if (txt !== 'N/A' && txt.includes('%')) {
+              const pct = parseFloat(txt.replace('%',''));
+              if (pct>0) { data.cell.styles.textColor=[5,150,105]; data.cell.styles.fontStyle='bold'; }
+              else if (pct<0) { data.cell.styles.textColor=[239,68,68]; data.cell.styles.fontStyle='bold'; }
+            }
+          }
+        }
+      });
+
+      yPosition = (pdf as any).lastAutoTable.finalY + 20
+
+      // Check if we need a new page for forecast section
+      if (yPosition > pageHeight - 100) {
+        pdf.addPage()
+        yPosition = 20
+      }
+
+      // Forecast Analysis Section
+      pdf.setTextColor(0, 0, 0)
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(16)
+      pdf.text('FORECAST ANALYSIS', 15, yPosition)
+      yPosition += 15
+
+      // Process forecast data dynamically per branch
+      const forecastBranches = isSuper ? branchMetas : branchMetas.filter(m => forecastData.some((row:any) => row[m.dataKey] != null || row[m.forecastKey] != null))
+      for (const m of forecastBranches) {
+        const branchForecastData = forecastData.map((row:any) => {
+          const actual = row[m.dataKey]
+          const forecast = row[m.forecastKey]
+          const variance = (actual != null && forecast != null && forecast !== 0) ? (((actual - forecast)/forecast)*100).toFixed(1)+'%' : 'N/A'
+          const accuracy = (actual != null && forecast != null && forecast !== 0) ? (100-Math.abs(((actual-forecast)/forecast)*100)).toFixed(1)+'%' : 'N/A'
+          return [
+            row.date,
+            actual != null ? `PHP ${Number(actual).toLocaleString('en-US',{maximumFractionDigits:0})}` : 'N/A',
+            forecast != null ? `PHP ${Number(forecast).toLocaleString('en-US',{maximumFractionDigits:0})}` : 'N/A',
+            variance,
+            accuracy
+          ]
+        })
+        const hasMeaning = branchForecastData.some(r => (r[1] !== 'N/A' && r[1] !== 'PHP 0') || (r[2] !== 'N/A' && r[2] !== 'PHP 0'))
+        if (!hasMeaning) continue
+        if (yPosition > pageHeight - 100) { pdf.addPage(); yPosition = 20 }
+        pdf.setFont('helvetica','bold'); pdf.setFontSize(14); pdf.text(m.branch_name,15,yPosition); yPosition += 10
+        autoTable(pdf, {
+          startY: yPosition,
+          head: [['Date','Actual','Forecast','Variance %','Accuracy %']],
+          body: branchForecastData,
+          theme: 'grid',
+          headStyles: { fillColor:[206,22,22], textColor:[255,255,255], fontStyle:'bold', fontSize:11 },
+          bodyStyles: { fontSize:10, textColor:[75,85,99] },
+          alternateRowStyles: { fillColor:[249,250,251] },
+          styles: { cellPadding:4, lineColor:[229,231,235], lineWidth:0.5 },
+          columnStyles: { 0:{cellWidth:32},1:{cellWidth:40,halign:'right'},2:{cellWidth:40,halign:'right'},3:{cellWidth:32,halign:'center'},4:{cellWidth:36,halign:'center'} },
+          didParseCell: function(data){
+            if (data.section==='body' && data.column.index===4) { // accuracy
+              const val = data.cell.text[0];
+              if (val.includes('%') && val !== 'N/A') {
+                const pct = parseFloat(val); if (!isNaN(pct)) { if (pct>=95) { data.cell.styles.textColor=[5,150,105]; data.cell.styles.fontStyle='bold'; } else if (pct<80) { data.cell.styles.textColor=[239,68,68]; data.cell.styles.fontStyle='bold'; } }
+              }
+            }
+            if (data.section==='body' && data.column.index===3) { // variance
+              const val = data.cell.text[0];
+              if (val.includes('%') && val !== 'N/A') {
+                const pct = parseFloat(val); if (!isNaN(pct)) { if (Math.abs(pct) <=5) { data.cell.styles.textColor=[5,150,105]; } else if (Math.abs(pct)>20) { data.cell.styles.textColor=[239,68,68]; } }
+              }
+            }
+          }
+        })
+        yPosition = (pdf as any).lastAutoTable.finalY + 15
+      }
+
+      // Footer
+      const pageCount = (pdf as any).internal.getNumberOfPages()
+      for (let i = 1; i <= pageCount; i++) {
+        pdf.setPage(i)
+        pdf.setFillColor(grayColor[0], grayColor[1], grayColor[2])
+        pdf.rect(0, pageHeight - 15, pageWidth, 15, 'F')
+        pdf.setTextColor(255, 255, 255)
+        pdf.setFont('helvetica', 'normal')
+        pdf.setFontSize(8)
+        pdf.text('SWAS Analytics - Confidential', 15, pageHeight - 5)
+        pdf.text(`Page ${i} of ${pageCount}`, pageWidth - 15, pageHeight - 5, { align: 'right' })
+      }
+
+      // Save PDF
+      pdf.save(`swas-analytics-report-${format(new Date(), "yyyy-MM-dd")}.pdf`)
     } catch (error) {
-      console.error("Error generating report:", error)
+      console.error("Error generating PDF:", error)
+    } finally {
+      setIsExporting(null)
     }
   }
+
+
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="flex items-center gap-2">
-          <Download className="h-4 w-4" />
-          Export
+        <Button 
+          variant="outline" 
+          className="flex items-center gap-2"
+          disabled={isExporting !== null}
+        >
+          {isExporting ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Exporting...
+            </>
+          ) : (
+            <>
+              <Download className="h-4 w-4" />
+              Export
+            </>
+          )}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={exportToExcel}>
+        <DropdownMenuItem 
+          onClick={exportToExcel}
+          disabled={isExporting !== null}
+        >
           <FileSpreadsheet className="h-4 w-4 mr-2" />
-          Export to Excel
+          {isExporting === 'excel' ? (
+            <>
+              <Loader2 className="h-3 w-3 animate-spin mr-2" />
+              Exporting Excel...
+            </>
+          ) : (
+            'Export to Excel'
+          )}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={exportToJSON}>
-          <File className="h-4 w-4 mr-2" />
-          Export as JSON
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={generateReport}>
+        <DropdownMenuItem 
+          onClick={generateReport}
+          disabled={isExporting !== null}
+        >
           <FileText className="h-4 w-4 mr-2" />
-          Generate Report
+          {isExporting === 'report' ? (
+            <>
+              <Loader2 className="h-3 w-3 animate-spin mr-2" />
+              Generating Report...
+            </>
+          ) : (
+            'Generate Report'
+          )}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

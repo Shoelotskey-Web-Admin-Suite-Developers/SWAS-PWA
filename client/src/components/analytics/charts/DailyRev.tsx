@@ -10,32 +10,24 @@ import {
   CardTitle,
   CardFooter,
 } from "@/components/ui/card"
-import type { ChartConfig } from "@/components/ui/chart"
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
 
-import { getPairedRevenueData } from "@/utils/api/getForecastChart"
+// Dynamic branch-aware util
+import { getPairedRevenueDataDynamic } from '@/utils/api/getPairedRevenueDataDynamic'
+import { BranchMeta } from '@/utils/analytics/branchMeta'
 import { TrendingUp } from "lucide-react"
 
 interface ChartLineLinearProps {
-  selectedBranches: string[]
+  selectedBranches: string[];
+  branchMeta: BranchMeta[]; // includes total meta
 }
 
 export const description = "A linear line chart"
 
-const chartConfig = {
-  total: { label: "Total of Branches", color: "#CE1616" },
-  totalFC: { label: "Total of Branches Forecasted", color: "#CE1616" },
-  SMVal: { label: "SM Valenzuela", color: "#22C55E" },
-  SMValFC: { label: "SM Valenzuela Forecasted", color: "#22C55E" },
-  Val: { label: "Valenzuela", color: "#9747FF" },
-  ValFC: { label: "Valenzuela Forecasted", color: "#9747FF" },
-  SMGra: { label: "SM Grand", color: "#0D55F1" },
-  SMGraFC: { label: "SM Grand Forecasted", color: "#0D55F1" },
-} satisfies ChartConfig
 
 const hollowDot = (color: string) => (props: any) => {
   if (props.value === null || props.value === undefined) return null as unknown as React.ReactElement
@@ -45,62 +37,44 @@ const hollowDot = (color: string) => (props: any) => {
   )
 }
 
-export function DailyRevenueTrend({ selectedBranches }: ChartLineLinearProps) {
+export function DailyRevenueTrend({ selectedBranches, branchMeta }: ChartLineLinearProps) {
   const [chartData, setChartData] = useState<any[]>([])
+  const chartConfig: Record<string, { label: string; color: string }> = {}
+  branchMeta.forEach(m => {
+    chartConfig[m.dataKey] = { label: m.branch_name, color: m.color }
+    chartConfig[m.forecastKey] = { label: m.branch_name + ' Forecasted', color: m.color }
+  })
 
   useEffect(() => {
-    async function fetchData() {
+    if (!branchMeta || branchMeta.length === 0) return; // wait for meta
+    let cancelled = false;
+    (async () => {
       try {
-        const data = await getPairedRevenueData()
-        // ensure chronological ordering by parsing dates (robust to format variations)
-        console.debug("getPairedRevenueData returned dates", data.map((d: any) => d.date))
+        const data = await getPairedRevenueDataDynamic(branchMeta)
         const sorted = [...data].sort((a: any, b: any) => {
-          const ta = Date.parse(a.date)
-          const tb = Date.parse(b.date)
-          if (!isNaN(ta) && !isNaN(tb)) return ta - tb
-          return String(a.date).localeCompare(String(b.date))
+          const ta = Date.parse(a.date);
+          const tb = Date.parse(b.date);
+          if (!isNaN(ta) && !isNaN(tb)) return ta - tb;
+          return String(a.date).localeCompare(String(b.date));
         })
-        console.debug("sorted paired dates", sorted.map((d: any) => d.date))
-
-        const mapped = sorted.map((item: any) => {
-            const hasActual = (item.SMVal != null) || (item.Val != null) || (item.SMGra != null)
-            return {
-              ...item,
-              // mark total only when there's actual data present for that date
-              total: hasActual ? (Number(item.SMVal ?? 0) + Number(item.Val ?? 0) + Number(item.SMGra ?? 0)) : null,
-              totalFC: Number(item.SMValFC ?? 0) + Number(item.ValFC ?? 0) + Number(item.SMGraFC ?? 0),
-            }
-          })
-        console.debug("mapped chartData dates", mapped.map((d: any) => d.date))
-        setChartData(
-          mapped
-        )
+        if (!cancelled) setChartData(sorted)
       } catch (err) {
-        console.error("Error fetching chart data:", err)
+        if (!cancelled) console.error("Error fetching chart data:", err)
       }
-    }
-    fetchData()
-  }, [])
+    })();
+    return () => { cancelled = true }
+  }, [branchMeta])
 
   const filteredData = chartData.map(item => {
-    const filteredItem: any = { date: item.date }
-    if (selectedBranches.includes("1") || selectedBranches.length === 0) {
-      filteredItem.SMVal = item.SMVal
-      filteredItem.SMValFC = item.SMValFC
-    }
-    if (selectedBranches.includes("2") || selectedBranches.length === 0) {
-      filteredItem.Val = item.Val
-      filteredItem.ValFC = item.ValFC
-    }
-    if (selectedBranches.includes("3") || selectedBranches.length === 0) {
-      filteredItem.SMGra = item.SMGra
-      filteredItem.SMGraFC = item.SMGraFC
-    }
-    if (selectedBranches.includes("4") || selectedBranches.length === 0) {
-      filteredItem.total = item.total
-      filteredItem.totalFC = item.totalFC
-    }
-    return filteredItem
+    const showingAll = selectedBranches.length === 0
+    const out: any = { date: item.date }
+    branchMeta.forEach(m => {
+      if (showingAll || selectedBranches.includes(m.numericId)) {
+        if (item[m.dataKey] != null) out[m.dataKey] = item[m.dataKey]
+        if (item[m.forecastKey] != null) out[m.forecastKey] = item[m.forecastKey]
+      }
+    })
+    return out
   })
 
   const solidPct = 7 / (chartData.length - 1)
@@ -205,15 +179,12 @@ export function DailyRevenueTrend({ selectedBranches }: ChartLineLinearProps) {
 
             <ChartTooltip cursor content={<ChartTooltipContent indicator="line" />} />
 
-            <Line dataKey="total" strokeWidth={2} stroke={chartConfig.total.color} dot />
-            <Line dataKey="SMVal" strokeWidth={2} stroke={chartConfig.SMVal.color} dot />
-            <Line dataKey="Val" strokeWidth={2} stroke={chartConfig.Val.color} dot />
-            <Line dataKey="SMGra" strokeWidth={2} stroke={chartConfig.SMGra.color} dot />
-
-            <Line dataKey="totalFC" strokeWidth={2} strokeDasharray="5 5" stroke={chartConfig.totalFC.color} dot={hollowDot(chartConfig.totalFC.color)} opacity={0.5}/>
-            <Line dataKey="SMValFC" strokeWidth={2} strokeDasharray="5 5" stroke={chartConfig.SMValFC.color} dot={hollowDot(chartConfig.SMValFC.color)} opacity={0.5}/>
-            <Line dataKey="ValFC" strokeWidth={2} strokeDasharray="5 5" stroke={chartConfig.ValFC.color} dot={hollowDot(chartConfig.ValFC.color)} opacity={0.5}/>
-            <Line dataKey="SMGraFC" strokeWidth={2} strokeDasharray="5 5" stroke={chartConfig.SMGraFC.color} dot={hollowDot(chartConfig.SMGraFC.color)} opacity={0.5}/>
+            {branchMeta.map(m => (
+              <Line key={m.dataKey} dataKey={m.dataKey} strokeWidth={2} stroke={chartConfig[m.dataKey].color} dot />
+            ))}
+            {branchMeta.map(m => (
+              <Line key={m.forecastKey} dataKey={m.forecastKey} strokeWidth={2} strokeDasharray="5 5" stroke={chartConfig[m.forecastKey].color} dot={hollowDot(chartConfig[m.forecastKey].color)} opacity={0.5} />
+            ))}
             
           </LineChart>
         </ChartContainer>
@@ -232,41 +203,34 @@ export function DailyRevenueTrend({ selectedBranches }: ChartLineLinearProps) {
             (() => {
               // compute stats based on selected branches
               const actualRows = chartData.filter(d => d.total != null)
-              const branchNames: Record<string, string> = { 
-                SMVal: "SM Valenzuela", 
-                Val: "Valenzuela", 
-                SMGra: "SM Grand", 
-                total: "All Branches" 
-              }
+              const totalMeta = branchMeta.find(m => m.branch_id === 'TOTAL')
 
               // determine context based on selection
-              const isAllBranches = selectedBranches.length === 0 || selectedBranches.includes("4")
-              const isSingleBranch = selectedBranches.length === 1 && !selectedBranches.includes("4")
+              const totalNumericId = totalMeta?.numericId
+              const nonTotal = selectedBranches.filter(id => id !== totalNumericId)
+              const isAllBranches = selectedBranches.length === 0 || (totalNumericId && selectedBranches.includes(totalNumericId))
+              const isSingleBranch = nonTotal.length === 1
 
               let contextualRevenue = 0
               let contextualForecast = 0
               let contextLabel = ""
 
               if (isAllBranches) {
-                contextualRevenue = actualRows.reduce((s, r) => s + Number(r.total ?? 0), 0)
-                contextualForecast = chartData.filter(d => d.total == null).reduce((s, r) => s + Number(r.totalFC ?? 0), 0)
-                contextLabel = "across all branches"
+                contextualRevenue = actualRows.reduce((s,r)=> s + Number(r.total ?? 0),0)
+                contextualForecast = chartData.filter(d=> d.total == null).reduce((s,r)=> s + Number(r.totalFC ?? 0),0)
+                contextLabel = 'across all branches'
               } else if (isSingleBranch) {
-                const branchKey = selectedBranches.includes("1") ? "SMVal" : 
-                                selectedBranches.includes("2") ? "Val" : "SMGra"
-                contextualRevenue = actualRows.reduce((s, r) => s + Number(r[branchKey] ?? 0), 0)
-                contextualForecast = chartData.filter(d => d.total == null).reduce((s, r) => s + Number(r[branchKey + "FC"] ?? 0), 0)
-                contextLabel = `for ${branchNames[branchKey]}`
+                const meta = branchMeta.find(m => m.numericId === nonTotal[0])
+                if (meta) {
+                  contextualRevenue = actualRows.reduce((s,r)=> s + Number(r[meta.dataKey] ?? 0),0)
+                  contextualForecast = chartData.filter(d=> d.total == null).reduce((s,r)=> s + Number(r[meta.forecastKey] ?? 0),0)
+                  contextLabel = `for ${meta.branch_name}`
+                }
               } else {
-                // multiple branches
-                const keys: string[] = []
-                if (selectedBranches.includes("1")) keys.push("SMVal")
-                if (selectedBranches.includes("2")) keys.push("Val")
-                if (selectedBranches.includes("3")) keys.push("SMGra")
-                
-                contextualRevenue = actualRows.reduce((s, r) => s + keys.reduce((sum, key) => sum + Number(r[key] ?? 0), 0), 0)
-                contextualForecast = chartData.filter(d => d.total == null).reduce((s, r) => s + keys.reduce((sum, key) => sum + Number(r[key + "FC"] ?? 0), 0), 0)
-                contextLabel = `for ${keys.map(k => branchNames[k as keyof typeof branchNames]).join(" & ")}`
+                const metas = branchMeta.filter(m => nonTotal.includes(m.numericId) && m.branch_id !== 'TOTAL')
+                contextualRevenue = actualRows.reduce((s,r)=> s + metas.reduce((acc,m)=> acc + Number(r[m.dataKey] ?? 0),0),0)
+                contextualForecast = chartData.filter(d=> d.total == null).reduce((s,r)=> s + metas.reduce((acc,m)=> acc + Number(r[m.forecastKey] ?? 0),0),0)
+                contextLabel = `for ${metas.map(m=> m.branch_name).join(' & ')}`
               }
 
               const avgDaily = actualRows.length ? Math.round(contextualRevenue / actualRows.length) : 0

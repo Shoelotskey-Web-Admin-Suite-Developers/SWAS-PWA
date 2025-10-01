@@ -16,6 +16,12 @@ import os
 from pathlib import Path
 from typing import List, Dict
 
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    print("Warning: python-dotenv not installed. Environment variables from .env file won't be loaded.")
+    load_dotenv = None
+
 
 def read_json(path: Path) -> List[Dict]:
     with path.open('r', encoding='utf-8') as f:
@@ -28,24 +34,15 @@ def write_to_mongo(records: List[Dict]):
     except Exception:
         raise RuntimeError('pymongo is required; install it in the environment')
 
-    # Load .env if available (keep it simple; existing project may provide one)
-    env_path = Path(__file__).resolve().parent.parent / '.env'
-    if env_path.exists():
-        try:
-            from dotenv import load_dotenv
+    # Load environment variables from .env file
+    if load_dotenv:
+        # Look for .env file in parent directory (server/)
+        env_path = Path(__file__).parent.parent / '.env'
+        if env_path.exists():
             load_dotenv(env_path)
-        except Exception:
-            try:
-                with env_path.open('r', encoding='utf-8') as ef:
-                    for line in ef:
-                        line = line.strip()
-                        if not line or line.startswith('#'):
-                            continue
-                        if '=' in line:
-                            k, v = line.split('=', 1)
-                            os.environ.setdefault(k.strip(), v.strip())
-            except Exception:
-                pass
+            print(f"[ENV] Loaded environment variables from: {env_path}")
+        else:
+            print("⚠️  No .env file found in server directory")
 
     mongo_uri = os.environ.get('MONGO_URI') or os.environ.get('MONGODB_URI') or 'mongodb://localhost:27017'
 
@@ -82,7 +79,7 @@ def write_to_mongo(records: List[Dict]):
 def main():
     import sys
 
-    path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path('server/scripts/output/daily_revenue.json')
+    path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path('output/daily_revenue.json')
     if not path.exists():
         print('Input file not found:', path)
         raise SystemExit(2)

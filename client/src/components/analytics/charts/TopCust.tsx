@@ -41,7 +41,7 @@ export function TopCustomers() {
       <CardHeader className="pb-4">
         <CardTitle className="flex items-center gap-2 text-base">
           <Users className="h-5 w-5" />
-          <span className="font-semibold">Top Customers</span>
+          <h2 className="font-semibold">Top Customers</h2>
         </CardTitle>
         <CardDescription className="text-sm text-gray-600">
           Highest spending customers ranked by total expenditure

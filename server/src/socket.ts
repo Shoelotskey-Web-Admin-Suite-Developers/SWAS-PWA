@@ -28,4 +28,15 @@ export function initSocket(io: Server, db: mongoose.Connection) {
   } catch (err) {
     console.error("Error initializing appointments change stream:", err);
   }
+
+  // Setup MongoDB Change Stream for `unavailabilities`
+  try {
+    const unavailabilitiesCollection = db.collection("unavailabilities");
+    unavailabilitiesCollection.watch().on("change", (change) => {
+      console.log("📢 unavailabilities updated:", change);
+      io.emit("unavailabilityUpdated", change);
+    });
+  } catch (err) {
+    console.error("Error initializing unavailabilities change stream:", err);
+  }
 }

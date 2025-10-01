@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/card"
 import { useState, useEffect } from 'react'
 import { getBranches } from '@/utils/api/getBranches'
+import { buildBranchMeta, buildTotalMeta, BranchMeta } from '@/utils/analytics/branchMeta'
 import { getBranchType } from '@/utils/api/getBranchType'
 // shadcn components
 import { Button } from "@/components/ui/button"
@@ -28,7 +29,8 @@ import { cn } from "@/lib/utils"
 function Analytics() {
   const [branchOpen, setBranchOpen] = useState(false)
   const [selectedBranches, setSelectedBranches] = useState<string[]>([])
-  const [branchOptions, setBranchOptions] = useState<{ value: string; label: string }[]>([])
+  const [branchOptions, setBranchOptions] = useState<{ value: string; label: string; color?: string }[]>([])
+  const [branchMeta, setBranchMeta] = useState<BranchMeta[]>([])
   const [isAdminBranch, setIsAdminBranch] = useState(false)
   const [currentBranchId, setCurrentBranchId] = useState<string | null>(null)
   const [branchIdToNumericMap, setBranchIdToNumericMap] = useState<Record<string, string>>({})
@@ -55,46 +57,16 @@ function Analytics() {
       try {
         const data = await getBranches()
         if (!mounted) return
-        // Only include branches of type 'B' (regular branches)
-        const filtered = data.filter((b: any) => b.type === "B")
-        // Determine ordering for chart-friendly keys without hard-coding numeric IDs.
-        // Prefer known branches in this order: SM Valenzuela, Valenzuela, SM Grand — any others follow.
-        function branchPriority(b: any) {
-          const id = (b.branch_id || "").toUpperCase()
-          const name = (b.branch_name || "").toUpperCase()
-          if (id.includes("SMVAL") || name.includes("SM VAL")) return 0
-          if (id.includes("VAL") || name.includes("VALENZ")) return 1
-          if (id.includes("SMGRA") || name.includes("SM GRAND")) return 2
-          return 3
-        }
-
-        const ordered = [...filtered].sort((a, b) => {
-          const pa = branchPriority(a)
-          const pb = branchPriority(b)
-          if (pa !== pb) return pa - pb
-          return (a.branch_name || "").localeCompare(b.branch_name || "")
-        })
-
-        // Assign numeric IDs based on computed order
-        const options = ordered.map((b: any, idx: number) => ({
-          value: String(idx + 1),
-          label: b.branch_name,
-        }))
-
-        const numericMap: Record<string, string> = {}
-        const reverseMap: Record<string, string> = {}
-        ordered.forEach((b: any, idx: number) => {
-          const numericId = String(idx + 1)
-          numericMap[numericId] = b.branch_id
-          reverseMap[b.branch_id] = numericId
-        })
-
-        const totalValue = String(ordered.length + 1)
-        options.push({ value: totalValue, label: "Total of Branches" })
-        numericMap[totalValue] = "TOTAL"
-
+        const filtered = data.filter((b: any) => b.type === 'B')
+        const meta = buildBranchMeta(filtered)
+  const totalMeta = buildTotalMeta()
+        const fullMeta = [...meta, totalMeta]
+        setBranchMeta(fullMeta)
+  const options = fullMeta.map(m => ({ value: m.numericId, label: m.branch_name, color: m.color }))
         setBranchOptions(options)
-        setBranchIdToNumericMap(reverseMap)
+        const reverse: Record<string,string> = {}
+        meta.forEach(m => { reverse[m.branch_id] = m.numericId })
+        setBranchIdToNumericMap(reverse)
       } catch (err) {
         // If fetching fails, fallback to an empty list with only Total option
         setBranchOptions([{ value: "1", label: "Total of Branches" }])
@@ -141,10 +113,10 @@ function Analytics() {
   };
 
   // For non-admin branches, filter to show only their branch data
-  const effectiveSelectedBranches = isAdminBranch 
-    ? selectedBranches 
-    : (currentBranchId && branchIdToNumericMap[currentBranchId] 
-        ? [branchIdToNumericMap[currentBranchId]] 
+  const effectiveSelectedBranches = isAdminBranch
+    ? selectedBranches
+    : (currentBranchId && branchIdToNumericMap[currentBranchId]
+        ? [branchIdToNumericMap[currentBranchId]]
         : selectedBranches);
 
 
@@ -213,27 +185,23 @@ function Analytics() {
                   <div className="flex flex-wrap gap-2">
                     {branchOptions
                       .filter(branch => selectedBranches.includes(branch.value))
-                      .map((branch, index) => {
-                        const colors = ['#22C55E', '#9747FF', '#0D55F1', '#CE1616'];
-                        const color = branch.label === "Total of Branches" 
-                          ? '#CE1616' 
-                          : colors[index % colors.length];
-                        
+                      .map((branch) => {
+                        // Use color from meta (already included on option); fallback to total color or a default.
+                        const color = branch.label === 'Total of Branches' ? '#CE1616' : (branch.color || '#6366F1')
                         return (
-                          <div 
-                            key={branch.value} 
+                          <div
+                            key={branch.value}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 rounded-full text-sm border"
                             style={{ borderColor: color }}
                           >
-                            <div 
-                              className="w-2 h-2 rounded-full" 
+                            <div
+                              className="w-2 h-2 rounded-full"
                               style={{ backgroundColor: color }}
                             />
                             <span className="font-medium text-gray-700">{branch.label}</span>
                           </div>
-                        );
-                      })
-                    }
+                        )
+                      })}
                   </div>
                 </div>
               )}
@@ -254,12 +222,12 @@ function Analytics() {
         <div className="space-y-6">
           {/* Daily Revenue Trend - Full Width */}
           <div className="w-full">
-            <DailyRevenueTrend selectedBranches={effectiveSelectedBranches}/>
+            <DailyRevenueTrend selectedBranches={effectiveSelectedBranches} branchMeta={branchMeta} />
           </div>
 
           {/* Sales Over Time with Day Details - Full Row */}
           <div className="w-full">
-            <SalesOverTime selectedBranches={effectiveSelectedBranches}/>
+            <SalesOverTime selectedBranches={effectiveSelectedBranches} branchMeta={branchMeta} />
           </div>
 
           {/* Secondary Charts */}
@@ -269,7 +237,7 @@ function Analytics() {
               <SalesBreakdown selectedBranches={effectiveSelectedBranches} />
             </div>
             <div className="lg:col-span-2 space-y-6">
-              <MonthlyGrowthRate selectedBranches={effectiveSelectedBranches}/>
+              <MonthlyGrowthRate selectedBranches={effectiveSelectedBranches} branchMeta={branchMeta} />
               <TopCustomers />
             </div>
           </div>

@@ -25,6 +25,12 @@ from typing import Dict, List
 import os
 
 try:
+    from dotenv import load_dotenv
+except ImportError:
+    print("Warning: python-dotenv not installed. Environment variables from .env file won't be loaded.")
+    load_dotenv = None
+
+try:
     import pandas as pd
     HAVE_PANDAS = True
 except Exception:
@@ -124,26 +130,15 @@ def write_forecast_to_mongo(records: List[Dict]):
     except Exception:
         raise RuntimeError('pymongo is not installed')
 
-    # Attempt to load server/.env if present to pick up MONGO_URI and DB name
-    env_path = Path(__file__).resolve().parent.parent / '.env'
-    if env_path.exists():
-        try:
-            # try python-dotenv first
-            from dotenv import load_dotenv
+    # Load environment variables from .env file
+    if load_dotenv:
+        # Look for .env file in parent directory (server/)
+        env_path = Path(__file__).parent.parent / '.env'
+        if env_path.exists():
             load_dotenv(env_path)
-        except Exception:
-            # simple manual parse
-            try:
-                with env_path.open('r', encoding='utf-8') as ef:
-                    for line in ef:
-                        line = line.strip()
-                        if not line or line.startswith('#'):
-                            continue
-                        if '=' in line:
-                            k, v = line.split('=', 1)
-                            os.environ.setdefault(k.strip(), v.strip())
-            except Exception:
-                pass
+            print(f"[ENV] Loaded environment variables from: {env_path}")
+        else:
+            print("⚠️  No .env file found in server directory")
 
     mongo_uri = os.environ.get('MONGO_URI') or os.environ.get('MONGODB_URI') or 'mongodb://localhost:27017'
     db_name = os.environ.get('MONGO_DB') or os.environ.get('MONGO_DB_NAME') or 'swas'
@@ -370,7 +365,7 @@ def main():
         rec['total'] = round(sum(rec[b] for b in sorted(branches)), 2)
         out_list.append(rec)
 
-    outp = Path('server/scripts/output/forecast_output.json')
+    outp = Path('output/forecast_output.json')
     outp.parent.mkdir(parents=True, exist_ok=True)
     with outp.open('w', encoding='utf-8') as f:
         json.dump(out_list, f, indent=2)

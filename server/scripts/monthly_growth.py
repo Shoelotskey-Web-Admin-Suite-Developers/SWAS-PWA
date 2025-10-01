@@ -19,6 +19,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    print("Warning: python-dotenv not installed. Environment variables from .env file won't be loaded.")
+    load_dotenv = None
+
 
 def read_json(path: Path) -> List[Dict[str, Any]]:
     with path.open('r', encoding='utf-8') as f:
@@ -87,25 +93,15 @@ def write_to_mongo(monthly_records: List[Dict[str, Any]]):
     except Exception:
         raise RuntimeError('pymongo is required; install it in the environment')
 
-    # Load .env if available (simple loader to match other scripts)
-    env_path = Path(__file__).resolve().parent.parent / '.env'
-    if env_path.exists():
-        try:
-            from dotenv import load_dotenv
-
+    # Load environment variables from .env file
+    if load_dotenv:
+        # Look for .env file in parent directory (server/)
+        env_path = Path(__file__).parent.parent / '.env'
+        if env_path.exists():
             load_dotenv(env_path)
-        except Exception:
-            try:
-                with env_path.open('r', encoding='utf-8') as ef:
-                    for line in ef:
-                        line = line.strip()
-                        if not line or line.startswith('#'):
-                            continue
-                        if '=' in line:
-                            k, v = line.split('=', 1)
-                            os.environ.setdefault(k.strip(), v.strip())
-            except Exception:
-                pass
+            print(f"[ENV] Loaded environment variables from: {env_path}")
+        else:
+            print("⚠️  No .env file found in server directory")
 
     mongo_uri = os.environ.get('MONGO_URI') or os.environ.get('MONGODB_URI') or 'mongodb://localhost:27017'
 
@@ -172,8 +168,8 @@ def write_to_mongo(monthly_records: List[Dict[str, Any]]):
         # sort docs_with_data by month_number desc
         docs_with_data_sorted = sorted([d for d in monthly_12 if doc_has_data(d)], key=lambda x: x.get('month_number', 0), reverse=True)
 
-        # pick top 2 recent months with data
-        recent_two = docs_with_data_sorted[:2]
+        # pick only the most recent month with data
+        recent_one = docs_with_data_sorted[:1]
 
         # If this target_year is not yet in DB at all, replace all revenue across branches with zero for that year.
         year_exists = coll.find_one({'Year': target_year}) if target_year is not None else None
@@ -198,9 +194,9 @@ def write_to_mongo(monthly_records: List[Dict[str, Any]]):
                 res = coll.replace_one({'month': d.get('month'), 'Year': d.get('Year')}, zero_doc, upsert=True)
                 zeroed_replaced += 1
 
-        # Now upsert only the recent two months that have data (replace by month+Year)
+        # Now upsert only the most recent month that has data (replace by month+Year)
         upserted = 0
-        for doc in recent_two:
+        for doc in recent_one:
             # ensure the doc has 'month' and 'Year' keys suitable for query
             query = {'month': doc.get('month'), 'Year': doc.get('Year')}
             # replace the document with the one from monthly_12 (ensure numeric rounding preserved)
@@ -208,7 +204,7 @@ def write_to_mongo(monthly_records: List[Dict[str, Any]]):
             upserted += 1
 
         print(f'Replaced {zeroed_replaced} docs with zeroed revenue for Year={target_year} (if it was new).')
-        print(f'Upserted/updated {upserted} most-recent months with data into {db_name}.monthly_growth (year={target_year})')
+        print(f'Upserted/updated {upserted} most-recent month with data into {db_name}.monthly_growth (year={target_year})')
     finally:
         client.close()
 
@@ -278,7 +274,7 @@ def build_12_series(aggregated_monthly: List[Dict[str, Any]]) -> List[Dict[str, 
 
 
 def main():
-    path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path('server/scripts/output/daily_revenue.json')
+    path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path('output/daily_revenue.json')
     if not path.exists():
         print('Input file not found:', path)
         raise SystemExit(2)
@@ -286,7 +282,7 @@ def main():
     data = read_json(path)
     monthly = aggregate_monthly(data)
 
-    out_path = Path('server/scripts/output/monthly_growth.json')
+    out_path = Path('output/monthly_growth.json')
     # write 12-record series to JSON
     monthly_12 = build_12_series(monthly)
     write_json(out_path, monthly_12)

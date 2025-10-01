@@ -33,6 +33,11 @@ def pad(n: int, width: int = 5) -> str:
     return str(n).zfill(width)
 
 
+def format_datetime_iso(dt: datetime) -> str:
+    """Convert datetime to ISO 8601 format with timezone: YYYY-MM-DDTHH:MM:SS.sss+00:00"""
+    return dt.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "+00:00"
+
+
 @dataclass
 class Customer:
     cust_id: str
@@ -97,8 +102,19 @@ class Payment:
     payment_date: str
 
 
+@dataclass
+class Appointment:
+    appointment_id: str
+    cust_id: str
+    branch_id: str
+    date_for_inquiry: str
+    time_start: str
+    time_end: str
+    status: str
+
+
 class Generator:
-    def __init__(self, count: int = 1000, seed: Optional[int] = None, out_dir: str = "./", end_date: Optional[datetime] = None):
+    def __init__(self, count: int = 1500, seed: Optional[int] = None, out_dir: str = "./", end_date: Optional[datetime] = None):
         self.count = count
         self.out_dir = out_dir
         if seed is not None:
@@ -125,10 +141,34 @@ class Generator:
             "SERVICE-9": 375.0,
         }
 
+        # shoe models list
+        self.shoe_models = [
+            "Air Jordan 1", "Nike Air Force 1", "Adidas Superstar", "Converse Chuck Taylor All Star", 
+            "Vans Old Skool", "Puma Suede Classic", "Reebok Club C 85", "New Balance 550", 
+            "Yeezy Boost 350", "Nike Dunk Low", "Adidas Stan Smith", "Saucony Jazz Original", 
+            "Asics Gel-Lyte III", "Fila Disruptor II", "Balenciaga Triple S", 
+            "Alexander McQueen Oversized Sneaker", "Gucci Ace", "Onitsuka Tiger Mexico 66", 
+            "Hoka Clifton 9", "Salomon XT-6", "Nike Blazer Mid", "Adidas Gazelle", 
+            "Vans Sk8-Hi", "Nike Cortez", "Reebok Classic Leather", "Puma RS-X", 
+            "Adidas NMD R1", "Nike Air Max 1", "New Balance 990", "Yeezy 700 Wave Runner", 
+            "Asics Gel-Kayano 14", "Saucony Shadow 6000", "Nike Air Max 97", "Adidas UltraBoost", 
+            "Vans Authentic", "Converse One Star", "Nike Air Max 90", "Puma Clyde", 
+            "Reebok Question Mid", "New Balance 327", "Jordan 4 Retro", "Nike Air Max Plus (TN)", 
+            "Adidas Forum Low", "Nike SB Dunk High", "Vans Slip-On", "Salomon Speedcross 5", 
+            "Hoka Bondi 8", "Nike LeBron 20", "Under Armour Curry Flow", "Mizuno Wave Rider 27"
+        ]
+
+        # status options list
+        self.status_options = [
+            "Queued", "Ready for Delivery", "Incoming Branch Delivery", "In Process", 
+            "Returning to Branch", "To Pack", "Ready for Pickup", "Picked Up"
+        ]
+
         # in-memory counters to simulate generator behavior in controllers
         self.trx_counters_by_ym_branch: Dict[str, int] = defaultdict(int)
         self.payment_counters_by_branch: Dict[str, int] = defaultdict(int)
         self.customer_counters_by_branch: Dict[int, int] = defaultdict(int)
+        self.appointment_counter: int = 0
 
         # storage for output
         self.customers: Dict[str, Customer] = {}
@@ -138,12 +178,18 @@ class Generator:
         # new datasets
         self.promos: List[dict] = []
         self.unavailability: List[dict] = []
-        # Date window: last 3 months up to end_date (inclusive). Default end_date is provided by CLI.
+        self.appointments: List[Appointment] = []
+        # Date window: last 3 months up to yesterday (inclusive). Default end_date is yesterday.
         # We'll compute start_date as end_date - 90 days to approximate 3 months.
         if end_date is None:
-            end_date = datetime(2025, 9, 23)
+            # Set end_date to yesterday (current date minus 1 day)
+            today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            end_date = today - timedelta(days=1)
+            # Set time to end of day for yesterday
+            end_date = end_date.replace(hour=23, minute=59, second=59, microsecond=999999)
         self.end_date: datetime = end_date
-        self.start_date: datetime = self.end_date - timedelta(days=90)
+        # Start date is 90 days before end_date, at beginning of that day
+        self.start_date: datetime = (self.end_date - timedelta(days=90)).replace(hour=0, minute=0, second=0, microsecond=0)
 
     # mirror generateTransactionId from controller
     def generate_transaction_id(self, branch_code: str, now: datetime) -> str:
@@ -181,17 +227,28 @@ class Generator:
     def generate_unavailability_id(self, idx: int) -> str:
         return f"UNAV-{str(idx).zfill(3)}"
 
+    # appointment id: APPT-<5 digit>
+    def generate_appointment_id(self) -> str:
+        self.appointment_counter += 1
+        return f"APPT-{str(self.appointment_counter).zfill(5)}"
+
     def maybe_reuse_customer(self, branch_number: int) -> Customer:
-        # 70% chance to reuse an existing customer
-        if self.customers and random.random() < 0.7:
+        # 50% chance to reuse an existing customer (reduced from 70%)
+        if self.customers and random.random() < 0.5:
             return random.choice(list(self.customers.values()))
         # otherwise create new
         cid = self.generate_customer_id(branch_number)
         name = fake.name()
+        # Generate birthdate in ISO format with timezone (YYYY-MM-DDTHH:MM:SS.sss+00:00)
+        # Use default time values (00:00:00.000) - only date varies
+        birth_date = fake.date_of_birth(minimum_age=18, maximum_age=80)
+        birth_datetime = datetime.combine(birth_date, datetime.min.time())
+        cust_bdate = birth_datetime.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "+00:00"
+        
         cust = Customer(
             cust_id=cid,
             cust_name=name,
-            cust_bdate=str(fake.date_of_birth(minimum_age=18, maximum_age=80)),
+            cust_bdate=cust_bdate,
             cust_address=fake.address(),
             cust_email=fake.unique.email(),
             cust_contact=fake.phone_number(),
@@ -207,8 +264,15 @@ class Generator:
 
         # check unavailability for this branch on this date
         date_str = str(now.date())
-        # find unavailability entries matching branch and date
-        u_list = [u for u in self.unavailability if u["branch_id"] == branch_id and u["date_unavailable"] == date_str]
+        # find unavailability entries matching branch and date (extract date from ISO format)
+        u_list = []
+        for u in self.unavailability:
+            if u["branch_id"] == branch_id:
+                # Extract date part from ISO datetime string for comparison
+                unavail_date = u["date_unavailable"].split('T')[0]
+                unavail_date_obj = datetime.strptime(unavail_date, "%Y-%m-%d").date()
+                if str(unavail_date_obj) == date_str:
+                    u_list.append(u)
         if u_list:
             # if any full day unavailability -> skip creating transactions
             if any(u.get("type") == "Full Day" for u in u_list):
@@ -227,7 +291,14 @@ class Generator:
 
         # number of line items 1..3
         # promos on this branch/date increase likelihood of more line items and higher amounts
-        promo_list = [p for p in self.promos if p["branch_id"] == branch_id and date_str in p["promo_dates"]]
+        # Convert promo dates from ISO format to date strings for comparison
+        promo_list = []
+        for p in self.promos:
+            if p["branch_id"] == branch_id:
+                # Extract date parts from ISO datetime strings for comparison
+                promo_dates = [pd.split('T')[0] for pd in p["promo_dates"]]
+                if date_str in promo_dates:
+                    promo_list.append(p)
         promo_boost = 1.0
         if promo_list:
             # each promo increases transaction size and frequency modestly
@@ -253,6 +324,48 @@ class Generator:
             unit_price = self.services_catalog[svc_id]
             total_price = round(unit_price * qty, 2)
 
+            # pick a status from the new list
+            status = random.choice(self.status_options)
+            
+            # determine current_location based on status
+            if status in ["Incoming Branch Delivery", "In Process", "Returning to Branch"]:
+                current_location = "Hub"
+            else:
+                current_location = random.choice(["Hub", "Branch"])
+            
+            # calculate due_date as 10-25 days ahead from date_in
+            date_in_dt = now - timedelta(days=random.randint(0, 30))
+            due_date_offset = random.randint(10, 25)
+            due_date_dt = date_in_dt + timedelta(days=due_date_offset)
+            # Set due date to a random time during business hours (9 AM - 5 PM)
+            due_date_dt = due_date_dt.replace(
+                hour=random.randint(9, 17),
+                minute=random.randint(0, 59),
+                second=random.randint(0, 59),
+                microsecond=random.randint(0, 999) * 1000
+            )
+            due_date = format_datetime_iso(due_date_dt)
+
+            # Make latest_update relatively close to current date
+            # Items created today should go back max 2 days, older items can be more spread out
+            current_time = datetime.now()
+            if now.date() >= (current_time - timedelta(days=1)).date():
+                # For recent transactions (today/yesterday), latest_update within last 2 days
+                days_back = random.uniform(0, 2)
+            else:
+                # For older transactions, latest_update can be between transaction date and up to 7 days ago
+                max_days_back = min(7, (current_time - now).days)
+                days_back = random.uniform(0, max_days_back)
+            
+            latest_update_dt = current_time - timedelta(days=days_back)
+            # Add some random hours/minutes to make it more realistic
+            latest_update_dt = latest_update_dt.replace(
+                hour=random.randint(8, 18),  # Business hours
+                minute=random.randint(0, 59),
+                second=random.randint(0, 59),
+                microsecond=random.randint(0, 999) * 1000
+            )
+
             line = LineItem(
                 line_item_id=line_id,
                 transaction_id=trx_id,
@@ -261,17 +374,17 @@ class Generator:
                 services=[LineItemService(service_id=svc_id, quantity=qty)],
                 storage_fee=0.0,
                 branch_id=branch_id,
-                shoes=fake.word(),
-                current_location=random.choice(["Hub", "Branch"]),
-                current_status="Queued",
-                due_date=None,
-                latest_update=str(now),
+                shoes=random.choice(self.shoe_models),
+                current_location=current_location,
+                current_status=status,
+                due_date=due_date,
+                latest_update=format_datetime_iso(latest_update_dt),
                 before_img=None,
                 after_img=None,
             )
 
             self.line_items.append(line)
-            no_pairs += qty
+            no_pairs += 1  # Count the number of shoes/line items, not service quantities
             total_amount += total_price
 
         # apply promo multiplier to total_amount
@@ -296,12 +409,20 @@ class Generator:
                 transaction_id=trx_id,
                 payment_amount=amount_paid,
                 payment_mode=payment_mode or "Cash",
-                payment_date=str(now),
+                payment_date=format_datetime_iso(now),
             )
             self.payments.append(payment)
 
-        date_in = str(now - timedelta(days=random.randint(0, 30)))
-        date_out = str(now) if payment_status == "PAID" else None
+        # For transactions on the last few days, use minimal date_in offset to ensure recent data
+        if now.date() >= (self.end_date - timedelta(days=2)).date():
+            # For transactions in the last 2 days, use 0-2 days back for date_in
+            days_back = random.randint(0, 2)
+        else:
+            # For older transactions, use normal range
+            days_back = random.randint(0, min(30, (now.date() - self.start_date.date()).days))
+        date_in_dt = now - timedelta(days=days_back)
+        date_in = format_datetime_iso(date_in_dt)
+        date_out = format_datetime_iso(now) if payment_status == "PAID" else None
 
         trx = Transaction(
             transaction_id=trx_id,
@@ -329,17 +450,28 @@ class Generator:
 
     def generate(self):
         # pick random dates between start_date and end_date for each transaction
-        total_days = (self.end_date - self.start_date).days
+        total_seconds = int((self.end_date - self.start_date).total_seconds())
         # first, generate promos and unavailability across the date range
         self._generate_promos_and_unavailability()
+        # then generate appointments
+        self._generate_appointments()
 
+        # ensure we have some transactions on the last day (yesterday)
+        last_day_start = self.end_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        last_day_transactions = max(15, self.count // 50)  # at least 15, or 2% of total
+        
         # create transactions taking promos/unavailability into account
         for i in range(self.count):
-            # choose a random offset from start_date
-            offset = random.randint(0, total_days)
-            dt = self.start_date + timedelta(days=offset)
-            # randomize time within the day
-            dt = dt + timedelta(seconds=random.randint(0, 86399))
+            if i < last_day_transactions:
+                # Force some transactions on the last day (yesterday)
+                last_day_seconds = int((self.end_date - last_day_start).total_seconds())
+                random_seconds = random.randint(0, last_day_seconds)
+                dt = last_day_start + timedelta(seconds=random_seconds)
+            else:
+                # choose a random time between start_date and end_date (inclusive)
+                # Use uniform distribution across the entire time range including the last second
+                random_seconds = random.randint(0, total_seconds - 1)
+                dt = self.start_date + timedelta(seconds=random_seconds)
             # check unavailability for this branch/date (we will pick branch inside generate_one)
             self.generate_one(dt)
 
@@ -362,11 +494,21 @@ class Generator:
                 dates = [start + timedelta(days=d) for d in range(length) if start + timedelta(days=d) <= self.end_date]
                 if not dates:
                     continue
+                # Convert dates to ISO format with random times
+                promo_dates_iso = []
+                for d in dates:
+                    dt_with_time = d.replace(
+                        hour=random.randint(0, 23),
+                        minute=random.randint(0, 59),
+                        second=random.randint(0, 59),
+                        microsecond=random.randint(0, 999) * 1000
+                    )
+                    promo_dates_iso.append(format_datetime_iso(dt_with_time))
                 promo = {
                     "promo_id": self.generate_promo_id(promo_idx),
                     "promo_title": f"{branch['branch_code']} Promo {promo_idx}",
                     "promo_description": random.choice(["Rainy season promo", "Weekend special", "Back-to-school"]),
-                    "promo_dates": [str(d) for d in dates],
+                    "promo_dates": promo_dates_iso,
                     "promo_duration": f"{dates[0].date()} - {dates[-1].date()}",
                     "branch_id": branch["branch_id"],
                 }
@@ -402,12 +544,19 @@ class Generator:
 
                 for _ in range(num_unav_month):
                     day = first_day + timedelta(days=random.randint(0, (last_day - first_day).days))
+                    # Convert to datetime with random time for ISO format
+                    day_datetime = datetime.combine(day, datetime.min.time().replace(
+                        hour=random.randint(0, 23),
+                        minute=random.randint(0, 59),
+                        second=random.randint(0, 59),
+                        microsecond=random.randint(0, 999) * 1000
+                    ))
                     typ = random.choices(["Full Day", "Partial Day"], weights=[0.3, 0.7])[0]
                     if typ == "Full Day":
                         ua = {
                             "unavailability_id": self.generate_unavailability_id(unav_idx),
                             "branch_id": branch["branch_id"],
-                            "date_unavailable": str(day),
+                            "date_unavailable": format_datetime_iso(day_datetime),
                             "type": typ,
                             "time_start": None,
                             "time_end": None,
@@ -420,7 +569,7 @@ class Generator:
                         ua = {
                             "unavailability_id": self.generate_unavailability_id(unav_idx),
                             "branch_id": branch["branch_id"],
-                            "date_unavailable": str(day),
+                            "date_unavailable": format_datetime_iso(day_datetime),
                             "type": typ,
                             "time_start": f"{str(start_hour).zfill(2)}:00",
                             "time_end": f"{str(end_hour).zfill(2)}:00",
@@ -428,6 +577,130 @@ class Generator:
                         }
                     self.unavailability.append(ua)
                     unav_idx += 1
+
+    def _generate_appointments(self):
+        """Generate 0-6 appointments per day, with proper time slots and status based on date"""
+        # Get all dates in our range - extend to include future appointments
+        current_date = self.start_date.date()
+        today = datetime.now().date()
+        # Extend end_date to include 20 days in the future for pending appointments
+        future_end_date = today + timedelta(days=20)
+        end_date = max(self.end_date.date(), future_end_date)
+        
+        # Time slots: 30-minute increments from 9:00 to 17:30
+        time_slots = []
+        for hour in range(9, 18):
+            for minute in [0, 30]:
+                start_time = f"{hour:02d}:{minute:02d}"
+                if minute == 0:
+                    end_time = f"{hour:02d}:30"
+                else:
+                    end_time = f"{hour+1:02d}:00" if hour < 17 else "18:00"
+                time_slots.append((start_time, end_time))
+        
+        # Service types are not needed in the simplified appointment schema
+        
+        while current_date <= end_date:
+            for branch in self.branches:
+                branch_id = branch["branch_id"]
+                date_str = str(current_date)
+                
+                # Check if this branch has unavailability on this date
+                unavailable = False
+                for u in self.unavailability:
+                    if u["branch_id"] == branch_id and u["type"] == "Full Day":
+                        # Extract date part from ISO datetime string
+                        unavail_date = u["date_unavailable"].split('T')[0]
+                        if unavail_date == date_str:
+                            unavailable = True
+                            break
+                
+                if unavailable:
+                    # Skip appointments for unavailable days
+                    continue
+                
+                # Generate appointments based on date
+                if current_date > today:
+                    # Future appointments (next 20 days) - higher chance of appointments
+                    if random.random() < 0.3:
+                        num_appointments = 0
+                    else:
+                        num_appointments = random.randint(1, 4)  # Slightly fewer than historical
+                else:
+                    # Historical appointments - original logic
+                    if random.random() < 0.5:
+                        num_appointments = 0
+                    else:
+                        num_appointments = random.randint(1, 6)
+                
+                # Get partial unavailability times for this branch/date
+                partial_unavail = []
+                for u in self.unavailability:
+                    if u["branch_id"] == branch_id and u["type"] == "Partial Day":
+                        # Extract date part from ISO datetime string
+                        unavail_date = u["date_unavailable"].split('T')[0]
+                        if unavail_date == date_str:
+                            partial_unavail.append(u)
+                
+                # Filter available time slots
+                available_slots = time_slots.copy()
+                for u in partial_unavail:
+                    if u.get("time_start") and u.get("time_end"):
+                        # Remove slots that overlap with unavailable times
+                        unavail_start = u["time_start"]
+                        unavail_end = u["time_end"]
+                        available_slots = [
+                            slot for slot in available_slots
+                            if not (slot[0] >= unavail_start and slot[1] <= unavail_end)
+                        ]
+                
+                if not available_slots:
+                    continue
+                
+                # Select random time slots for appointments
+                selected_slots = random.sample(
+                    available_slots, 
+                    min(num_appointments, len(available_slots))
+                )
+                
+                for time_start, time_end in selected_slots:
+                    # Determine status based on date
+                    if current_date < today:
+                        # Past appointments are "Approved"
+                        status = "Approved"
+                    else:
+                        # Future appointments are "Pending"
+                        status = "Pending"
+                    
+                    # Get a different customer for each appointment
+                    # 70% chance to use existing customer, 30% chance to create new one
+                    if self.customers and random.random() < 0.7:
+                        customer = random.choice(list(self.customers.values()))
+                    else:
+                        # Create a new customer
+                        customer = self.maybe_reuse_customer(branch["branch_number"])
+                    
+                    # Create datetime object for the appointment date with random time
+                    appointment_datetime = datetime.combine(current_date, datetime.min.time().replace(
+                        hour=random.randint(0, 23),
+                        minute=random.randint(0, 59),
+                        second=random.randint(0, 59),
+                        microsecond=random.randint(0, 999) * 1000
+                    ))
+                    
+                    appointment = Appointment(
+                        appointment_id=self.generate_appointment_id(),
+                        cust_id=customer.cust_id,
+                        branch_id=branch_id,
+                        date_for_inquiry=format_datetime_iso(appointment_datetime),
+                        time_start=time_start,
+                        time_end=time_end,
+                        status=status
+                    )
+                    
+                    self.appointments.append(appointment)
+            
+            current_date += timedelta(days=1)
 
     def dump(self):
         out = self.out_dir.rstrip("/\\")
@@ -442,6 +715,7 @@ class Generator:
         pay_path = os.path.join(out, "payments.json")
         promos_path = os.path.join(out, "promos.json")
         unav_path = os.path.join(out, "unavailability.json")
+        appt_path = os.path.join(out, "appointments.json")
 
         with open(tx_path, "w", encoding="utf-8") as f:
             json.dump([asdict(t) for t in self.transactions], f, indent=2, ensure_ascii=False)
@@ -462,15 +736,18 @@ class Generator:
         with open(unav_path, "w", encoding="utf-8") as f:
             json.dump(self.unavailability, f, indent=2, ensure_ascii=False)
 
-        return tx_path, li_path, cu_path, pay_path
+        with open(appt_path, "w", encoding="utf-8") as f:
+            json.dump([asdict(a) for a in self.appointments], f, indent=2, ensure_ascii=False)
+
+        return tx_path, li_path, cu_path, pay_path, appt_path
 
 
 def parse_args():
     p = argparse.ArgumentParser()
-    p.add_argument("--count", type=int, default=1000)
+    p.add_argument("--count", type=int, default=1500)
     p.add_argument("--out-dir", type=str, default="./output")
     p.add_argument("--seed", type=int, default=None)
-    p.add_argument("--end-date", type=str, default="2025-09-23", help="End date (YYYY-MM-DD) for generated transactions; start is 3 months before this date")
+    p.add_argument("--end-date", type=str, default=None, help="End date (YYYY-MM-DD) for generated transactions; defaults to yesterday; start is 3 months before this date")
     return p.parse_args()
 
 
@@ -478,7 +755,11 @@ def main():
     args = parse_args()
     # parse end date
     try:
-        end_date = datetime.strptime(args.end_date, "%Y-%m-%d") if hasattr(args, 'end_date') and args.end_date else None
+        if args.end_date:
+            end_date = datetime.strptime(args.end_date, "%Y-%m-%d")
+        else:
+            # Default to yesterday
+            end_date = None
     except Exception:
         print(f"Invalid end-date format: {args.end_date}. Use YYYY-MM-DD")
         return
@@ -486,12 +767,13 @@ def main():
     gen = Generator(count=args.count, seed=args.seed, out_dir=args.out_dir, end_date=end_date)
     print(f"Generating {args.count} transactions...")
     gen.generate()
-    tx_path, li_path, cu_path, pay_path = gen.dump()
+    tx_path, li_path, cu_path, pay_path, appt_path = gen.dump()
     print("Done. Files written:")
     print(tx_path)
     print(li_path)
     print(cu_path)
     print(pay_path)
+    print(appt_path)
 
 
 if __name__ == "__main__":

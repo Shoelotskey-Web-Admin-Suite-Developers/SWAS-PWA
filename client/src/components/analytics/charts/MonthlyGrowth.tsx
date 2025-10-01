@@ -13,52 +13,37 @@ import {
 } from "@/components/ui/chart"
 import { format } from "date-fns"
 import { useEffect, useState } from "react"
-import { getMonthlyRevenue, MonthlyRevenueData } from "@/utils/api/getMonthlyRevenue"
+// Dynamic monthly revenue util
+import { getMonthlyRevenueDynamic } from "@/utils/api/getMonthlyRevenueDynamic"
+import { BranchMeta } from "@/utils/analytics/branchMeta"
 import { TrendingUp, TrendingDown, Minus } from "lucide-react"
 
 export const description = "Multiple bar chart for branch sales"
 
-interface ChartBarMultipleProps {
-  selectedBranches: string[]; // IDs of selected branches
+interface ChartBarMultipleProps { selectedBranches: string[]; branchMeta: BranchMeta[] }
+
+interface EnhancedMonthlyData {
+  month: string;
+  total: number;
+  // dynamic branch keys will be added
+  [key: string]: any;
 }
 
-interface EnhancedMonthlyData extends MonthlyRevenueData {
-  totalGrowth?: number;
-  SMValGrowth?: number;
-  ValGrowth?: number;
-  SMGraGrowth?: number;
-}
+// chartConfig & branchMap will be built at runtime using branchMeta
 
-const branchMap: Record<string, keyof MonthlyRevenueData> = {
-  "1": "SMVal",
-  "2": "Val",
-  "3": "SMGra",
-  "4": "total",
-}
-
-const chartConfig = {
-  total: {
-    label: "SM Total of Branches",
-    color: "#CE1616",
-  },
-  SMVal: {
-    label: "SM Valenzuela",
-    color: "#22C55E",
-  },
-  Val: {
-    label: "Valenzuela",
-    color: "#9747FF",
-  },
-  SMGra: {
-    label: "SM Grand",
-    color: "#0D55F1",
-  },
-} as const
-
-export function MonthlyGrowthRate({ selectedBranches }: ChartBarMultipleProps) {
+export function MonthlyGrowthRate({ selectedBranches, branchMeta }: ChartBarMultipleProps) {
   const [data, setData] = useState<EnhancedMonthlyData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // Build dynamic chart config (include synthetic total from meta) and branch map
+  const totalMeta = branchMeta.find(m => m.branch_id === 'TOTAL')
+  const dynamicChartConfig: Record<string, { label: string; color: string }> = {}
+  dynamicChartConfig.total = { label: totalMeta?.branch_name || 'Total of Branches', color: '#CE1616' }
+  branchMeta.filter(m => m.branch_id !== 'TOTAL').forEach(m => { dynamicChartConfig[m.dataKey] = { label: m.branch_name, color: m.color } })
+  const branchMap: Record<string,string> = {
+    ...(totalMeta ? { [totalMeta.numericId]: 'total' } : {}),
+  }
+  branchMeta.filter(m=> m.branch_id !== 'TOTAL').forEach(m => { branchMap[m.numericId] = m.dataKey })
 
   // Helper to get current month string
   const getCurrentMonth = () => {
@@ -67,73 +52,59 @@ export function MonthlyGrowthRate({ selectedBranches }: ChartBarMultipleProps) {
   }
 
   // Function to calculate growth rates
-  const calculateGrowthRates = (data: MonthlyRevenueData[]): EnhancedMonthlyData[] => {
-    return data.map((current, index) => {
-      if (index === 0) {
-        // First month - no previous data to compare
-        return {
-          ...current,
-          totalGrowth: 0,
-          SMValGrowth: 0,
-          ValGrowth: 0,
-          SMGraGrowth: 0,
-        }
+  const calculateGrowthRates = (rows: EnhancedMonthlyData[]): EnhancedMonthlyData[] => {
+    return rows.map((curr, idx) => {
+      if (idx === 0) {
+        return { ...curr, totalGrowth: 0, ...branchMeta.reduce((acc,m)=>{ if(m.branch_id!=='TOTAL') acc[m.dataKey+"Growth"]=0; return acc}, {} as Record<string,number>) }
       }
-
-      const previous = data[index - 1]
-      
-      const calculateGrowth = (currentVal: number, previousVal: number): number => {
-        if (previousVal === 0) return currentVal > 0 ? 100 : 0
-        return ((currentVal - previousVal) / previousVal) * 100
-      }
-
-      return {
-        ...current,
-        totalGrowth: calculateGrowth(current.total, previous.total),
-        SMValGrowth: calculateGrowth(current.SMVal, previous.SMVal),
-        ValGrowth: calculateGrowth(current.Val, previous.Val),
-        SMGraGrowth: calculateGrowth(current.SMGra, previous.SMGra),
-      }
+      const prev = rows[idx-1]
+      const calc = (c:number,p:number)=> p===0 ? (c>0?100:0) : ((c-p)/p)*100
+      const growths: Record<string,number> = { totalGrowth: calc(curr.total, prev.total) }
+      branchMeta.filter(m=> m.branch_id!=='TOTAL').forEach(m => { growths[m.dataKey+"Growth"] = calc(curr[m.dataKey]||0, prev[m.dataKey]||0) })
+      return { ...curr, ...growths }
     })
   }
 
   useEffect(() => {
-    async function loadData() {
+    if (!branchMeta || branchMeta.length === 0) return; // wait for meta
+    let cancelled = false;
+    (async () => {
       try {
         setLoading(true)
         setError(null)
-        const monthlyData = await getMonthlyRevenue()
-        const dataWithGrowth = calculateGrowthRates(monthlyData)
-        setData(dataWithGrowth)
+        const monthlyData = await getMonthlyRevenueDynamic(branchMeta)
+        const withGrowth = calculateGrowthRates(monthlyData as any)
+        if (!cancelled) setData(withGrowth)
       } catch (err) {
-        console.error("Error fetching monthly revenue:", err)
-        setError(err instanceof Error ? err.message : "Failed to fetch monthly revenue")
+        if (!cancelled) {
+          console.error("Error fetching monthly revenue:", err)
+          setError(err instanceof Error ? err.message : "Failed to fetch monthly revenue")
+        }
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
-    }
-    
-    loadData()
-  }, [])
+    })();
+    return () => { cancelled = true }
+  }, [branchMeta])
 
   // Apply filtering to loaded data
-  const filteredData = data.map(item => {
-    const newItem = { ...item }
-    Object.entries(branchMap).forEach(([branchId, key]) => {
-      if (!selectedBranches.includes(branchId) && selectedBranches.length > 0) {
-        // Use type assertion to handle the complex typing
-        ;(newItem as any)[key] = null
-      }
+  const filteredData = data.map(row => {
+    if (selectedBranches.length === 0) return row
+    const out: any = { month: row.month }
+    if (selectedBranches.some(id => branchMap[id] === 'total')) out.total = row.total
+    branchMeta.filter(m=> m.branch_id !== 'TOTAL').forEach(m => {
+      if (selectedBranches.includes(m.numericId)) out[m.dataKey] = row[m.dataKey]
     })
-    return newItem
+    // include growth keys
+    Object.keys(row).filter(k=> k.endsWith('Growth')).forEach(k=> { out[k]= row[k] })
+    return out
   })
   
 
 
-  const barsToRender =
-    selectedBranches.length > 0
-      ? selectedBranches.map(id => branchMap[id])
-      : ["total", "SMVal", "Val", "SMGra"] as (keyof MonthlyRevenueData)[]
+  const barsToRender = selectedBranches.length > 0
+    ? selectedBranches.map(id => branchMap[id]).filter(Boolean)
+    : ['total', ...branchMeta.filter(m=> m.branch_id !== 'TOTAL').map(m=> m.dataKey)]
 
   // Custom tooltip component
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -144,9 +115,9 @@ export function MonthlyGrowthRate({ selectedBranches }: ChartBarMultipleProps) {
             {format(new Date(label + "-01"), "MMMM yyyy")}
           </h4>
           {payload.map((entry: any, index: number) => {
-            const branchKey = entry.dataKey as keyof EnhancedMonthlyData
-            const growthKey = `${branchKey}Growth` as keyof EnhancedMonthlyData
-            const config = (chartConfig as any)[branchKey]
+            const branchKey = entry.dataKey as string
+            const growthKey = `${branchKey}Growth`
+            const config = (dynamicChartConfig as any)[branchKey]
             const revenue = entry.value
             const growth = entry.payload[growthKey] || 0
             
@@ -201,7 +172,7 @@ export function MonthlyGrowthRate({ selectedBranches }: ChartBarMultipleProps) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5" />
-            <h3>Monthly Growth Rate</h3>
+            <h2>Monthly Growth Rate</h2>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -240,7 +211,7 @@ export function MonthlyGrowthRate({ selectedBranches }: ChartBarMultipleProps) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig} style={{ width: "100%", height: "210px" }}>
+  <ChartContainer config={dynamicChartConfig} style={{ width: "100%", height: "210px" }}>
           <BarChart accessibilityLayer data={filteredData} margin={{ left: 12, right: 12 }}>
             <CartesianGrid vertical={false} />
             <YAxis
@@ -271,7 +242,7 @@ export function MonthlyGrowthRate({ selectedBranches }: ChartBarMultipleProps) {
               <Bar
                 key={key as string}
                 dataKey={key as string}
-                fill={(chartConfig as any)[key]?.color || "#000000"}
+                fill={(dynamicChartConfig as any)[key]?.color || "#000000"}
                 radius={4}
               />
             ))}
@@ -280,88 +251,77 @@ export function MonthlyGrowthRate({ selectedBranches }: ChartBarMultipleProps) {
 
         {/* Growth Summary Section */}
         {(() => {
-          if (filteredData.length <= 1) return null
-          
-          // Calculate current month once for the entire section
-          const currentMonth = getCurrentMonth()
-          
-          // Find the latest meaningful month data
-          const latestMeaningfulData = [...filteredData]
-            .reverse()
-            .find(item => {
-              if (item.month > currentMonth) return false
-              if (item.month === currentMonth) return true
-              return item.total > 0
-            })
-          
-          if (!latestMeaningfulData) return null
-          
+          if (filteredData.length === 0) return null;
+          const currentMonth = getCurrentMonth();
 
-          const isCurrentMonth = latestMeaningfulData.month === currentMonth
-          
+          // Helper: does row have any positive revenue among displayed bars (including total)?
+          const rowHasAnyData = (row: any) => {
+            return barsToRender.some(k => (row[k] ?? 0) > 0) || (row.total ?? 0) > 0;
+          };
+
+            // Reverse search for latest month with data; if current month empty, skip it.
+          const latestMeaningfulData = [...(filteredData as any)].reverse().find(row => {
+            if (row.month > currentMonth) return false; // future
+            if (row.month === currentMonth) return rowHasAnyData(row); // accept only if has data
+            return rowHasAnyData(row); // prior months must have data
+          });
+
+          if (!latestMeaningfulData) return null;
+
+          const isCurrentMonth = latestMeaningfulData.month === currentMonth;
+          const currentMonthPartial = isCurrentMonth && rowHasAnyData(latestMeaningfulData);
+          const monthLabel = format(new Date(latestMeaningfulData.month + '-01'), 'MMM yyyy');
+
           return (
             <div className="mt-4 p-3 bg-gray-50 rounded-lg">
               <h4 className="text-sm font-semibold text-gray-700 mb-2">
-                Latest Growth Trends 
+                Latest Growth Trends
                 <span className="text-xs font-normal text-gray-500 ml-1">
-                  ({format(new Date(latestMeaningfulData.month + "-01"), "MMM yyyy")}
-                  {isCurrentMonth ? " - Live Data" : ""})
+                  ({monthLabel}{isCurrentMonth && currentMonthPartial ? ' - Live Data' : ''})
                 </span>
               </h4>
               <div className="grid grid-cols-2 gap-2">
-                {barsToRender.map((key) => {
-                  const latestData = latestMeaningfulData
-                
-                const growthKey = `${key}Growth` as keyof EnhancedMonthlyData
-                const growth = (latestData as any)[growthKey] || 0
-                const revenue = (latestData as any)[key]
-                const config = (chartConfig as any)[key]
-                
-
-                
-                if (revenue === null || revenue === undefined) return null
-
-                // Check if this is current month data
-                const isCurrentMonthData = latestData.month === currentMonth
-
-                const GrowthIcon = growth > 0 ? TrendingUp : growth < 0 ? TrendingDown : Minus
-                const growthColor = growth > 0 ? "text-green-600" : growth < 0 ? "text-red-600" : "text-gray-500"
-                const bgColor = growth > 0 ? "bg-green-50" : growth < 0 ? "bg-red-50" : "bg-gray-50"
-
-                return (
-                  <div key={key as string} className={`p-2 rounded ${bgColor} border`}>
-                    <div className="flex items-center gap-2 mb-1">
-                      <div 
-                        className="w-2 h-2 rounded-full" 
-                        style={{ backgroundColor: config?.color || "#000000" }}
-                      />
-                      <span className="text-xs font-medium text-gray-600 truncate">
-                        {config?.label?.replace("SM Total of Branches", "Total") || key}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-800 font-semibold">
-                        ₱{(revenue / 1000).toFixed(1)}K
-                        {isCurrentMonthData && revenue === 0 && (
-                          <span className="block text-orange-600 font-normal">Updating...</span>
+                {barsToRender.map(key => {
+                  const latestData = latestMeaningfulData;
+                  const growthKey = `${key}Growth`;
+                  const growth = (latestData as any)[growthKey] || 0;
+                  const revenue = (latestData as any)[key];
+                  const config = (dynamicChartConfig as any)[key];
+                  if (revenue == null) return null;
+                  const isCurrentMonthData = isCurrentMonth;
+                  const GrowthIcon = growth > 0 ? TrendingUp : growth < 0 ? TrendingDown : Minus;
+                  const growthColor = growth > 0 ? 'text-green-600' : growth < 0 ? 'text-red-600' : 'text-gray-500';
+                  const bgColor = growth > 0 ? 'bg-green-50' : growth < 0 ? 'bg-red-50' : 'bg-gray-50';
+                  const showUpdating = isCurrentMonthData && revenue === 0 && currentMonthPartial;
+                  return (
+                    <div key={key as string} className={`p-2 rounded ${bgColor} border`}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: config?.color || '#000000' }} />
+                        <span className="text-xs font-medium text-gray-600 truncate">
+                          {config?.label?.replace('SM Total of Branches', 'Total') || key}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-800 font-semibold">
+                          ₱{(revenue / 1000).toFixed(1)}K
+                          {showUpdating && <span className="block text-orange-600 font-normal">Updating...</span>}
+                        </span>
+                        {(!showUpdating) && (
+                          <div className={`flex items-center gap-1 ${growthColor}`}>
+                            <GrowthIcon size={10} />
+                            <span className="text-xs font-medium">
+                              {growth >= 0 ? '+' : ''}{growth.toFixed(1)}%
+                              {isCurrentMonthData && currentMonthPartial && <span className="text-orange-600">*</span>}
+                            </span>
+                          </div>
                         )}
-                      </span>
-                      {(revenue > 0 || !isCurrentMonthData) && (
-                        <div className={`flex items-center gap-1 ${growthColor}`}>
-                          <GrowthIcon size={10} />
-                          <span className="text-xs font-medium">
-                            {growth >= 0 ? '+' : ''}{growth.toFixed(1)}%
-                            {isCurrentMonthData && <span className="text-orange-600">*</span>}
-                          </span>
-                        </div>
-                      )}
+                      </div>
                     </div>
-                  </div>
-                )
-              }).filter(Boolean)}
+                  );
+                }).filter(Boolean)}
+              </div>
             </div>
-          </div>
-          )
+          );
         })()}
       </CardContent>
     </Card>

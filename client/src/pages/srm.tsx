@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
+import { Plus } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -681,7 +682,13 @@ if (result?.lineItems && Array.isArray(result.lineItems)) {
             <Button
               className="customer-button button-lg"
               variant={customerType === 'new' ? 'customer' : 'outline'}
-              onClick={() => setCustomerType('new')}
+              onClick={() => {
+                setCustomerType('new')
+                // Clear customer contact fields when switching to new customer
+                setAddress('')
+                setEmail('')
+                setPhone('')
+              }}
             >
               NEW CUSTOMER
             </Button>
@@ -902,13 +909,18 @@ if (result?.lineItems && Array.isArray(result.lineItems)) {
               ))}
 
 
-              <Button
-                variant="link"
-                className="add-shoe-btn button-xl"
-                onClick={addShoe}
-              >
-                Add Another Shoe +
-              </Button>
+              {/* Modern Add Shoe UI */}
+              <div className="add-shoe-wrapper" role="group" aria-label="Add another shoe">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="add-shoe-modern add-shoe-red"
+                  onClick={addShoe}
+                >
+                  <Plus className="add-shoe-icon" aria-hidden="true" />
+                  <h3 className="add-shoe-text">Add Shoe</h3>
+                </Button>
+              </div>
             </CardContent>
           </Card>
 

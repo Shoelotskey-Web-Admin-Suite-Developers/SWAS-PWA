@@ -42,8 +42,8 @@ def parse_args():
     p.add_argument('--line-items', required=False)
     p.add_argument('--payments', required=False)
     p.add_argument('--customers', required=False)
-    p.add_argument('--cleaned', required=False, help='Path to cleaned_transactions_revenue.csv (date_time,transaction_id,revenue,branch_id)')
-    p.add_argument('--out', default='daily_revenue.json')
+    p.add_argument('--cleaned', required=False, default='output/cleaned_transactions_revenue.csv', help='Path to cleaned_transactions_revenue.csv (date_time,transaction_id,revenue,branch_id)')
+    p.add_argument('--out', default='output/daily_revenue.json')
     return p.parse_args()
 
 

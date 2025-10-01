@@ -99,6 +99,10 @@ export default function Payments() {
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null)
   const [paymentsForSelected, setPaymentsForSelected] = useState<Array<{ payment_id: string; payment_amount: number; payment_mode?: string; payment_date?: string }>>([])
   const [selectedLineItemId, setSelectedLineItemId] = useState<string | null>(null)
+  
+  // Loading states for payment operations
+  const [isSavingPayment, setIsSavingPayment] = useState(false)
+  const [isConfirmingPayment, setIsConfirmingPayment] = useState(false)
 
   // Build lookup maps for service prices (service_id -> price)
   const servicePriceByName = useMemo(() => {
@@ -139,28 +143,57 @@ export default function Payments() {
           /* ignore */
         }
 
-        // For each distinct transaction id in lineItems fetch transaction and map
-        const txIds = Array.from(new Set((lineItems || []).map((li: any) => li.transaction_id)))
-        console.debug("Payments page: txIds count=", txIds.length, txIds.slice(0, 20))
+        // Handle case where no line items are returned
+        if (!lineItems || !Array.isArray(lineItems) || lineItems.length === 0) {
+          console.debug("Payments page: No line items found, setting empty requests array")
+          if (mounted) {
+            setFetchedRequests([])
+          }
+          return
+        }
+
+        // Group line items by transaction ID to avoid duplicate API calls
+        const txGroups = new Map<string, any[]>()
+        lineItems.forEach((li: any) => {
+          const txId = li.transaction_id
+          if (!txGroups.has(txId)) {
+            txGroups.set(txId, [])
+          }
+          txGroups.get(txId)!.push(li)
+        })
+
+        console.debug("Payments page: unique transactions count=", txGroups.size)
 
         const requests: Request[] = []
 
-        for (const txId of txIds) {
+        for (const [txId, txLineItems] of txGroups.entries()) {
           try {
-            const txData = await getTransactionById(String(txId))
-            const transaction = txData.transaction
-            const customer = txData.customer
-            const txLineItems = txData.lineItems || []
+            // Use pre-loaded transaction data if available, otherwise fetch
+            const firstItem = txLineItems[0]
+            let transaction, customer, fullLineItems
+            
+            if (firstItem._transaction) {
+              // Use pre-loaded data (much faster)
+              transaction = firstItem._transaction
+              customer = firstItem._customer
+              fullLineItems = txLineItems
+            } else {
+              // Fallback to API call if needed
+              const txData = await getTransactionById(String(txId))
+              transaction = txData.transaction
+              customer = txData.customer
+              fullLineItems = txData.lineItems || []
+            }
 
             // Diagnostic: log raw lineItems for this transaction
             try {
-              console.debug('Payments page: txLineItems for', txId, txLineItems.map((li: any) => ({ line_item_id: li.line_item_id, services: li.services })))
+              console.debug('Payments page: txLineItems for', txId, fullLineItems.map((li: any) => ({ line_item_id: li.line_item_id, services: li.services })))
             } catch (e) {}
 
             // Map server line items to local Shoe[] style
             // Also compute storage fee per line item using computePickupAllowance
             let storageFeeTotal = 0
-            const shoes: Shoe[] = txLineItems.map((li: any) => {
+            const shoes: Shoe[] = fullLineItems.map((li: any) => {
               // li.services is an array of { service_id, quantity }
               const servicesNames: string[] = []
               ;(li.services || []).forEach((s: any) => {
@@ -189,7 +222,7 @@ export default function Payments() {
 
             // compute storage fee using helper
             try {
-              storageFeeTotal = computeStorageFeeFromLineItems(txLineItems)
+              storageFeeTotal = computeStorageFeeFromLineItems(fullLineItems)
             } catch (e) {
               console.debug('Failed computing storage fees', e)
             }
@@ -246,6 +279,17 @@ export default function Payments() {
         }
       } catch (err) {
         console.error("Error loading payments data:", err)
+        
+        // If it's the "No line items found" error, set empty array instead of showing error
+        if (err instanceof Error && err.message.includes("No line items found")) {
+          console.debug("Payments page: Handling 'No line items found' - setting empty requests")
+          if (mounted) {
+            setFetchedRequests([])
+          }
+        } else {
+          // For other errors, show a user-friendly message but don't break the UI
+          console.error("Failed to load payment data. The system may be empty or there could be a connection issue.")
+        }
       }
       finally {
         if (mounted) setLoading(false)
@@ -405,6 +449,8 @@ export default function Payments() {
       toast.error("Customer paid is less than due now.")
       return
     }
+    
+    setIsSavingPayment(true)
     try {
       const txId = selectedRequest?.receiptId
       if (!txId) throw new Error("No selected transaction")
@@ -656,6 +702,8 @@ export default function Payments() {
     } catch (err) {
       console.error(err)
       toast.error(`Failed to save payment: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setIsSavingPayment(false)
     }
   }
 
@@ -720,6 +768,8 @@ export default function Payments() {
         return
       }
     }
+    
+    setIsConfirmingPayment(true)
     try {
       const txId = selectedRequest?.receiptId
       if (!txId) throw new Error("No selected transaction")
@@ -953,6 +1003,8 @@ export default function Payments() {
     } catch (err) {
       console.error(err)
       toast.error(`Failed to confirm payment: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setIsConfirmingPayment(false)
     }
   }
 
@@ -1016,6 +1068,15 @@ export default function Payments() {
               <div className="mt-6 overflow-x-auto payment-table">
                 {loading ? (
                   <div className="p-4 text-center text-gray-600">Loading payments...</div>
+                ) : filteredRequests.length === 0 ? (
+                  <div className="p-8 text-center text-gray-500">
+                    <div className="mb-2">No payment requests found</div>
+                    <div className="text-sm">
+                      {fetchedRequests.length === 0 
+                        ? "There are no pending transactions in the system."
+                        : "Try adjusting your search criteria."}
+                    </div>
+                  </div>
                 ) : (
                     <PaymentsTable
                     requests={filteredRequests}
@@ -1295,8 +1356,16 @@ export default function Payments() {
                   onClick={() =>
                     paymentOnly ? handleSavePaymentOnly() : handleConfirmPayment()
                   }
+                  disabled={isSavingPayment || isConfirmingPayment}
                 >
-                  {paymentOnly ? "Save Payment" : "Save & Mark as Picked Up"}
+                  {isSavingPayment || isConfirmingPayment ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      {paymentOnly || isSavingPayment ? "Saving Payment..." : "Confirming Payment..."}
+                    </div>
+                  ) : (
+                    paymentOnly ? "Save Payment" : "Save & Mark as Picked Up"
+                  )}
                 </Button>
               </div>
             )}

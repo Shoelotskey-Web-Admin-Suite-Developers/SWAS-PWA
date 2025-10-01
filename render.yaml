@@ -1,0 +1,40 @@
+services:
+  # Main web service (your Node.js/Express server)
+  - type: web
+    name: swas-pwa-server
+    env: node
+    plan: starter
+    buildCommand: cd server && npm install && npm run build
+    startCommand: cd server && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+    # Add your environment variables here
+    # - key: DATABASE_URL
+    #   fromDatabase:
+    #     name: your-database-name
+    #     property: connectionString
+
+  # Cron job for daily analytics
+  - type: cron
+    name: daily-analytics-cron
+    env: python
+    plan: starter
+    schedule: "0 17 * * *"  # Run at 5:00 PM UTC daily
+    buildCommand: cd server && pip install -r requirements.txt
+    startCommand: cd server/scripts && bash run_daily_analytics_render.sh
+    envVars:
+      - key: PYTHONPATH
+        value: /opt/render/project/src/server
+    # Add your Python environment variables here
+    # - key: DATABASE_URL
+    #   fromDatabase:
+    #     name: your-database-name
+    #     property: connectionString
+
+  # Static site for your React client (optional)
+  - type: static
+    name: swas-pwa-client
+    buildCommand: cd client && npm install && npm run build
+    staticPublishPath: client/dist
+    # Add client environment variables here if needed
