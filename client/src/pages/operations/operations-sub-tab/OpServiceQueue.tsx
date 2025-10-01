@@ -258,12 +258,37 @@ export default function OpServiceQueue() {
 
   const hiddenColumns = getHiddenColumns();
 
+  // Add this new function to handle "select all" functionality
+  const toggleSelectAll = () => {
+    if (selected.length === rows.length) {
+      // If all rows are selected, unselect all
+      setSelected([]);
+    } else {
+      // Otherwise, select all rows
+      setSelected(rows.map(row => row.lineItemId));
+    }
+    setLastIndex(null);
+  };
+
   return (
     <div className="op-container">
       <Table className="op-table">
         <TableHeader className="op-header">
           <TableRow className="op-header-row">
-            <TableCell className="op-head-action"></TableCell>
+            <TableCell className="op-head-action">
+              <input
+                type="checkbox"
+                checked={rows.length > 0 && selected.length === rows.length}
+                ref={(checkbox) => {
+                  if (checkbox) {
+                    // Set indeterminate state when some but not all rows are selected
+                    checkbox.indeterminate = selected.length > 0 && selected.length < rows.length;
+                  }
+                }}
+                onChange={toggleSelectAll}
+                disabled={rows.length === 0}
+              />
+            </TableCell>
             <TableHead className="op-head-transact"><h5>Line Item ID</h5></TableHead>
             <TableHead className="op-head-date"><h5>Date</h5></TableHead>
             <TableHead className="op-head-customer"><h5>Customer</h5></TableHead>

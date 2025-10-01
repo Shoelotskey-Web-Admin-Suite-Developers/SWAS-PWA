@@ -129,6 +129,19 @@ export default function OpReadyDelivery({ readOnly = false }) {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // Select all functionality
+  const isAllSelected = rows.length > 0 && selected.length === rows.length;
+  const isIndeterminate = selected.length > 0 && selected.length < rows.length;
+
+  const handleSelectAll = () => {
+    if (isAllSelected) {
+      setSelected([]);
+    } else {
+      setSelected(rows.map(row => row.lineItemId));
+    }
+    setLastIndex(null);
+  };
+
   // Disable selection logic if readOnly
   const handleRowClick = readOnly ? undefined : (
     e: React.MouseEvent,
@@ -272,7 +285,18 @@ export default function OpReadyDelivery({ readOnly = false }) {
       <Table className="op-table">
         <TableHeader className="op-header">
           <TableRow className="op-header-row">
-            <TableCell className="op-head-action"></TableCell>
+            <TableCell className="op-head-action">
+              {!readOnly && (
+                <input
+                  type="checkbox"
+                  checked={isAllSelected}
+                  ref={(input) => {
+                    if (input) input.indeterminate = isIndeterminate;
+                  }}
+                  onChange={handleSelectAll}
+                />
+              )}
+            </TableCell>
             <TableHead className="op-head-transact"><h5>Line Item ID</h5></TableHead>
             <TableHead className="op-head-date"><h5>Date</h5></TableHead>
             <TableHead className="op-head-customer"><h5>Customer</h5></TableHead>
