@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import '@/styles/components/branchStorage.css'
 import { Card, CardContent } from '@/components/ui/card'
 import {
@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/carousel"
 import { getLineItemsByBranch } from '@/utils/api/getLineItemsByBranch';
 import { getLineItemsByLocation } from '@/utils/api/getLineItemsByLocation';
+import { useLineItemUpdates } from '@/hooks/useLineItemUpdates';
 
 type BranchData = {
   name: string;
@@ -26,61 +27,97 @@ type WarehouseData = {
 const BRANCH_MAX_CAPACITY = 75;
 const WAREHOUSE_MAX_CAPACITY = 250;
 
+// Define branch IDs outside component to avoid recreations
+const BRANCH_CONFIG = [
+  { name: "SM Grand", branchId: "SMGRA-B-NCR" },
+  { name: "SM Valenzuela", branchId: "SMVAL-B-NCR" },
+  { name: "Valenzuela", branchId: "VAL-B-NCR" },
+];
+
 export default function BranchStorage() {
-  const [branchData, setBranchData] = useState<BranchData[]>([
-    { name: "SM Grand", branchId: "SMGRA-B-NCR", shoeCount: 0, storageLeft: 100 },
-    { name: "SM Valenzuela", branchId: "SMVAL-B-NCR", shoeCount: 0, storageLeft: 100 },
-    { name: "Valenzuela", branchId: "VAL-B-NCR", shoeCount: 0, storageLeft: 100 },
-  ]);
+  const [branchData, setBranchData] = useState<BranchData[]>(
+    BRANCH_CONFIG.map(branch => ({
+      ...branch,
+      shoeCount: 0,
+      storageLeft: 100
+    }))
+  );
   const [warehouseData, setWarehouseData] = useState<WarehouseData>({
     shoeCount: 0,
     storageLeft: 100,
   });
   const [loading, setLoading] = useState(true);
+  
+  // Use our socket hook to get real-time updates
+  const { changes } = useLineItemUpdates();
 
+  // Function to fetch all storage data - remove branchData from dependencies
+  const fetchStorageData = useCallback(async () => {
+    try {
+      setLoading(true);
+
+      // Fetch data for all branches using fixed BRANCH_CONFIG instead of state
+      const branchPromises = BRANCH_CONFIG.map(async (branch) => {
+        // Get all items assigned to this branch
+        const items = await getLineItemsByBranch(branch.branchId);
+        
+        // Only count items that BOTH:
+        // 1. Have the correct branch ID (already filtered by API)
+        // 2. Are physically located at the branch (current_location === "Branch")
+        const itemsPhysicallyAtBranch = items.filter(item => 
+          item.branch_id === branch.branchId && 
+          item.current_location === "Branch"
+        );
+        
+        const shoeCount = itemsPhysicallyAtBranch.length;
+        const storageLeft = Math.round(((BRANCH_MAX_CAPACITY - shoeCount) / BRANCH_MAX_CAPACITY) * 100);
+        
+        return {
+          ...branch,
+          shoeCount,
+          storageLeft: Math.max(0, storageLeft), // Ensure it doesn't go below 0
+        };
+      });
+
+      // Fetch warehouse data - only count items that are physically at the Hub
+      const warehouseItems = await getLineItemsByLocation("Hub");
+      const warehouseShoeCount = warehouseItems.length;
+      const warehouseStorageLeft = Math.round(((WAREHOUSE_MAX_CAPACITY - warehouseShoeCount) / WAREHOUSE_MAX_CAPACITY) * 100);
+
+      // Update state
+      const updatedBranchData = await Promise.all(branchPromises);
+      setBranchData(updatedBranchData);
+      setWarehouseData({
+        shoeCount: warehouseShoeCount,
+        storageLeft: Math.max(0, warehouseStorageLeft), // Ensure it doesn't go below 0
+      });
+
+    } catch (error) {
+      console.error("Error fetching storage data:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []); // Remove branchData from dependencies!
+
+  // Initial data fetch on component mount
   useEffect(() => {
-    const fetchStorageData = async () => {
-      try {
-        setLoading(true);
-
-        // Fetch data for all branches
-        const branchPromises = branchData.map(async (branch) => {
-          const items = await getLineItemsByBranch(branch.branchId);
-          
-          // Only count items that are physically at the branch (current_location = "Branch")
-          const itemsAtBranch = items.filter(item => item.current_location === "Branch");
-          const shoeCount = itemsAtBranch.length;
-          const storageLeft = Math.round(((BRANCH_MAX_CAPACITY - shoeCount) / BRANCH_MAX_CAPACITY) * 100);
-          
-          return {
-            ...branch,
-            shoeCount,
-            storageLeft: Math.max(0, storageLeft), // Ensure it doesn't go below 0
-          };
-        });
-
-        // Fetch warehouse data - only count items that are physically at the Hub
-        const warehouseItems = await getLineItemsByLocation("Hub");
-        const warehouseShoeCount = warehouseItems.length;
-        const warehouseStorageLeft = Math.round(((WAREHOUSE_MAX_CAPACITY - warehouseShoeCount) / WAREHOUSE_MAX_CAPACITY) * 100);
-
-        // Update state
-        const updatedBranchData = await Promise.all(branchPromises);
-        setBranchData(updatedBranchData);
-        setWarehouseData({
-          shoeCount: warehouseShoeCount,
-          storageLeft: Math.max(0, warehouseStorageLeft), // Ensure it doesn't go below 0
-        });
-
-      } catch (error) {
-        console.error("Error fetching storage data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchStorageData();
-  }, []);
+  }, [fetchStorageData]);
+
+  // Add debounce to prevent multiple rapid updates
+  useEffect(() => {
+    if (changes) {
+      console.log("Updating storage data due to line item changes");
+      
+      // Simple debounce implementation
+      const timer = setTimeout(() => {
+        fetchStorageData();
+      }, 300);
+      
+      // Clean up timer
+      return () => clearTimeout(timer);
+    }
+  }, [changes, fetchStorageData]);
 
   const renderBranchStats = (branch: BranchData) => (
     <div className='branch-storage-stats' key={branch.branchId}>

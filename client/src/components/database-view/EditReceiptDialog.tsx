@@ -140,10 +140,10 @@ export function EditReceiptDialog({
   const STATUS_TO_STRING: Record<string, string> = {
     "queued": "Queued",
     "readyForDelivery": "Ready for Delivery",
-    "toWarehouse": "To Warehouse", 
+    "toWarehouse": "Incoming Branch Delivery", 
     "inProcess": "In Process",
-    "returnToBranch": "Return to Branch",
-    "received": "Received",
+    "returnToBranch": "Returning to Branch",
+    "received": "To Pack",
     "readyForPickup": "Ready for Pickup",
     "pickedUp": "Picked Up"
   }

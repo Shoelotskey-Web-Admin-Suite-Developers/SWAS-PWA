@@ -13,8 +13,9 @@ import { getLineItems } from "@/utils/api/getLineItems";
 import { editLineItemStatus } from "@/utils/api/editLineItemStatus";
 import { updateDates } from "@/utils/api/updateDates";
 import { useLineItemUpdates } from "@/hooks/useLineItemUpdates";
-import { toast, Toaster } from "sonner";
+import { toast } from "sonner";
 import { getUpdateColor } from "@/utils/getUpdateColor";
+import { getCustomerName } from "@/utils/api/getCustomerName";
 
 type Branch = "Valenzuela" | "SM Valenzuela" | "SM Grand";
 type Location = "Branch" | "Hub" | "To Branch" | "To Hub";
@@ -22,7 +23,8 @@ type Location = "Branch" | "Hub" | "To Branch" | "To Hub";
 type Row = {
   lineItemId: string; // updated
   date: Date;
-  customer: string;
+  customerId: string;
+  customerName: string | null;
   shoe: string;
   service: string;
   branch: Branch;
@@ -33,6 +35,18 @@ type Row = {
   updated: Date;
 };
 
+const SERVICE_ID_TO_NAME: Record<string, string> = {
+  "SERVICE-1": "Basic Cleaning",
+  "SERVICE-2": "Minor Reglue",
+  "SERVICE-3": "Full Reglue",
+  "SERVICE-4": "Unyellowing",
+  "SERVICE-5": "Minor Retouch",
+  "SERVICE-6": "Minor Restoration",
+  "SERVICE-7": "Additional Layer",
+  "SERVICE-8": "Color Renewal (2 colors)",
+  "SERVICE-9": "Color Renewal (3 colors)",
+};
+
 export default function OpServiceQueue() {
   const [rows, setRows] = useState<Row[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
@@ -40,6 +54,7 @@ export default function OpServiceQueue() {
   const [expanded, setExpanded] = useState<string[]>([]);
   const [windowWidth, setWindowWidth] = useState<number>(window.innerWidth);
   const [modalOpen, setModalOpen] = useState(false);
+  const [customerNames, setCustomerNames] = useState<Record<string, string | null>>({});
   
   const { changes } = useLineItemUpdates();
 
@@ -47,9 +62,10 @@ export default function OpServiceQueue() {
   const mapItem = (item: any): Row => ({
     lineItemId: item.line_item_id,
     date: new Date(item.latest_update),
-    customer: item.cust_id,
+    customerId: item.cust_id,
+    customerName: customerNames[item.cust_id] || null,
     shoe: item.shoes,
-    service: item.service_id,
+    service: item.services?.map((s: any) => SERVICE_ID_TO_NAME[s.service_id] || s.service_id).join(", ") || "",
     branch: item.branch_id as Branch,
     Location: item.current_location as Location,
     status: item.current_status,
@@ -63,14 +79,42 @@ export default function OpServiceQueue() {
   const sortByDueDate = (items: Row[]) =>
     [...items].sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
 
+  // Fetch customer names for all displayed rows
+  const fetchCustomerNames = async (items: Row[]) => {
+    const uniqueCustomerIds = [...new Set(items.map(item => item.customerId))];
+    const newCustomerNames: Record<string, string | null> = {...customerNames};
+    
+    await Promise.all(uniqueCustomerIds.map(async (custId) => {
+      // Skip already fetched names
+      if (newCustomerNames[custId] !== undefined) return;
+      
+      const name = await getCustomerName(custId);
+      newCustomerNames[custId] = name;
+    }));
+    
+    setCustomerNames(newCustomerNames);
+  };
+
   // Fetch line items from API -- Initial fetch
   useEffect(() => {
     const fetchData = async () => {
       const data = await getLineItems("Queued");
-      setRows(sortByDueDate(mapItems(data)));
+      const mappedItems = mapItems(data);
+      setRows(sortByDueDate(mappedItems));
+      
+      // Fetch customer names
+      fetchCustomerNames(mappedItems);
     };
     fetchData();
   }, []);
+
+  // Update rows when customer names are fetched
+  useEffect(() => {
+    setRows(prev => prev.map(row => ({
+      ...row,
+      customerName: customerNames[row.customerId] || null
+    })));
+  }, [customerNames]);
 
   // Handle realtime DB changes
   useEffect(() => {
@@ -85,12 +129,25 @@ export default function OpServiceQueue() {
           const exists = prev.find((r) => r.lineItemId === item.line_item_id);
           if (exists) {
             // Update existing
+            const updatedRow = mapItem(item);
             return prev.map((r) =>
-              r.lineItemId === item.line_item_id ? mapItem(item) : r
+              r.lineItemId === item.line_item_id ? updatedRow : r
             );
           }
           // Insert new queued item
-          return [...prev, mapItem(item)];
+          const newRow = mapItem(item);
+          
+          // Fetch customer name if needed
+          if (!customerNames[item.cust_id]) {
+            getCustomerName(item.cust_id).then(name => {
+              setCustomerNames(prev => ({
+                ...prev,
+                [item.cust_id]: name
+              }));
+            });
+          }
+          
+          return [...prev, newRow];
         });
       } else {
         // Remove item if it's no longer queued
@@ -185,7 +242,9 @@ export default function OpServiceQueue() {
                 </TableCell>
                 <TableCell className={`op-body-transact ${getUpdateColor(row.updated)}`}><h5>{row.lineItemId}</h5></TableCell>
                 <TableCell className={`op-body-date ${getUpdateColor(row.updated)}`}><small>{row.date.toLocaleDateString()}</small></TableCell>
-                <TableCell className={`op-body-customer ${getUpdateColor(row.updated)}`}><small>{row.customer}</small></TableCell>
+                <TableCell className={`op-body-customer ${getUpdateColor(row.updated)}`}>
+                  <small>{row.customerName || row.customerId}</small>
+                </TableCell>
                 <TableCell className={`op-body-shoe ${getUpdateColor(row.updated)}`}><small>{row.shoe}</small></TableCell>
                 <TableCell className={`op-body-service ${getUpdateColor(row.updated)}`}><small>{row.service}</small></TableCell>
                 <TableCell className={`op-body-branch ${getUpdateColor(row.updated)}`}><small>{row.branch}</small></TableCell>
@@ -219,7 +278,9 @@ export default function OpServiceQueue() {
                   <TableCell colSpan={12} className="op-dropdown-cell">
                     <div className="op-dropdown-card">
                       {hiddenColumns.includes("Date") && (<div><h5>Date</h5> {row.date.toLocaleDateString()}</div>)}
-                      {hiddenColumns.includes("Customer") && (<div><h5>Customer</h5> {row.customer}</div>)}
+                      {hiddenColumns.includes("Customer") && (
+                        <div><h5>Customer</h5> {row.customerName || row.customerId}</div>
+                      )}
                       {hiddenColumns.includes("Shoe") && (<div><h5>Shoe</h5> {row.shoe}</div>)}
                       {hiddenColumns.includes("Service") && (<div><h5>Service</h5> {row.service}</div>)}
                       {hiddenColumns.includes("Branch") && (<div><h5>Branch</h5> {row.branch}</div>)}

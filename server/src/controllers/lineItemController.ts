@@ -1,6 +1,7 @@
 // src/controllers/lineItemController.ts
 import { Request, Response } from "express";
 import { LineItem } from "../models/LineItem";
+import { sendPushNotification } from "../utils/pushNotifications";
 
 // GET /line-items/status/:status
 export const getLineItemsByStatus = async (req: Request, res: Response) => {
@@ -133,6 +134,65 @@ export const updateLineItemStatus = async (req: Request, res: Response) => {
 
     if (result.matchedCount === 0) {
       return res.status(404).json({ message: "No line items found to update" });
+    }
+
+    // Send push notifications if status is "Ready for Pickup"
+    if (new_status === "Ready for Pickup") {
+      try {
+        // Find the updated line items to get customer details
+        const lineItems = await LineItem.find({ line_item_id: { $in: line_item_ids } });
+        
+        // Group items by customer for consolidated notifications
+        const customerItems = new Map<string, any[]>();
+        
+        lineItems.forEach(item => {
+          if (item.cust_id) {
+            if (!customerItems.has(item.cust_id)) {
+              customerItems.set(item.cust_id, []);
+            }
+            customerItems.get(item.cust_id)?.push(item);
+          }
+        });
+        
+        // Send notifications to each customer
+        for (const [custId, items] of customerItems.entries()) {
+          // Only proceed if we have a customer ID
+          if (custId) {
+            const shoesCount = items.length;
+            const notificationTitle = "Your Shoes Are Ready for Pickup";
+            const notificationBody = shoesCount === 1 
+              ? `You can now collect your ${items[0].shoes || 'item'} at the shop!` 
+              : `${shoesCount} items are ready for pickup!`;
+            
+            const notificationData = {
+              type: "pickup_ready",
+              lineItemIds: items.map(item => item.line_item_id),
+              count: shoesCount
+            };
+            
+            // Send push notification (non-blocking)
+            try {
+              const pushResult = await sendPushNotification(
+                custId,
+                notificationTitle,
+                notificationBody,
+                notificationData
+              );
+              
+              if (!pushResult.success) {
+                console.warn(`Push notification failed for customer ${custId}:`, pushResult.error);
+              } else {
+                console.log(`Push notification sent successfully to customer ${custId} for ${shoesCount} items`);
+              }
+            } catch (notifError) {
+              console.error(`Error sending push notification to customer ${custId}:`, notifError);
+            }
+          }
+        }
+      } catch (notificationError) {
+        // Log but don't fail the status update if notifications have issues
+        console.error("Error sending ready-for-pickup notifications:", notificationError);
+      }
     }
 
     res.status(200).json({ message: `${result.modifiedCount} line item(s) updated to "${new_status}"` });

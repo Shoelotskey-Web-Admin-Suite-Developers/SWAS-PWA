@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "531509605486",
+    "project_id": "shoelotskey-web-admin-suite",
+    "storage_bucket": "shoelotskey-web-admin-suite.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:531509605486:android:51ee73937fcc322b88e27f",
+        "android_client_info": {
+          "package_name": "com.swas_mobile_app.SWASMobileApp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyACdQ00PrIq3cw0COFY9jf1Azo2d13cVhQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

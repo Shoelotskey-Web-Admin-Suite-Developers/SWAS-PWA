@@ -11,8 +11,21 @@ import {
 import { getLineItems } from "@/utils/api/getLineItems";
 import { getCustomerContact } from "@/utils/api/getCustomerContact";
 import { getPaymentStatus } from "@/utils/api/getPaymentStatus";
-import { computePickupAllowance } from "@/utils/computePickupAllowance"; // <-- import helper
+import { computePickupAllowance } from "@/utils/computePickupAllowance";
 import { getUpdateColor } from "@/utils/getUpdateColor";
+import { getCustomerName } from "@/utils/api/getCustomerName";
+
+const SERVICE_ID_TO_NAME: Record<string, string> = {
+  "SERVICE-1": "Basic Cleaning",
+  "SERVICE-2": "Minor Reglue",
+  "SERVICE-3": "Full Reglue",
+  "SERVICE-4": "Unyellowing",
+  "SERVICE-5": "Minor Retouch",
+  "SERVICE-6": "Minor Restoration",
+  "SERVICE-7": "Additional Layer",
+  "SERVICE-8": "Color Renewal (2 colors)",
+  "SERVICE-9": "Color Renewal (3 colors)",
+};
 
 type Branch = "Valenzuela" | "SM Valenzuela" | "SM Grand";
 type Location = "Branch" | "Hub" | "To Branch" | "To Hub";
@@ -20,7 +33,8 @@ type Location = "Branch" | "Hub" | "To Branch" | "To Hub";
 type Row = {
   lineItemId: string;
   date: Date;
-  customer: string;
+  customerId: string; // Changed from customer
+  customerName: string | null; // Added
   shoe: string;
   service: string;
   branch: Branch;
@@ -36,6 +50,23 @@ export default function OpPickup() {
   const [lastIndex, setLastIndex] = useState<number | null>(null);
   const [expanded, setExpanded] = useState<string[]>([]);
   const [windowWidth, setWindowWidth] = useState<number>(window.innerWidth);
+  const [customerNames, setCustomerNames] = useState<Record<string, string | null>>({});
+
+  // Fetch customer names for all displayed rows
+  const fetchCustomerNames = async (items: Row[]) => {
+    const uniqueCustomerIds = [...new Set(items.map(item => item.customerId))];
+    const newCustomerNames: Record<string, string | null> = {...customerNames};
+    
+    await Promise.all(uniqueCustomerIds.map(async (custId) => {
+      // Skip already fetched names
+      if (newCustomerNames[custId] !== undefined) return;
+      
+      const name = await getCustomerName(custId);
+      newCustomerNames[custId] = name;
+    }));
+    
+    setCustomerNames(newCustomerNames);
+  };
 
   useEffect(() => {
     const fetchRows = async () => {
@@ -57,10 +88,12 @@ export default function OpPickup() {
           return {
             lineItemId: item.line_item_id,
             date: new Date(item.latest_update),
-            customer: item.cust_id,
+            customerId: item.cust_id, // Changed from customer to customerId
+            customerName: null, // Will be populated later
             shoe: item.shoes,
+            // Updated service mapping to use friendly names
             service: Array.isArray(item.services) && item.services.length > 0
-              ? item.services.map((s: any) => s.service_id).join(", ")
+              ? item.services.map((s: any) => SERVICE_ID_TO_NAME[s.service_id] || s.service_id).join(", ")
               : "",
             branch: item.branch_id as Branch,
             pickupNotice,
@@ -71,9 +104,20 @@ export default function OpPickup() {
         })
       );
       setRows(mappedRows);
+      
+      // Fetch customer names
+      fetchCustomerNames(mappedRows);
     };
     fetchRows();
   }, []);
+  
+  // Update rows when customer names are fetched
+  useEffect(() => {
+    setRows(prev => prev.map(row => ({
+      ...row,
+      customerName: customerNames[row.customerId] || null
+    })));
+  }, [customerNames]);
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -148,7 +192,9 @@ export default function OpPickup() {
               >
                 <TableCell className={`op-pu-body-transact ${getUpdateColor(row.date)}`}><h5>{row.lineItemId}</h5></TableCell>
                 <TableCell className={`op-pu-body-date ${getUpdateColor(row.date)}`}><small>{row.date.toLocaleDateString()}</small></TableCell>
-                <TableCell className={`op-pu-body-customer ${getUpdateColor(row.date)}`}><small>{row.customer}</small></TableCell>
+                <TableCell className={`op-pu-body-customer ${getUpdateColor(row.date)}`}>
+                  <small>{row.customerName || row.customerId}</small>
+                </TableCell>
                 <TableCell className={`op-pu-body-shoe ${getUpdateColor(row.date)}`}><small>{row.shoe}</small></TableCell>
                 <TableCell className={`op-pu-body-service ${getUpdateColor(row.date)}`}><small>{row.service}</small></TableCell>
                 <TableCell className={`op-pu-body-branch ${getUpdateColor(row.date)}`}><small>{row.branch}</small></TableCell>
@@ -206,7 +252,7 @@ export default function OpPickup() {
                         <div><h5 className="label">Date</h5> <h5 className="name">{row.date.toLocaleDateString()}</h5></div>
                       )}
                       {hiddenColumns.includes("Customer") && (
-                        <div><h5 className="label">Customer</h5> <h5 className="name">{row.customer}</h5></div>
+                        <div><h5 className="label">Customer</h5> <h5 className="name">{row.customerName || row.customerId}</h5></div>
                       )}
                       {hiddenColumns.includes("Shoe") && (
                         <div><h5 className="label">Shoe</h5> <h5 className="name">{row.shoe}</h5></div>

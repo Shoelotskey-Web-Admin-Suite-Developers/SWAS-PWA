@@ -16,6 +16,7 @@ import { getLineItems } from "@/utils/api/getLineItems";
 import { editLineItemStatus } from "@/utils/api/editLineItemStatus";
 import { getUpdateColor } from "@/utils/getUpdateColor";
 import { updateDates } from "@/utils/api/updateDates";
+import { getCustomerName } from "@/utils/api/getCustomerName";
 
 type Branch = "Valenzuela" | "SM Valenzuela" | "SM Grand";
 type Location = "Branch" | "Hub" | "To Branch" | "To Hub";
@@ -32,7 +33,21 @@ type Row = {
   isRush: boolean;
   dueDate: Date;  
   updated: Date;
+  customerId: string;
+  customerName: string | null;
 };
+
+const SERVICE_ID_TO_NAME: Record<string, string> = {
+  "SERVICE-1": "Basic Cleaning",
+  "SERVICE-2": "Minor Reglue",
+  "SERVICE-3": "Full Reglue",
+  "SERVICE-4": "Unyellowing",
+  "SERVICE-5": "Minor Retouch",
+  "SERVICE-6": "Minor Restoration",
+  "SERVICE-7": "Additional Layer",
+  "SERVICE-8": "Color Renewal (2 colors)",
+  "SERVICE-9": "Color Renewal (3 colors)",
+}
 
 export default function OpInStore() {
   const [rows, setRows] = useState<Row[]>([]);
@@ -41,6 +56,7 @@ export default function OpInStore() {
   const [expanded, setExpanded] = useState<string[]>([]); 
   const [windowWidth, setWindowWidth] = useState<number>(window.innerWidth);
   const [modalOpen, setModalOpen] = useState(false);
+  const [customerNames, setCustomerNames] = useState<Record<string, string | null>>({});
 
   // --- helpers ---
   const mapItem = (item: any): Row => ({
@@ -48,13 +64,15 @@ export default function OpInStore() {
     date: new Date(item.latest_update),
     customer: item.cust_id,
     shoe: item.shoes,
-    service: item.service_id,
+    service: item.services?.map((s: any) => SERVICE_ID_TO_NAME[s.service_id] || s.service_id).join(", ") || "",
     branch: item.branch_id as Branch,
     Location: item.current_location as Location,
     status: item.current_status,
     isRush: item.priority === "Rush",
     dueDate: item.due_date ? new Date(item.due_date) : new Date(),
     updated: new Date(item.latest_update),
+    customerId: item.cust_id,
+    customerName: customerNames[item.cust_id] || null,
   });
 
   const mapItems = (items: any[]): Row[] => items.map(mapItem);
@@ -65,8 +83,12 @@ export default function OpInStore() {
   // Fetch line items from API -- Initial fetch
   useEffect(() => {
     const fetchData = async () => {
-      const data = await getLineItems("To Pack");
-      setRows(sortByDueDate(mapItems(data)));
+      const data = await getLineItems("Queued");
+      const mappedItems = mapItems(data);
+      setRows(sortByDueDate(mappedItems));
+      
+      // Fetch customer names
+      fetchCustomerNames(mappedItems);
     };
     fetchData();
   }, []);
@@ -123,6 +145,30 @@ export default function OpInStore() {
 
   const hiddenColumns = getHiddenColumns();
 
+  // 2. Add fetchCustomerNames helper function
+  const fetchCustomerNames = async (items: Row[]) => {
+    const uniqueCustomerIds = [...new Set(items.map(item => item.customerId))];
+    const newCustomerNames: Record<string, string | null> = {...customerNames};
+    
+    await Promise.all(uniqueCustomerIds.map(async (custId) => {
+      // Skip already fetched names
+      if (newCustomerNames[custId] !== undefined) return;
+      
+      const name = await getCustomerName(custId);
+      newCustomerNames[custId] = name;
+    }));
+    
+    setCustomerNames(newCustomerNames);
+  };
+
+  // 4. Update rows when customer names are fetched
+  useEffect(() => {
+    setRows(prev => prev.map(row => ({
+      ...row,
+      customerName: customerNames[row.customerId] || null
+    })));
+  }, [customerNames]);
+
   return (
     <div className="op-container">
       <Table className="op-table">
@@ -162,7 +208,9 @@ export default function OpInStore() {
                 </TableCell>
                 <TableCell className={`op-body-transact ${getUpdateColor(row.updated)}`}><h5>{row.lineItemId}</h5></TableCell>
                 <TableCell className={`op-body-date ${getUpdateColor(row.updated)}`}><small>{row.date.toLocaleDateString()}</small></TableCell>
-                <TableCell className={`op-body-customer ${getUpdateColor(row.updated)}`}><small>{row.customer}</small></TableCell>
+                <TableCell className={`op-body-customer ${getUpdateColor(row.updated)}`}>
+                  <small>{row.customerName || row.customerId}</small>
+                </TableCell>
                 <TableCell className={`op-body-shoe ${getUpdateColor(row.updated)}`}><small>{row.shoe}</small></TableCell>
                 <TableCell className={`op-body-service ${getUpdateColor(row.updated)}`}><small>{row.service}</small></TableCell>
                 <TableCell className={`op-body-branch ${getUpdateColor(row.updated)}`}><small>{row.branch}</small></TableCell>
@@ -198,7 +246,7 @@ export default function OpInStore() {
                         <div><h5 className="label">Date</h5> <h5 className="name">{row.date.toLocaleDateString()}</h5></div>
                       )}
                       {hiddenColumns.includes("Customer") && (
-                        <div><h5 className="label">Customer</h5> <h5 className="name">{row.customer}</h5></div>
+                        <div><h5 className="label">Customer</h5> <h5 className="name">{row.customerName || row.customerId}</h5></div>
                       )}
                       {hiddenColumns.includes("Shoe") && (
                         <div><h5 className="label">Shoe</h5> <h5 className="name">{row.shoe}</h5></div>
@@ -269,7 +317,7 @@ export default function OpInStore() {
               );
               setSelected([]);
               setModalOpen(false);
-              toast.success("Selected items marked as Ready for Pickup!");
+              toast.success("Pickup notifications were successfully sent to customers.");
             } catch (error) {
               console.error("Failed to update line items status:", error);
               toast.error("Failed to update items. Please try again.");

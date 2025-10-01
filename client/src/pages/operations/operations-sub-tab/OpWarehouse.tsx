@@ -1,6 +1,7 @@
 // src/components/OpWarehouse.tsx
 import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { getCustomerName } from "@/utils/api/getCustomerName";
 
 import {
   Table,
@@ -32,7 +33,8 @@ type Location = "Branch" | "Hub" | "To Branch" | "To Hub";
 type Row = {
   lineItemId: string;
   date: Date;
-  customer: string;
+  customerId: string; // changed from customer
+  customerName: string | null; // added
   shoe: string;
   service: string;
   branch: Branch;
@@ -45,6 +47,18 @@ type Row = {
   after_img?: string | null;
 };
 
+const SERVICE_ID_TO_NAME: Record<string, string> = {
+  "SERVICE-1": "Basic Cleaning",
+  "SERVICE-2": "Minor Reglue",
+  "SERVICE-3": "Full Reglue",
+  "SERVICE-4": "Unyellowing",
+  "SERVICE-5": "Minor Retouch",
+  "SERVICE-6": "Minor Restoration",
+  "SERVICE-7": "Additional Layer",
+  "SERVICE-8": "Color Renewal (2 colors)",
+  "SERVICE-9": "Color Renewal (3 colors)",
+}
+
 export default function OpWarehouse() {
   const [rows, setRows] = useState<Row[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
@@ -54,14 +68,16 @@ export default function OpWarehouse() {
   const [modalOpen, setModalOpen] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [activeLineItemId, setActiveLineItemId] = useState<string | null>(null);
+  const [customerNames, setCustomerNames] = useState<Record<string, string | null>>({});
 
   // --- helpers ---
   const mapItem = (item: any): Row => ({
     lineItemId: item.line_item_id,
     date: new Date(item.latest_update),
-    customer: item.cust_id,
+    customerId: item.cust_id,
+    customerName: customerNames[item.cust_id] || null,
     shoe: item.shoes,
-    service: item.service_id,
+    service: item.services?.map((s: any) => SERVICE_ID_TO_NAME[s.service_id] || s.service_id).join(", ") || "",
     branch: item.branch_id as Branch,
     Location: item.current_location as Location,
     status: item.current_status,
@@ -77,14 +93,42 @@ export default function OpWarehouse() {
   const sortByDueDate = (items: Row[]) =>
     [...items].sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
 
+  // Fetch customer names for all displayed rows
+  const fetchCustomerNames = async (items: Row[]) => {
+    const uniqueCustomerIds = [...new Set(items.map(item => item.customerId))];
+    const newCustomerNames: Record<string, string | null> = {...customerNames};
+    
+    await Promise.all(uniqueCustomerIds.map(async (custId) => {
+      // Skip already fetched names
+      if (newCustomerNames[custId] !== undefined) return;
+      
+      const name = await getCustomerName(custId);
+      newCustomerNames[custId] = name;
+    }));
+    
+    setCustomerNames(newCustomerNames);
+  };
+
   // Fetch line items from API -- Initial fetch
   useEffect(() => {
     const fetchData = async () => {
       const data = await getLineItems("In Process");
-      setRows(sortByDueDate(mapItems(data)));
+      const mappedItems = mapItems(data);
+      setRows(sortByDueDate(mappedItems));
+      
+      // Fetch customer names
+      fetchCustomerNames(mappedItems);
     };
     fetchData();
   }, []);
+
+  // Update rows when customer names are fetched
+  useEffect(() => {
+    setRows(prev => prev.map(row => ({
+      ...row,
+      customerName: customerNames[row.customerId] || null
+    })));
+  }, [customerNames]);
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -193,7 +237,9 @@ export default function OpWarehouse() {
                     </TableCell>
                     <TableCell className={`op-body-transact ${getUpdateColor(row.updated)}`}><h5 className="text-[#000000]">{row.lineItemId}</h5></TableCell>
                     <TableCell className={`op-body-date ${getUpdateColor(row.updated)}`}><small>{row.date.toLocaleDateString()}</small></TableCell>
-                    <TableCell className={`op-body-customer ${getUpdateColor(row.updated)}`}><small>{row.customer}</small></TableCell>
+                    <TableCell className={`op-body-customer ${getUpdateColor(row.updated)}`}>
+                      <small>{row.customerName || row.customerId}</small>
+                    </TableCell>
                     <TableCell className={`op-body-shoe ${getUpdateColor(row.updated)}`}><small>{row.shoe}</small></TableCell>
                     <TableCell className={`op-body-service ${getUpdateColor(row.updated)}`}><small>{row.service}</small></TableCell>
                     <TableCell className={`op-body-branch ${getUpdateColor(row.updated)}`}><small>{row.branch}</small></TableCell>
@@ -249,7 +295,7 @@ export default function OpWarehouse() {
                         <div><h5 className="label">Date</h5> <h5 className="name">{row.date.toLocaleDateString()}</h5></div>
                       )}
                       {hiddenColumns.includes("Customer") && (
-                        <div><h5 className="label">Customer</h5> <h5 className="name">{row.customer}</h5></div>
+                        <div><h5 className="label">Customer</h5> <h5 className="name">{row.customerName || row.customerId}</h5></div>
                       )}
                       {hiddenColumns.includes("Shoe") && (
                         <div><h5 className="label">Shoe</h5> <h5 className="name">{row.shoe}</h5></div>
