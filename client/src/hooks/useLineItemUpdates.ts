@@ -16,30 +16,55 @@ interface ChangeEvent {
 
 export function useLineItemUpdates() {
   const [changes, setChanges] = useState<ChangeEvent | null>(null);
+  const [isConnected, setIsConnected] = useState<boolean>(false);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
   useEffect(() => {
-    const socket: Socket = io(BASE_URL, {
-      transports: ["websocket", "polling"], // allow both
-      withCredentials: true,
-    });
+    let socket: Socket;
+    let reconnectTimer: NodeJS.Timeout;
 
-    socket.on("connect", () => {
-      console.log("🔌 Connected to socket server:", socket.id);
-    });
+    const connectSocket = () => {
+      socket = io(BASE_URL, {
+        transports: ["websocket", "polling"],
+        withCredentials: true,
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+      });
 
-    socket.on("lineItemUpdated", (change: ChangeEvent) => {
-      console.log("📢 Line item change received:", change);
-      setChanges(change);
-    });
+      socket.on("connect", () => {
+        console.log("🔌 Connected to socket server:", socket.id);
+        setIsConnected(true);
+      });
 
-    socket.on("disconnect", () => {
-      console.log("❌ Disconnected from socket server");
-    });
+      socket.on("lineItemUpdated", (change: ChangeEvent) => {
+        console.log("📢 Line item change received:", change);
+        setChanges(change);
+        setLastUpdate(new Date());
+      });
+
+      socket.on("disconnect", () => {
+        console.log("❌ Disconnected from socket server");
+        setIsConnected(false);
+      });
+
+      socket.on("connect_error", (err) => {
+        console.error("Connection error:", err);
+        setIsConnected(false);
+      });
+    };
+
+    connectSocket();
 
     return () => {
-      socket.disconnect();
+      if (socket) {
+        socket.disconnect();
+      }
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+      }
     };
   }, []);
 
-  return { changes };
+  return { changes, isConnected, lastUpdate };
 }
