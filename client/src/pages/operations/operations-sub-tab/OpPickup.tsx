@@ -1,5 +1,6 @@
 // src/components/OpServiceQueue.tsx
 import React, { useEffect, useState } from "react";
+import { toast } from "sonner";
 import {
   Table,
   TableHeader,
@@ -14,6 +15,8 @@ import { getPaymentStatus } from "@/utils/api/getPaymentStatus";
 import { computePickupAllowance } from "@/utils/computePickupAllowance";
 import { getUpdateColor } from "@/utils/getUpdateColor";
 import { getCustomerName } from "@/utils/api/getCustomerName";
+// Add this import
+import { useLineItemUpdates } from "@/hooks/useLineItemUpdates";
 
 const SERVICE_ID_TO_NAME: Record<string, string> = {
   "SERVICE-1": "Basic Cleaning",
@@ -51,6 +54,10 @@ export default function OpPickup() {
   const [expanded, setExpanded] = useState<string[]>([]);
   const [windowWidth, setWindowWidth] = useState<number>(window.innerWidth);
   const [customerNames, setCustomerNames] = useState<Record<string, string | null>>({});
+  // Add these state variables
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  
+  const { changes, isConnected, lastUpdate } = useLineItemUpdates();
 
   // Fetch customer names for all displayed rows
   const fetchCustomerNames = async (items: Row[]) => {
@@ -68,8 +75,29 @@ export default function OpPickup() {
     setCustomerNames(newCustomerNames);
   };
 
-  useEffect(() => {
-    const fetchRows = async () => {
+  // Add helper function to sort by pickup notice date
+  const sortByPickupNotice = (items: Row[]) => {
+    return [...items].sort((a, b) => {
+      // Items with pickup notice come first, sorted by pickup notice date (oldest first)
+      // Items without pickup notice come last, sorted by date
+      if (a.pickupNotice && b.pickupNotice) {
+        return a.pickupNotice.getTime() - b.pickupNotice.getTime();
+      }
+      if (a.pickupNotice && !b.pickupNotice) {
+        return -1; // a comes first
+      }
+      if (!a.pickupNotice && b.pickupNotice) {
+        return 1; // b comes first
+      }
+      // Both don't have pickup notice, sort by date
+      return a.date.getTime() - b.date.getTime();
+    });
+  };
+
+  // Convert the original useEffect to a reusable fetchData function
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
       const items = await getLineItems("Ready for Pickup");
       const mappedRows: Row[] = await Promise.all(
         items.map(async (item: any) => {
@@ -103,12 +131,22 @@ export default function OpPickup() {
           };
         })
       );
-      setRows(mappedRows);
+      
+      // Sort by pickup notice date instead of due date
+      setRows(sortByPickupNotice(mappedRows));
       
       // Fetch customer names
       fetchCustomerNames(mappedRows);
-    };
-    fetchRows();
+    } catch (error) {
+      console.error("Failed to fetch pickup items:", error);
+      toast.error("Failed to load pickup data. Please try refreshing.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
   }, []);
   
   // Update rows when customer names are fetched
@@ -118,6 +156,66 @@ export default function OpPickup() {
       customerName: customerNames[row.customerId] || null
     })));
   }, [customerNames]);
+
+  // Add real-time updates handling
+  useEffect(() => {
+    if (!changes) return;
+
+    // Show toast notification for updates
+    toast.info("Line item updated", { 
+      id: "line-item-update",
+      description: "Pickup queue updated with latest changes"
+    });
+
+    if (changes.operationType === "insert" || changes.operationType === "replace") {
+      // Handle inserts or full replacements
+      if (changes.fullDocument && changes.fullDocument.current_status === "Ready for Pickup") {
+        // For pickup items, we need to refetch all data because of the complex mapping
+        fetchData();
+      }
+    } 
+    else if (changes.operationType === "update") {
+      // Handle partial updates
+      if (changes.documentKey && changes.documentKey._id) {
+        const itemId = changes.documentKey._id;
+        
+        if (changes.fullDocument) {
+          // We have the full updated document
+          const item = changes.fullDocument;
+          
+          if (item.current_status === "Ready for Pickup") {
+            // For pickup items, refetch all data to get updated contact/payment info
+            fetchData();
+          } else {
+            // Item is no longer ready for pickup, remove it
+            setRows(prev => prev.filter(r => r.lineItemId !== item.line_item_id));
+          }
+        } 
+        else if (changes.updateDescription) {
+          // Handle partial updates without full document
+          const { updatedFields } = changes.updateDescription;
+          
+          // If status changed, we might need to remove the item
+          if (updatedFields.current_status && updatedFields.current_status !== "Ready for Pickup") {
+            setRows(prev => prev.filter(r => r.lineItemId !== itemId));
+          } else {
+            // For other field updates, fetch the complete data
+            fetchData();
+          }
+        }
+      }
+    } 
+    else if (changes.operationType === "delete") {
+      // Handle deletions
+      if (changes.documentKey && changes.documentKey._id) {
+        setRows(prev => prev.filter(r => r.lineItemId !== changes.documentKey._id));
+      }
+    } 
+    else {
+      // For other operations or cases we can't handle specifically, refresh all data
+      fetchData();
+    }
+  }, [changes]);
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -301,6 +399,35 @@ export default function OpPickup() {
           ))}
         </TableBody>
       </Table>
+
+      {/* Add status bar at the bottom */}
+      <div className="op-below-container flex justify-end gap-4 mt-2">
+        <div className="flex items-center gap-4">
+          <p>{rows.length} items ready for pickup</p>
+          <div className="flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></span>
+            <span className="text-sm text-gray-500">
+              {isConnected ? 'Live updates active' : 'Offline'}
+              {lastUpdate && ` • Last update: ${lastUpdate.toLocaleTimeString()}`}
+            </span>
+          </div>
+          {isLoading && <span className="text-sm text-gray-500">Loading...</span>}
+        </div>
+        
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={fetchData}
+            className="op-btn text-white button-md flex items-center gap-1"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" 
+                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 12a9 9 0 01-9 9c-4.97 0-9-4.03-9s4.03-9 9-9"/>
+              <path d="M21 3v9h-9"/>
+            </svg>
+            <h5>Refresh</h5>
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/context-menu";
 import { getUpdateColor } from "@/utils/getUpdateColor";
 import { updateDates } from "@/utils/api/updateDates";
+import { useLineItemUpdates } from "@/hooks/useLineItemUpdates";
 
 type Branch = "Valenzuela" | "SM Valenzuela" | "SM Grand";
 type Location = "Branch" | "Hub" | "To Branch" | "To Hub";
@@ -69,6 +70,9 @@ export default function OpWarehouse() {
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [activeLineItemId, setActiveLineItemId] = useState<string | null>(null);
   const [customerNames, setCustomerNames] = useState<Record<string, string | null>>({});
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  
+  const { changes, isConnected, lastUpdate } = useLineItemUpdates();
 
   // --- helpers ---
   const mapItem = (item: any): Row => ({
@@ -109,16 +113,26 @@ export default function OpWarehouse() {
     setCustomerNames(newCustomerNames);
   };
 
-  // Fetch line items from API -- Initial fetch
-  useEffect(() => {
-    const fetchData = async () => {
+  // Update fetchData function to include loading state
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
       const data = await getLineItems("In Process");
       const mappedItems = mapItems(data);
       setRows(sortByDueDate(mappedItems));
       
       // Fetch customer names
       fetchCustomerNames(mappedItems);
-    };
+    } catch (error) {
+      console.error("Failed to fetch line items:", error);
+      toast.error("Failed to load warehouse data. Please try refreshing.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fetch line items from API -- Initial fetch
+  useEffect(() => {
     fetchData();
   }, []);
 
@@ -129,6 +143,90 @@ export default function OpWarehouse() {
       customerName: customerNames[row.customerId] || null
     })));
   }, [customerNames]);
+
+  // Add real-time updates handling
+  useEffect(() => {
+    if (!changes) return;
+
+    // Show toast notification for updates
+    toast.info("Line item updated", { 
+      id: "line-item-update",
+      description: "Warehouse updated with latest changes"
+    });
+
+    if (changes.operationType === "insert" || changes.operationType === "replace") {
+      // Handle inserts or full replacements
+      if (changes.fullDocument && changes.fullDocument.current_status === "In Process") {
+        const item = changes.fullDocument;
+        const newRow = mapItem(item);
+        
+        // Fetch customer name if needed
+        if (!customerNames[item.cust_id]) {
+          getCustomerName(item.cust_id).then(name => {
+            setCustomerNames(prev => ({...prev, [item.cust_id]: name}));
+          });
+        }
+        
+        setRows(prev => {
+          const exists = prev.find(r => r.lineItemId === item.line_item_id);
+          return exists 
+            ? sortByDueDate(prev.map(r => r.lineItemId === item.line_item_id ? newRow : r))
+            : sortByDueDate([...prev, newRow]);
+        });
+      }
+    } 
+    else if (changes.operationType === "update") {
+      // Handle partial updates
+      if (changes.documentKey && changes.documentKey._id) {
+        const itemId = changes.documentKey._id;
+        
+        if (changes.fullDocument) {
+          // We have the full updated document
+          const item = changes.fullDocument;
+          
+          if (item.current_status === "In Process") {
+            const updatedRow = mapItem(item);
+            
+            // Fetch customer name if needed
+            if (!customerNames[item.cust_id]) {
+              getCustomerName(item.cust_id).then(name => {
+                setCustomerNames(prev => ({...prev, [item.cust_id]: name}));
+              });
+            }
+            
+            setRows(prev => sortByDueDate(
+              prev.map(r => r.lineItemId === item.line_item_id ? updatedRow : r)
+            ));
+          } else {
+            // Item is no longer in process, remove it
+            setRows(prev => prev.filter(r => r.lineItemId !== item.line_item_id));
+          }
+        } 
+        else if (changes.updateDescription) {
+          // Handle partial updates without full document
+          const { updatedFields } = changes.updateDescription;
+          
+          // If status changed, we might need to remove the item
+          if (updatedFields.current_status && updatedFields.current_status !== "In Process") {
+            setRows(prev => prev.filter(r => r.lineItemId !== itemId));
+          } else {
+            // For other field updates, fetch the complete data
+            fetchData();
+          }
+        }
+      }
+    } 
+    else if (changes.operationType === "delete") {
+      // Handle deletions
+      if (changes.documentKey && changes.documentKey._id) {
+        setRows(prev => prev.filter(r => r.lineItemId !== changes.documentKey._id));
+      }
+    } 
+    else {
+      // For other operations or cases we can't handle specifically, refresh all data
+      fetchData();
+    }
+  }, [changes]);
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -331,14 +429,39 @@ export default function OpWarehouse() {
       </Table>
 
       <div className="op-below-container flex justify-end gap-4 mt-2">
-        <p>{selected.length} item(s) selected</p>
-        <button
-          className="op-btn-wh op-btn text-white bg-[#0E9CFF] button-md disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={selected.length === 0}
-          onClick={() => setModalOpen(true)}
-        >
-          <h5>Return to Branch</h5>
-        </button>
+        <div className="flex items-center gap-4">
+          <p>{selected.length} item(s) selected</p>
+          <div className="flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></span>
+            <span className="text-sm text-gray-500">
+              {isConnected ? 'Live updates active' : 'Offline'}
+              {lastUpdate && ` • Last update: ${lastUpdate.toLocaleTimeString()}`}
+            </span>
+          </div>
+          {isLoading && <span className="text-sm text-gray-500">Loading...</span>}
+        </div>
+        
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={fetchData}
+            className="op-btn text-white button-md flex items-center gap-1"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" 
+                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 12a9 9 0 01-9 9c-4.97 0-9-4.03-9s4.03-9 9-9"/>
+              <path d="M21 3v9h-9"/>
+            </svg>
+            <h5>Refresh</h5>
+          </button>
+          
+          <button
+            className="op-btn-wh op-btn text-white bg-[#0E9CFF] button-md disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={selected.length === 0}
+            onClick={() => setModalOpen(true)}
+          >
+            <h5>Return to Branch</h5>
+          </button>
+        </div>
 
         <ReturnToBranchModal
           open={modalOpen}
