@@ -11,21 +11,22 @@ import {
 import { getLineItemsByBranch } from '@/utils/api/getLineItemsByBranch';
 import { getLineItemsByLocation } from '@/utils/api/getLineItemsByLocation';
 import { useLineItemUpdates } from '@/hooks/useLineItemUpdates';
+import { WarehouseIcon, StoreIcon } from 'lucide-react';
 
 type BranchData = {
   name: string;
   branchId: string;
   shoeCount: number;
-  storageLeft: number;
+  storageFilled: number;
 };
 
 type WarehouseData = {
   shoeCount: number;
-  storageLeft: number;
+  storageFilled: number;
 };
 
-const BRANCH_MAX_CAPACITY = 75;
-const WAREHOUSE_MAX_CAPACITY = 250;
+const BRANCH_MAX_CAPACITY = 150;
+const WAREHOUSE_MAX_CAPACITY = 1000;
 
 // Define branch IDs outside component to avoid recreations
 const BRANCH_CONFIG = [
@@ -39,12 +40,12 @@ export default function BranchStorage() {
     BRANCH_CONFIG.map(branch => ({
       ...branch,
       shoeCount: 0,
-      storageLeft: 100
+      storageFilled: 0
     }))
   );
   const [warehouseData, setWarehouseData] = useState<WarehouseData>({
     shoeCount: 0,
-    storageLeft: 100,
+    storageFilled: 0,
   });
   const [loading, setLoading] = useState(true);
   
@@ -70,26 +71,26 @@ export default function BranchStorage() {
         );
         
         const shoeCount = itemsPhysicallyAtBranch.length;
-        const storageLeft = Math.round(((BRANCH_MAX_CAPACITY - shoeCount) / BRANCH_MAX_CAPACITY) * 100);
+        const storageFilled = Math.round((shoeCount / BRANCH_MAX_CAPACITY) * 100);
         
         return {
           ...branch,
           shoeCount,
-          storageLeft: Math.max(0, storageLeft), // Ensure it doesn't go below 0
+          storageFilled: Math.min(100, storageFilled), // Ensure it doesn't go above 100
         };
       });
 
       // Fetch warehouse data - only count items that are physically at the Hub
       const warehouseItems = await getLineItemsByLocation("Hub");
       const warehouseShoeCount = warehouseItems.length;
-      const warehouseStorageLeft = Math.round(((WAREHOUSE_MAX_CAPACITY - warehouseShoeCount) / WAREHOUSE_MAX_CAPACITY) * 100);
+      const warehouseStorageFilled = Math.round((warehouseShoeCount / WAREHOUSE_MAX_CAPACITY) * 100);
 
       // Update state
       const updatedBranchData = await Promise.all(branchPromises);
       setBranchData(updatedBranchData);
       setWarehouseData({
         shoeCount: warehouseShoeCount,
-        storageLeft: Math.max(0, warehouseStorageLeft), // Ensure it doesn't go below 0
+        storageFilled: Math.min(100, warehouseStorageFilled), // Ensure it doesn't go above 100
       });
 
     } catch (error) {
@@ -121,33 +122,57 @@ export default function BranchStorage() {
 
   const renderBranchStats = (branch: BranchData) => (
     <div className='branch-storage-stats' key={branch.branchId}>
-      <div className='upper-branch-stats'>
-        <div className='branch-stats'>
-          <h1 className='h1-sp1'>{loading ? "..." : branch.shoeCount}</h1>
-          <h4 className='bold'>Shoes</h4>
+      <div className='branch-header'>
+        <StoreIcon className="location-icon" />
+        <h4 className='location-title'>{branch.name}</h4>
+      </div>
+      <div className='stats-container'>
+        <div className='stat-item'>
+          <span className='stat-value'>{loading ? "..." : branch.shoeCount}</span>
+          <span className='stat-label'>Shoes</span>
         </div>
-        <div className='branch-stats'>
-          <h1 className='h1-sp1 regular'>{loading ? "..." : `${branch.storageLeft}%`}</h1>
-          <h4 className='bold'>Storage Left</h4>
+        <div className='stat-divider'></div>
+        <div className='stat-item'>
+          <div className='capacity-wrapper'>
+            <span className='stat-value'>{loading ? "..." : `${branch.storageFilled}%`}</span>
+            <div className='capacity-bar-container'>
+              <div 
+                className={`capacity-bar ${branch.storageFilled > 85 ? 'critical' : branch.storageFilled > 70 ? 'warning' : 'normal'}`} 
+                style={{ width: `${loading ? 0 : branch.storageFilled}%` }}
+              ></div>
+            </div>
+          </div>
+          <span className='stat-label'>Storage Filled</span>
         </div>
       </div>
-      <h4 className='bold'>{branch.name}</h4>
     </div>
   );
 
   const renderWarehouseStats = () => (
-    <div className='branch-storage-stats'>
-      <div className='upper-branch-stats'>
-        <div className='branch-stats'>
-          <h1 className='h1-sp1'>{loading ? "..." : warehouseData.shoeCount}</h1>
-          <h4 className='bold'>Shoes</h4>
+    <div className='branch-storage-stats warehouse'>
+      <div className='branch-header'>
+        <WarehouseIcon className="location-icon" />
+        <h4 className='location-title'>Warehouse</h4>
+      </div>
+      <div className='stats-container'>
+        <div className='stat-item'>
+          <span className='stat-value'>{loading ? "..." : warehouseData.shoeCount}</span>
+          <span className='stat-label'>Shoes</span>
         </div>
-        <div className='branch-stats'>
-          <h1 className='h1-sp1 regular'>{loading ? "..." : `${warehouseData.storageLeft}%`}</h1>
-          <h4 className='bold'>Storage Left</h4>
+        <div className='stat-divider'></div>
+        <div className='stat-item'>
+          <div className='capacity-wrapper'>
+            <span className='stat-value'>{loading ? "..." : `${warehouseData.storageFilled}%`}</span>
+            <div className='capacity-bar-container'>
+              <div 
+                className={`capacity-bar ${warehouseData.storageFilled > 85 ? 'critical' : warehouseData.storageFilled > 70 ? 'warning' : 'normal'}`} 
+                style={{ width: `${loading ? 0 : warehouseData.storageFilled}%` }}
+              ></div>
+            </div>
+          </div>
+          <span className='stat-label'>Storage Filled</span>
         </div>
       </div>
-      <h4 className='bold'>Warehouse</h4>
     </div>
   );
 

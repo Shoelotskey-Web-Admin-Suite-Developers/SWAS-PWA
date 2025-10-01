@@ -101,53 +101,25 @@
 }
 
 /* Buttons */
-.op-btn-sq {
-  background-color: #0e9cff;
-}
-
-.op-btn-sq:hover {
-  background-color: rgb(79, 184, 255);
-}
-
-.op-btn-rd {
-  background-color: #1447E6;
-}
-
-.op-btn-rd:hover {
-  background-color: rgb(85, 183, 248)
-}
-
-.op-btn-bd {
-  background-color: #ECBD00;
-}
-
-.op-btn-bd:hover {
-  background-color: rgb(232, 198, 62);
-}
-
-.op-btn-wh {
-  background-color: #FB923C;
-}
-
-.op-btn-wh:hover {
-  background-color: #fea257;
-}
-
-.op-btn-rb {
-  background-color: #0BA471;
-}
-
-.op-btn-rb:hover {
-  background-color: #51a187;
-}
-
+/* Buttons - Unified Red */
+.op-btn-sq,
+.op-btn-rd,
+.op-btn-bd,
+.op-btn-wh,
+.op-btn-rb,
 .op-btn-is {
-  background-color: #1CC9BA;
+  background-color: #CE1616;
 }
 
+.op-btn-sq:hover,
+.op-btn-rd:hover,
+.op-btn-bd:hover,
+.op-btn-wh:hover,
+.op-btn-rb:hover,
 .op-btn-is:hover {
-  background-color: rgb(132, 167, 164);
+  background-color: #e04a4a; /* lighter version of #CE1616 */
 }
+
 
 /* Make table body scrollable */
 .op-body {

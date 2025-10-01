@@ -7,73 +7,169 @@
 .branch-card {
   width: 95%;
   margin: 0 auto;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  background: #ffffff;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.branch-card:hover {
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.1);
 }
 
 .op-branch-card-contents {
-  margin: 15px 50px 0px 50px;
+  margin: 10px;
+  margin-bottom: -10px;
   display: flex;
-  color: #797979;
   justify-content: space-between;
+  color: #333;
+  gap: 16px;
 }
 
 .branch-storage-stats {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  flex: 1;
+  padding: 2px;
+  border-radius: 10px;
+  transition: transform 0.2s ease;
 }
 
-.branch-stats:first-child {
-  border-right: 1px solid #ccc; /* adjust color and thickness */
-  padding-right: 20px;          /* add some spacing from the border */
-  margin-right: 20px;           /* optional spacing between the border and the second stat */
+.branch-storage-stats:hover {
+  transform: scale(1.01);
+  background: #f0f2f5;
 }
 
-.upper-branch-stats {
+.warehouse:hover {
+  background: #e8eeff;
+}
+
+.branch-header {
   display: flex;
+  align-items: center;
+  margin-bottom: 0px;
 }
 
-.branch-stats {
+.location-icon {
+  width: 20px;
+  height: 20px;
+  margin-right: 8px;
+  color: #555;
+}
+
+.location-title {
+  font-weight: 600;
+  font-size: 16px;
+  color: #333;
+}
+
+.stats-container {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 8px;
+}
+
+.stat-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  flex: 1;
 }
 
-/* 2. Tablet */
+.stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #666;
+  font-weight: 500;
+}
+
+.stat-divider {
+  width: 1px;
+  background: #ddd;
+  margin: 0 16px;
+}
+
+.capacity-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.capacity-bar-container {
+  width: 100%;
+  height: 6px;
+  background: #e0e0e0;
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 6px 0;
+}
+
+.capacity-bar {
+  height: 100%;
+  transition: width 0.7s ease-out;
+}
+
+.capacity-bar.normal {
+  background: linear-gradient(90deg, #4caf50, #8bc34a);
+}
+
+.capacity-bar.warning {
+  background: linear-gradient(90deg, #ff9800, #ffc107);
+}
+
+.capacity-bar.critical {
+  background: linear-gradient(90deg, #f44336, #ff5722);
+}
+
+/* Mobile styles */
+.mobile, .landscape-mobile {
+  display: none;
+}
+
+.mobile-card {
+  color: #333;
+  width: 97%;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.carousel {
+  margin: 15px;
+  padding: 10px 0;
+}
+
+.carousel-item {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  padding: 0 5px;
+}
+
+/* Media queries */
 @media (max-width: 1088px) {
   .branch-card {
     width: 97%;
-    @apply rounded-xl;
   }
-
-  .branch-card-contents h1 {
-    font-size: var(--font-size-xl);
+  
+  .stat-value {
+    font-size: 22px;
   }
-
-  .branch-card-contents h4 {
-    font-size: var(--font-size-sm);
+  
+  .stat-label {
+    font-size: 12px;
   }
 }
 
-.mobile {
-    display: none;
-  }
-
-.landscape-mobile {
-    display: none;
-  }
-
-
 @media (max-width: 899px) {
-  .branch-storage-stats h1 {
-    font-size: var(--font-size-xl);
-  }
-
-  .branch-storage-stats h4 {
-    font-size: var(--font-size-sm);
-  }
-
   .landscape-mobile {
     display: flex;
     align-items: center;
@@ -81,30 +177,11 @@
     width: 100%;
   }
 
-  .mobile-card {
-    color: #797979;
-    width: 97%;
-  }
-
-  .carousel {
-    margin: 15px 50px 0px 50px;
-  }
-
-  .carousel-item {
-    display: flex;
-    justify-content: center;
-    gap: 10%;
-  }
-
   .pc-tablet {
     display: none;
   }
-
 }
 
-
-
-/* 2. Mobile */
 @media (max-width: 465px) {
   .mobile {
     display: flex;
@@ -113,20 +190,11 @@
     width: 100%;
   }
 
-  .mobile-card {
-    color: #797979;
-    width: 97%;
-  }
-
-  .pc-tablet {
+  .pc-tablet, .landscape-mobile {
     display: none;
   }
-
-  .landscape-mobile {
-    display: none;
-  }
-
-  .carousel {
-    margin: 15px 50px 0px 50px;
+  
+  .branch-storage-stats {
+    padding: 12px;
   }
 }
