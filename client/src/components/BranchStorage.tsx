@@ -25,7 +25,7 @@ type WarehouseData = {
   storageFilled: number;
 };
 
-const BRANCH_MAX_CAPACITY = 150;
+const BRANCH_MAX_CAPACITY = 300;
 const WAREHOUSE_MAX_CAPACITY = 1000;
 
 // Define branch IDs outside component to avoid recreations
