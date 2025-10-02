@@ -179,14 +179,13 @@ export default function OpBranchDelivery() {
 
   // Update fetchData function to include loading state
   const fetchData = async () => {
-    setIsLoading(true);
     try {
       const data = await getLineItems("Incoming Branch Delivery");
       const mappedItems = mapItems(data);
       setRows(sortByDueDate(mappedItems));
       
       // Fetch customer names
-      await fetchCustomerNames(mappedItems);
+      void fetchCustomerNames(mappedItems);
     } catch (error) {
       console.error("Failed to fetch line items:", error);
       toast.error("Failed to load branch delivery data. Please try refreshing.");

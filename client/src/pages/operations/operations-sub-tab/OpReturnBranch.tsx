@@ -163,14 +163,13 @@ export default function OpReturnBranch({ readOnly = false }) {
 
   // Update fetchData function to include loading state
   const fetchData = async () => {
-    setIsLoading(true);
     try {
       const data = await getLineItems("Returning to Branch");
       const mappedItems = mapItems(data);
       setRows(sortByDueDate(mappedItems));
       
       // Fetch customer names
-      fetchCustomerNames(mappedItems);
+      void fetchCustomerNames(mappedItems);
     } catch (error) {
       console.error("Failed to fetch line items:", error);
       toast.error("Failed to load return to branch data. Please try refreshing.");

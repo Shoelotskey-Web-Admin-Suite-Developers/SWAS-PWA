@@ -162,7 +162,6 @@ export default function OpReadyDelivery({ readOnly = false }) {
 
   // Fetch line items from API -- Initial fetch
   const fetchData = async () => {
-    setIsLoading(true);
     try {
       const data = await getLineItems("Ready for Delivery");
       const mappedItems = mapItems(data);
@@ -170,7 +169,7 @@ export default function OpReadyDelivery({ readOnly = false }) {
       setRows(sortedItems);
       
       // Fetch customer names
-      fetchCustomerNames(mappedItems);
+      void fetchCustomerNames(mappedItems);
     } catch (error) {
       console.error("Failed to fetch line items:", error);
       toast.error("Failed to load ready for delivery data. Please try refreshing.");

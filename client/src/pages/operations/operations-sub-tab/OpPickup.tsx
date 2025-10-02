@@ -114,7 +114,6 @@ export default function OpPickup() {
 
   // Fetch data function
   const fetchData = async () => {
-    setIsLoading(true);
     try {
       const items = await getLineItems("Ready for Pickup");
       const mappedRows: Row[] = await Promise.all(
@@ -154,7 +153,7 @@ export default function OpPickup() {
       setRows(sortedRows);
       
       // Fetch customer names
-      fetchCustomerNames(mappedRows);
+      void fetchCustomerNames(mappedRows);
     } catch (error) {
       console.error("Failed to fetch pickup items:", error);
       toast.error("Failed to load pickup data. Please try refreshing.");

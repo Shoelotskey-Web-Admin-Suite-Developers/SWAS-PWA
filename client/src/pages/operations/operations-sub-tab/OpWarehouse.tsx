@@ -177,14 +177,13 @@ export default function OpWarehouse() {
 
   // Update fetchData function to include loading state
   const fetchData = async () => {
-    setIsLoading(true);
     try {
       const data = await getLineItems("In Process");
       const mappedItems = mapItems(data);
       setRows(sortByDueDate(mappedItems));
       
       // Fetch customer names
-      await fetchCustomerNames(mappedItems);
+      void fetchCustomerNames(mappedItems);
     } catch (error) {
       console.error("Failed to fetch line items:", error);
       toast.error("Failed to load warehouse data. Please try refreshing.");

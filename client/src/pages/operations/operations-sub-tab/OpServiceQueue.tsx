@@ -159,14 +159,13 @@ export default function OpServiceQueue() {
 
   // Fetch line items from API
   const fetchData = async () => {
-    setIsLoading(true);
     try {
       const data = await getLineItems("Queued");
       const mappedItems = mapItems(data);
       setRows(sortByDueDate(mappedItems));
       
       // Fetch customer names
-      await fetchCustomerNames(mappedItems);
+      void fetchCustomerNames(mappedItems);
     } catch (error) {
       console.error("Failed to fetch line items:", error);
       toast.error("Failed to load queue data. Please try refreshing.");
