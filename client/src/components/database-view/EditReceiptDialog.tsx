@@ -39,6 +39,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import OpBfrImg from "@/components/operations/modals/OpBfrImg";
+import OpAfrImg from "@/components/operations/modals/OpAfrImg";
 
 // ✅ Import shared types
 import { ReceiptRow, Branch, TxStatusDates, PaymentStatus, Transaction} from "./central-view.types"
@@ -74,6 +76,8 @@ export function EditReceiptDialog({
   const [isSaving, setIsSaving] = React.useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false) // Add this state
   const [isDeleting, setIsDeleting] = React.useState(false) // Add this state
+  const [beforeImgModal, setBeforeImgModal] = React.useState<{ open: boolean; lineItemId: string | null }>({ open: false, lineItemId: null });
+  const [afterImgModal, setAfterImgModal] = React.useState<{ open: boolean; lineItemId: string | null }>({ open: false, lineItemId: null });
 
   // Add service ID to name mappings
   const SERVICE_ID_TO_NAME: Record<string, string> = {
@@ -436,6 +440,26 @@ export function EditReceiptDialog({
       setShowDeleteConfirm(false)
     }
   }
+
+  const handleBeforeImageUploaded = React.useCallback((lineItemId: string, url: string) => {
+    setForm((prev) => {
+      if (!prev.transactions) return prev;
+      const updatedTransactions = prev.transactions.map((tx) =>
+        tx.id === lineItemId ? { ...tx, beforeImage: url } : tx
+      );
+      return { ...prev, transactions: updatedTransactions };
+    });
+  }, []);
+
+  const handleAfterImageUploaded = React.useCallback((lineItemId: string, url: string) => {
+    setForm((prev) => {
+      if (!prev.transactions) return prev;
+      const updatedTransactions = prev.transactions.map((tx) =>
+        tx.id === lineItemId ? { ...tx, afterImage: url } : tx
+      );
+      return { ...prev, transactions: updatedTransactions };
+    });
+  }, []);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -872,6 +896,24 @@ export function EditReceiptDialog({
                   <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
+
+              {/* Upload buttons for before and after images */}
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setBeforeImgModal({ open: true, lineItemId: t.id })}
+                >
+                  Upload BFR
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setAfterImgModal({ open: true, lineItemId: t.id })}
+                >
+                  Upload AFT
+                </Button>
+              </div>
             </div>
           ))}
         </div>
@@ -941,6 +983,26 @@ export function EditReceiptDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Before Image Modal */}
+      <OpBfrImg
+        open={beforeImgModal.open}
+        onOpenChange={(open) =>
+          setBeforeImgModal((state) => (open ? state : { open: false, lineItemId: null }))
+        }
+        lineItemId={beforeImgModal.lineItemId}
+        onImageUploaded={handleBeforeImageUploaded}
+      />
+
+      {/* After Image Modal */}
+      <OpAfrImg
+        open={afterImgModal.open}
+        onOpenChange={(open) =>
+          setAfterImgModal((state) => (open ? state : { open: false, lineItemId: null }))
+        }
+        lineItemId={afterImgModal.lineItemId}
+        onImageUploaded={handleAfterImageUploaded}
+      />
     </Dialog>
   )
 }
