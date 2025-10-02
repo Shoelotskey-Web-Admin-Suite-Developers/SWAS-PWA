@@ -7,16 +7,38 @@ export interface DynamicPairedRow {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-export async function getPairedRevenueDataDynamic(branchMeta: BranchMeta[]): Promise<DynamicPairedRow[]> {
+export interface RevenueDataOptions {
+  lookbackDays?: number;       // how many past actual days to include (default 7)
+  includeToday?: boolean;      // include today's actual row if present (default true)
+  strictPastOnly?: boolean;    // if true, never include today's partial actual even if exists
+  fullRange?: boolean;         // if true, ignore lookbackDays and build full consecutive range from earliest to lastActualDate
+}
+
+export async function getPairedRevenueDataDynamic(
+  branchMeta: BranchMeta[],
+  options: RevenueDataOptions = {}
+): Promise<DynamicPairedRow[]> {
+  const {
+    lookbackDays = 7,
+    includeToday = true,
+    strictPastOnly = false,
+    fullRange = false,
+  } = options;
+
   const base = API_BASE_URL && API_BASE_URL.length > 0 ? API_BASE_URL.replace(/\/$/, '') : 'http://localhost:5000';
+  const debugMode = typeof window !== 'undefined' && window.location.search.includes('revDebug');
+
   const [actualRes, forecastRes] = await Promise.all([
-    fetch(`${base}/api/analytics/daily-revenue`),
-    fetch(`${base}/api/analytics/forecast`),
+    fetch(`${base}/api/analytics/daily-revenue`).catch(e => { throw new Error('Network error daily revenue: '+e); }),
+    fetch(`${base}/api/analytics/forecast`).catch(e => { throw new Error('Network error forecast: '+e); }),
   ]);
   if (!actualRes.ok) throw new Error('Failed to fetch daily revenue');
   if (!forecastRes.ok) throw new Error('Failed to fetch forecast');
   const actualRaw: any[] = await actualRes.json();
   const forecastRaw: any[] = await forecastRes.json();
+  if (debugMode) {
+    try { console.log('[revDebug] fetched actualRaw=', actualRaw.length, 'forecastRaw=', forecastRaw.length); } catch(_){}
+  }
   // forecastRaw now expected (after backend normalization) to be an array of
   // { date: 'yyyy-MM-dd', total: number, branches: { [branch_id]: value } }
   // but we keep robust extraction for transitional or legacy shapes.
@@ -49,12 +71,65 @@ export async function getPairedRevenueDataDynamic(branchMeta: BranchMeta[]): Pro
     return null;
   }
 
-  const actualSorted = [...actualRaw].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  const todayStr = new Date().toISOString().slice(0,10);
-  const priorActual = actualSorted.filter(r => new Date(r.date).toISOString().slice(0,10) < todayStr);
-  const latest7 = priorActual.slice(-7);
+  const normDate = (d: any) => {
+    try {
+      // If already ISO date string of length 10 use directly
+      if (typeof d === 'string') {
+        // Accept formats like YYYY-MM-DDTHH:mm:ssZ
+        if (d.length >= 10) return d.slice(0,10);
+      }
+      return new Date(d).toISOString().slice(0,10);
+    } catch {
+      return String(d).slice(0,10);
+    }
+  };
+
+  const actualSorted = [...actualRaw]
+    .map(r => ({...r, _normDate: normDate(r.date)}))
+    .sort((a,b) => a._normDate.localeCompare(b._normDate));
+
+  const todayStr = normDate(new Date());
+
+  // Determine last actual date to anchor window
+  const eligibleActual = actualSorted.filter(r => {
+    if (strictPastOnly) return r._normDate < todayStr;
+    if (!includeToday) return r._normDate < todayStr;
+    return r._normDate <= todayStr;
+  });
+  const lastActualDate = eligibleActual.length ? eligibleActual[eligibleActual.length - 1]._normDate : todayStr;
+
+  // Decide date span
+  let windowDates: string[] = [];
+  if (fullRange && eligibleActual.length) {
+    const firstDate = eligibleActual[0]._normDate;
+    const start = new Date(firstDate);
+    const end = new Date(lastActualDate);
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      windowDates.push(normDate(d));
+    }
+  } else {
+    for (let i = lookbackDays - 1; i >= 0; i--) {
+      const d = new Date(lastActualDate);
+      d.setDate(d.getDate() - i);
+      windowDates.push(normDate(d));
+    }
+  }
+  // Build latestWindow by matching existing actuals for those dates
+  const actualMap = new Map(eligibleActual.map(r=> [r._normDate, r]));
+  const missingDates: string[] = [];
+  const latestWindow = windowDates.map(ds => {
+    const found = actualMap.get(ds);
+    if (!found) missingDates.push(ds);
+    return found || { _normDate: ds, date: ds, total: 0, branches: {}, __filler: true };
+  });
+  if (debugMode) {
+  try { console.log('[revDebug] calendarWindow=', windowDates, 'missingFilled=', missingDates, 'mode=', fullRange ? 'fullRange' : `last-${lookbackDays}`); } catch(_){}
+  }
   const forecastMap = new Map<string, any>();
-  forecastRaw.forEach(f => forecastMap.set(new Date(f.date).toISOString().slice(0,10), f));
+  forecastRaw.forEach(f => {
+    const ds = normDate(f.date);
+    forecastMap.set(ds, f);
+  });
 
   function buildRow(dateStr: string, a?: any, f?: any): DynamicPairedRow {
     const row: DynamicPairedRow = { date: dateStr };
@@ -84,14 +159,23 @@ export async function getPairedRevenueDataDynamic(branchMeta: BranchMeta[]): Pro
   }
 
   const rows: DynamicPairedRow[] = [];
-  latest7.forEach(a => {
-    const ds = new Date(a.date).toISOString().slice(0,10);
-    rows.push(buildRow(ds, a, forecastMap.get(ds)));
+  latestWindow.forEach(a => {
+    rows.push(buildRow(a._normDate, a.total !== undefined ? a : undefined, forecastMap.get(a._normDate)));
   });
+
+  // Forecast should start at the day after lastActualDate for clarity
+  const forecastStartDay = new Date(lastActualDate);
+  forecastStartDay.setDate(forecastStartDay.getDate() + 1);
+  const forecastStartStr = normDate(forecastStartDay);
   forecastRaw.forEach(f => {
-    const ds = new Date(f.date).toISOString().slice(0,10);
-    if (!rows.some(r => r.date === ds)) rows.push(buildRow(ds, undefined, f));
+    const ds = normDate(f.date);
+    if (ds >= forecastStartStr && !rows.some(r => r.date === ds)) {
+      rows.push(buildRow(ds, undefined, f));
+    }
   });
   rows.sort((a,b) => a.date.localeCompare(b.date));
+  if (debugMode) {
+    try { console.log('[revDebug] final rows=', rows.map(r=>({date:r.date,total:r.total,totalFC:r.totalFC}))); } catch(_){}
+  }
   return rows;
 }

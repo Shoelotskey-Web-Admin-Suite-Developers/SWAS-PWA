@@ -103,7 +103,7 @@ export function NotifSheet({ children }: NotifSheetProps) {
     }
   }, [appointmentChanges])
 
-  const handleUpdateStatus = async (appointment_id: string, status: "Approved" | "Cancelled") => {
+  const handleUpdateStatus = async (appointment_id: string, status: "Approved" | "Canceled" | "Cancelled") => {
     try {
       // Set loading state for this specific appointment
       setLoadingAppointment(appointment_id)
@@ -118,8 +118,9 @@ export function NotifSheet({ children }: NotifSheetProps) {
           })
         : 'Unknown date'
 
-      // Call the backend API - this now automatically sends push notifications
-      await updateAppointmentStatus(appointment_id, status)
+  // Normalize 'Cancelled' -> 'Canceled' for consistency then call backend
+  const normalized = status === 'Cancelled' ? 'Canceled' : status;
+  await updateAppointmentStatus(appointment_id, normalized as any)
       
       // Show enhanced success message indicating customer was notified
       if (status === 'Approved') {
@@ -132,7 +133,7 @@ export function NotifSheet({ children }: NotifSheetProps) {
         )
       } else {
         toast.success(
-          `Appointment cancelled for ${appointment?.name || 'customer'} on ${appointmentDate}. Customer notified via push notification.`,
+          `Appointment canceled for ${appointment?.name || 'customer'} on ${appointmentDate}. Customer notified via push notification.`,
           { 
             duration: 4000,
             description: "The customer's mobile app will show the cancellation."
@@ -312,7 +313,7 @@ export function NotifSheet({ children }: NotifSheetProps) {
                           )}
                         </button>
                         <button
-                          onClick={() => handleUpdateStatus(appt.appointment_id, "Cancelled")}
+                          onClick={() => handleUpdateStatus(appt.appointment_id, "Canceled")}
                           disabled={isLoading}
                           className={`px-3 py-1 text-xs rounded-md transition-all ${
                             isLoading

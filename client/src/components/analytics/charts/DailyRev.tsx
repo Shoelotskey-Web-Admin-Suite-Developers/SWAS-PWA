@@ -50,7 +50,14 @@ export function DailyRevenueTrend({ selectedBranches, branchMeta }: ChartLineLin
     let cancelled = false;
     (async () => {
       try {
-        const data = await getPairedRevenueDataDynamic(branchMeta)
+        const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams()
+        const debug = urlParams.has('revDebug')
+  // 7-day rolling window. Optionally override includeToday via revIncludeToday=false
+  const includeToday = urlParams.get('revIncludeToday') === 'false' ? false : true
+  const data = await getPairedRevenueDataDynamic(branchMeta, { lookbackDays: 7, includeToday })
+        if (debug) {
+          try { console.log('[revDebug] chartData raw', data) } catch(_){}
+        }
         const sorted = [...data].sort((a: any, b: any) => {
           const ta = Date.parse(a.date);
           const tb = Date.parse(b.date);
@@ -77,7 +84,7 @@ export function DailyRevenueTrend({ selectedBranches, branchMeta }: ChartLineLin
     return out
   })
 
-  const solidPct = 7 / (chartData.length - 1)
+  const solidPct = chartData.length > 1 ? 7 / (chartData.length - 1) : 1
 
   const forecastStartIndex = chartData.findIndex(item => item.total === null)
   const forecastStart = chartData[forecastStartIndex]?.date

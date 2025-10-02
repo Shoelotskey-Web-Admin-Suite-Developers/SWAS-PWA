@@ -1,59 +1,54 @@
 "use client";
 
 import { useState } from "react";
-// import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { useNotificationUpdates } from "@/hooks/useNotificationUpdates";
 
-interface Notification {
-  id: number;
-  title: string;
-  description: string;
-  date: string;
-  read?: boolean;
+function timeAgo(ts: number) {
+  const diff = Date.now() - ts;
+  const sec = Math.floor(diff / 1000);
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.floor(sec / 60); if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60); if (hr < 24) return `${hr}h ago`;
+  const d = Math.floor(hr / 24); return `${d}d ago`;
 }
 
-const dummyNotifications: Notification[] = [
-  { id: 1, title: "Order Completed", description: "Your shoe service order #123 is complete.", date: "Sep 10, 2025" },
-  { id: 2, title: "New Promo!", description: "Get 20% off your next service this week.", date: "Sep 9, 2025" },
-  { id: 3, title: "Reminder", description: "Your appointment tomorrow at 10 AM.", date: "Sep 8, 2025" },
-];
-
 export default function NotificationsSheet() {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
+  const { notifications } = useNotificationUpdates();
 
   return (
     <>
-      <Button onClick={() => setOpen(true)}>Show Notifications</Button>
-      {/* <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent position="right" size="sm" className="p-0">
-          <SheetHeader className="px-4 pt-4">
-            <SheetTitle>Notifications</SheetTitle>
-            <SheetDescription>Check your recent updates</SheetDescription>
-          </SheetHeader>
-
-          <ScrollArea className="h-[400px] px-4">
-            {dummyNotifications.map((notif) => (
-              <Card key={notif.id} className={`mb-2 ${notif.read ? "opacity-50" : ""}`}>
-                <CardHeader>
-                  <CardTitle className="flex justify-between items-start">
-                    <span>{notif.title}</span>
-                    <span className="text-xs text-gray-500">{notif.date}</span>
+      <div className="max-w-md space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Live Notifications</h2>
+          <Button size="sm" variant="outline" onClick={() => setOpen(!open)}>
+            {open ? 'Hide' : 'Show'}
+          </Button>
+        </div>
+        {open && (
+          <ScrollArea className="h-[400px] pr-2">
+            {notifications.length === 0 && (
+              <p className="text-sm text-muted-foreground">No updates yet. Make a change to appointments, unavailability, or line items.</p>
+            )}
+            {notifications.map(n => (
+              <Card key={n.id} className="mb-2">
+                <CardHeader className="py-2 pb-1">
+                  <CardTitle className="flex items-center justify-between text-sm">
+                    <span className="capitalize">{n.source}</span>
+                    <span className="text-xs text-muted-foreground">{timeAgo(n.createdAt)}</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <p>{notif.description}</p>
+                <CardContent className="pt-1">
+                  <p className="text-sm">{n.summary}</p>
                 </CardContent>
               </Card>
             ))}
           </ScrollArea>
-
-          <SheetFooter className="px-4 py-3">
-            <Button variant="secondary" onClick={() => setOpen(false)}>Close</Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet> */}
+        )}
+      </div>
     </>
   );
 }
